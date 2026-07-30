@@ -74,7 +74,7 @@ src/
 - 実行時間・同時実行の制限への対応
 - トリガー設計
 - サーバー側の全`.gs`ファイルは単一のグローバル名前空間を共有し、`import`/`export`が使えない。レイヤー・シート単位の境界は、オブジェクトリテラル（例：`SalesRepository.save()`）などの命名規則で表現し、実行時には強制されないことを踏まえて実装する
-- HTML Serviceは通常のWebと異なり`<link>`/`<script src>`で外部の`.css`/`.js`ファイルを読み込めない。共通CSS/JSも`.html`ファイルとして作成し、`<?!= include('shared/stylesheet') ?>`のようなスクリプトレットで各画面に差し込む
+- HTML Serviceは通常のWebと異なり`<link>`/`<script src>`で外部の`.css`/`.js`ファイルを読み込めない。共通CSS/JSも`.html`ファイルとして作成し、`<?!= include('client/shared/stylesheet') ?>`のようなスクリプトレットで各画面に差し込む。`include()`に渡すファイル名は、GAS上のファイル名（`rootDir`である`src`からの相対パス。例：`src/client/shared/stylesheet.html`→`client/shared/stylesheet`）そのものを指定する必要があり、画面ファイルからの相対パスではない点に注意する
 - Webアプリ公開設定：アクセス可能なユーザーは「全員（Googleアカウントでのログインが必要）」、実行ユーザーは「自分（デプロイしたアカウント）」とする。店主の代理としてスタッフが利用することを許容する前提（[SPEC.md](./SPEC.md#1-本ドキュメントについて)参照）のもと、スタッフ個別にスプレッドシートへの編集権限を付与せずに済むよう、スクリプトは店主のアカウント権限で実行する（`src/appsscript.json`の`webapp.access: "ANYONE"` / `webapp.executeAs: "USER_DEPLOYING"`）
 - スプレッドシートへの直接アクセスを防ぐ実装（方針の根拠は [DATABASE.md](./DATABASE.md) の「データ管理方針」参照）
 - ページルーティング：GASのWebアプリは`doGet`を1つしか持てないため、`e.parameter.page`（例：`?page=menu`）でHTMLファイルを出し分ける（`server/main.gs`の`PAGE_FILES`）

@@ -21,6 +21,8 @@
 
 ### Fixed
 
+- メニュー管理画面（SCR-003）が白紙表示になる不具合を修正：`include()`に渡すファイル名を`shared/stylesheet`から`client/shared/stylesheet`に訂正（GAS上のファイル名は`rootDir`からの相対パスであり、画面ファイルからの相対パスではないため）。ARCHITECTURE.mdの記載例も合わせて訂正（画面：SCR-003）
+
 ### Removed
 
 ## [2026-07-30]

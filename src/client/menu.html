@@ -3,7 +3,7 @@
 <html>
   <head>
     <base target="_top">
-    <?!= include('shared/stylesheet') ?>
+    <?!= include('client/shared/stylesheet') ?>
   </head>
   <body>
     <h1>メニュー管理</h1>
@@ -55,7 +55,7 @@
       <tbody></tbody>
     </table>
 
-    <?!= include('shared/javascript') ?>
+    <?!= include('client/shared/javascript') ?>
     <script>
       function loadMenuList() {
         google.script.run.withSuccessHandler(renderMenuList).getMenuList();
