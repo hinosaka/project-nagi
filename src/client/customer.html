@@ -87,6 +87,13 @@
       .memo-row textarea {
         flex: 1;
         min-height: 60px;
+        border: none;
+        background: transparent;
+        padding: 4px 2px;
+      }
+      .memo-row textarea:focus {
+        outline: none;
+        border-bottom: 1px solid var(--ai);
       }
       .customer-name-link {
         color: var(--ink);
@@ -173,7 +180,7 @@
           <label for="detail-memo"><svg class="icon"><use href="#icon-tag"></use></svg>メモ</label>
           <div class="memo-row">
             <textarea id="detail-memo"></textarea>
-            <button type="button" id="detail-save">保存</button>
+            <button type="button" class="icon-btn" id="detail-save" title="保存"><svg class="icon"><use href="#icon-check"></use></svg></button>
           </div>
         </div>
 
