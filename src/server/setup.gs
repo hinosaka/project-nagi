@@ -9,6 +9,7 @@ function setupDatabase() {
   ensureSalesSheet_(spreadsheet);
   ensureSalesDetailSheet_(spreadsheet);
   ensureBusinessDaySheet_(spreadsheet);
+  ensureSalesTargetSheet_(spreadsheet);
   removeUnusedDefaultSheet_(spreadsheet);
   Logger.log('セットアップ完了。URL=' + spreadsheet.getUrl());
 }
@@ -74,6 +75,14 @@ function ensureBusinessDaySheet_(spreadsheet) {
   }
   var sheet = spreadsheet.insertSheet('BusinessDay');
   sheet.appendRow(['BusinessDayId', 'SalesDate', 'DayOfWeek', 'Weather']);
+}
+
+function ensureSalesTargetSheet_(spreadsheet) {
+  if (spreadsheet.getSheetByName('SalesTarget')) {
+    return;
+  }
+  var sheet = spreadsheet.insertSheet('SalesTarget');
+  sheet.appendRow(['SalesTargetId', 'TargetMonth', 'TargetAmount', 'Note']);
 }
 
 function removeUnusedDefaultSheet_(spreadsheet) {

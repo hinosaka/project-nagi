@@ -5,7 +5,8 @@ var PAGE_FILES = {
   seat: 'client/seat',
   customer: 'client/customer',
   sales: 'client/sales-entry',
-  dashboard: 'client/dashboard'
+  dashboard: 'client/dashboard',
+  budget: 'client/budget'
 };
 
 function doGet(e) {

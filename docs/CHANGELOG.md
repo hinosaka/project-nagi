@@ -31,6 +31,7 @@
 - サイドバーにダッシュボードへのリンクを追加
 - 日次／週次／月次の期間切り替えUI（タブ・前後ボタン・基準日入力）を`shared/javascript.html`の`createPeriodController()`として共通化
 - フード/ドリンク構成比の凡例（`.legend`/`.dot`）を`shared/stylesheet.html`に共通化
+- 予算管理（SCR-007）を実装：対象月選択（月ピッカー＋前月/翌月ボタン）、目標売上・備考の登録編集（フォーム化しEnterキーでも保存可能）、実績売上の自動集計、達成率（達成/未達で色分け）を表示。`BudgetService.gs`（`getBudgetData()`/`saveBudgetTarget()`）、`SalesTargetRepository.gs`を追加し、`setupDatabase()`にSalesTargetシートの作成を追加（画面：SCR-007、要件：REQ-027, REQ-028、シート：SalesTarget, Sales）
 
 - 座席管理（SCR-005）を実装：店内レイアウト（テーブルTB/TA・カウンターC1〜C8）に基づく配置図での一覧と、切替メニュー内の「無効にする」「有効にする」ボタンによる使用可否切替（誤操作防止のため座席クリックでは切り替わらない）。座席番号・種別・定員は固定のため編集・新規追加は対象外（画面：SCR-005、シート：Seat）
 - `setupDatabase()`を拡張し、Seatシートの作成と初期データ（C1〜C8、TA、TB）の投入に対応。未作成のシートだけを追加する形にリファクタリングし、再実行可能にした（シート：Seat）
