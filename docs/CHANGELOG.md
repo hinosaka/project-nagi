@@ -43,6 +43,8 @@
 - ARCHITECTURE.mdのディレクトリ構成に沿って`src/client/`（11画面分のHTMLひな形＋`shared/`）・`src/server/`（`main.gs`、`application/`・`domain/`・`repository/`）を作成（中身は未実装）
 - Webアプリの公開設定を決定：アクセス可能なユーザーは「全員（Googleアカウントでのログイン必須）」、実行ユーザーは「自分（デプロイしたアカウント）」（ARCHITECTURE.md, `src/appsscript.json`のwebapp設定）
 - `main.gs`に疎通確認用の暫定`doGet`を実装し、Webアプリとして初回デプロイ（DEVELOP.mdにデプロイ手順・バージョン管理方針を記載）
+- メニュー管理（SCR-003）を実装：一覧表示・新規登録・編集・販売終了（論理削除）（画面：SCR-003、要件：REQ-001, REQ-002, REQ-003, REQ-004, REQ-026、シート：Menu）
+- 全リポジトリ共通のデータアクセス基盤を追加：スプレッドシートID保持（Script Properties）、初回セットアップ用`setupDatabase()`、シート⇔オブジェクト変換の共通処理（`SheetUtil`）、ページルーティング（`main.gs`の`page`パラメータ）をARCHITECTURE.mdに追記
 
 ### Changed
 

@@ -1,4 +1,19 @@
-// アプリケーション層：エントリーポイント（疎通確認用の暫定実装。画面が揃い次第home.htmlの描画に置き換える）
+// アプリケーション層：エントリーポイント。pageパラメータで画面を出し分ける（実装済みの画面のみ対応）
+var PAGE_FILES = {
+  home: 'client/home',
+  menu: 'client/menu'
+};
+
 function doGet(e) {
-  return ContentService.createTextOutput('pos-app: OK');
+  var page = (e && e.parameter && e.parameter.page) || 'home';
+  var file = PAGE_FILES[page] || PAGE_FILES.home;
+
+  return HtmlService.createTemplateFromFile(file)
+    .evaluate()
+    .setTitle('pos-app')
+    .addMetaTag('viewport', 'width=device-width, initial-scale=1');
+}
+
+function include(filename) {
+  return HtmlService.createHtmlOutputFromFile(filename).getContent();
 }

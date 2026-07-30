@@ -1,9 +1,156 @@
-<!-- SCR-003 メニュー管理（未実装） -->
+<!-- SCR-003 メニュー管理 -->
 <!DOCTYPE html>
 <html>
   <head>
     <base target="_top">
+    <?!= include('shared/stylesheet') ?>
   </head>
   <body>
+    <h1>メニュー管理</h1>
+    <p><a href="?page=home">ホームへ戻る</a></p>
+
+    <h2 id="form-title">新規登録</h2>
+    <form id="menu-form">
+      <input type="hidden" id="MenuId" value="">
+      <div class="form-row">
+        <label for="MenuName">商品名</label>
+        <input type="text" id="MenuName" required>
+      </div>
+      <div class="form-row">
+        <label for="Price">価格（円）</label>
+        <input type="number" id="Price" min="0" required>
+      </div>
+      <div class="form-row">
+        <label for="Cost">原価（円・任意）</label>
+        <input type="number" id="Cost" min="0">
+      </div>
+      <div class="form-row">
+        <label for="CategoryLarge">大分類</label>
+        <input type="text" id="CategoryLarge" required>
+      </div>
+      <div class="form-row">
+        <label for="CategoryMedium">中分類</label>
+        <input type="text" id="CategoryMedium" required>
+      </div>
+      <div class="form-row">
+        <button type="submit">保存</button>
+        <button type="button" id="cancel-edit" style="display:none;">キャンセル</button>
+      </div>
+      <p id="form-error" class="error"></p>
+    </form>
+
+    <h2>商品一覧</h2>
+    <table id="menu-table">
+      <thead>
+        <tr>
+          <th>商品名</th>
+          <th>価格</th>
+          <th>原価</th>
+          <th>大分類</th>
+          <th>中分類</th>
+          <th>販売中</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+
+    <?!= include('shared/javascript') ?>
+    <script>
+      function loadMenuList() {
+        google.script.run.withSuccessHandler(renderMenuList).getMenuList();
+      }
+
+      function renderMenuList(menuList) {
+        var tbody = document.querySelector('#menu-table tbody');
+        tbody.innerHTML = '';
+        menuList.forEach(function (menu) {
+          var tr = document.createElement('tr');
+
+          tr.appendChild(cell(menu.MenuName));
+          tr.appendChild(cell(menu.Price));
+          tr.appendChild(cell(menu.Cost));
+          tr.appendChild(cell(menu.CategoryLarge));
+          tr.appendChild(cell(menu.CategoryMedium));
+          tr.appendChild(cell(menu.IsActive ? '○' : '販売終了'));
+
+          var actionTd = document.createElement('td');
+          var editButton = document.createElement('button');
+          editButton.type = 'button';
+          editButton.textContent = '編集';
+          editButton.addEventListener('click', function () {
+            startEdit(menu);
+          });
+          actionTd.appendChild(editButton);
+
+          if (menu.IsActive) {
+            var deactivateButton = document.createElement('button');
+            deactivateButton.type = 'button';
+            deactivateButton.textContent = '販売終了';
+            deactivateButton.addEventListener('click', function () {
+              if (confirm(menu.MenuName + ' を販売終了にしますか？')) {
+                google.script.run.withSuccessHandler(loadMenuList).deactivateMenu(menu.MenuId);
+              }
+            });
+            actionTd.appendChild(deactivateButton);
+          }
+
+          tr.appendChild(actionTd);
+          tbody.appendChild(tr);
+        });
+      }
+
+      function cell(value) {
+        var td = document.createElement('td');
+        td.textContent = value;
+        return td;
+      }
+
+      function startEdit(menu) {
+        document.getElementById('form-title').textContent = '編集：' + menu.MenuName;
+        document.getElementById('MenuId').value = menu.MenuId;
+        document.getElementById('MenuName').value = menu.MenuName;
+        document.getElementById('Price').value = menu.Price;
+        document.getElementById('Cost').value = menu.Cost;
+        document.getElementById('CategoryLarge').value = menu.CategoryLarge;
+        document.getElementById('CategoryMedium').value = menu.CategoryMedium;
+        document.getElementById('cancel-edit').style.display = '';
+      }
+
+      function resetForm() {
+        document.getElementById('form-title').textContent = '新規登録';
+        document.getElementById('menu-form').reset();
+        document.getElementById('MenuId').value = '';
+        document.getElementById('cancel-edit').style.display = 'none';
+      }
+
+      document.getElementById('cancel-edit').addEventListener('click', resetForm);
+
+      document.getElementById('menu-form').addEventListener('submit', function (event) {
+        event.preventDefault();
+        document.getElementById('form-error').textContent = '';
+
+        var menuInput = {
+          MenuId: document.getElementById('MenuId').value,
+          MenuName: document.getElementById('MenuName').value,
+          Price: document.getElementById('Price').value,
+          Cost: document.getElementById('Cost').value,
+          CategoryLarge: document.getElementById('CategoryLarge').value,
+          CategoryMedium: document.getElementById('CategoryMedium').value
+        };
+
+        google.script.run
+          .withSuccessHandler(function () {
+            resetForm();
+            loadMenuList();
+          })
+          .withFailureHandler(function (error) {
+            document.getElementById('form-error').textContent = error.message;
+          })
+          .saveMenu(menuInput);
+      });
+
+      loadMenuList();
+    </script>
   </body>
 </html>
