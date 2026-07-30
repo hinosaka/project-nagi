@@ -41,6 +41,8 @@
 - 天候に基づく事前アドバイスの実現方式（店主の朝入力運用／外部天気API）をTODOとしてDATABASE.mdに追加（シート：BusinessDay）
 - 開発環境を構築：`clasp`導入、GASプロジェクト新規作成（standalone、`rootDir: src`）、DEVELOP.mdにセットアップ手順を記載
 - ARCHITECTURE.mdのディレクトリ構成に沿って`src/client/`（11画面分のHTMLひな形＋`shared/`）・`src/server/`（`main.gs`、`application/`・`domain/`・`repository/`）を作成（中身は未実装）
+- Webアプリの公開設定を決定：アクセス可能なユーザーは「全員（Googleアカウントでのログイン必須）」、実行ユーザーは「自分（デプロイしたアカウント）」（ARCHITECTURE.md, `src/appsscript.json`のwebapp設定）
+- `main.gs`に疎通確認用の暫定`doGet`を実装し、Webアプリとして初回デプロイ（DEVELOP.mdにデプロイ手順・バージョン管理方針を記載）
 
 ### Changed
 

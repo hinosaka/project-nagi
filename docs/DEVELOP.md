@@ -43,8 +43,17 @@
 
 > ここでは実際の公開作業の手順のみを記述する。公開設定に関する設計判断は [ARCHITECTURE.md](./ARCHITECTURE.md) の「GAS特有の設計方針」を参照
 
-- Webアプリとしての公開手順
-- バージョン管理
+### Webアプリとしての公開手順
+
+1. `npx clasp push` — ローカルの`src/`をGASプロジェクトに反映する
+2. `npx clasp deploy --description "変更内容の要約"` — 新しいバージョンとしてデプロイする（デプロイIDが発行される）
+3. `npx clasp deployments` — デプロイ一覧とデプロイIDを確認する
+4. WebアプリのURLは `https://script.google.com/macros/s/{デプロイID}/exec` の形式（`@HEAD`ではなく、バージョン番号が付いたデプロイのIDを使う）
+
+### バージョン管理
+
+- `clasp deploy`を実行するたびに新しいバージョン・デプロイIDが発行され、WebアプリのURLも変わる。運用中のURLを変えたくない場合は、既存のデプロイIDに対して`clasp deploy --deploymentId <ID>`で上書き更新する
+- `@HEAD`は開発中の動作確認用（常に最新のpush内容を指す）であり、店主・スタッフに共有する本番URLには使わない
 
 ## 5. テスト方針
 
