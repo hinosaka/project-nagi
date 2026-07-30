@@ -11,6 +11,17 @@
         font-weight: 700;
         padding: 6px 10px;
       }
+      #menu-table tbody tr:nth-child(even) {
+        background: var(--surface);
+      }
+      .category-row {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .category-row select {
+        flex: 1;
+      }
     </style>
   </head>
   <body data-page="<?= currentPage ?>">
@@ -25,23 +36,23 @@
           <form id="menu-form">
             <input type="hidden" id="MenuId" value="">
             <div class="form-row">
-              <label for="CategoryLarge">大分類</label>
-              <select id="CategoryLarge" required></select>
-            </div>
-            <div class="form-row">
-              <label for="CategoryMedium">中分類</label>
-              <select id="CategoryMedium" required></select>
+              <label>カテゴリ</label>
+              <span class="category-row">
+                <select id="CategoryLarge" required></select>
+                <span>&gt;</span>
+                <select id="CategoryMedium" required></select>
+              </span>
             </div>
             <div class="form-row">
               <label for="MenuName">商品名</label>
               <input type="text" id="MenuName" required>
             </div>
             <div class="form-row">
-              <label for="Price">価格（円）</label>
+              <label for="Price">価格</label>
               <input type="number" id="Price" min="0" inputmode="numeric" required>
             </div>
             <div class="form-row">
-              <label for="Cost">原価（円・任意）</label>
+              <label for="Cost">原価（任意）</label>
               <input type="number" id="Cost" min="0" inputmode="numeric">
             </div>
             <div class="form-row form-actions">
