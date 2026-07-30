@@ -1,9 +1,144 @@
-<!-- SCR-005 座席管理（未実装） -->
+<!-- SCR-005 座席管理 -->
 <!DOCTYPE html>
 <html>
   <head>
     <base target="_top">
+    <?!= include('client/shared/stylesheet') ?>
+    <style>
+      .floor-plan {
+        border: 1px solid #999;
+        padding: 16px;
+        margin-top: 8px;
+        max-width: 640px;
+      }
+      .tables-row {
+        display: flex;
+        justify-content: space-evenly;
+        margin-bottom: 16px;
+      }
+      .counter-seats {
+        display: flex;
+        gap: 8px;
+        justify-content: center;
+      }
+      .seat-box {
+        border: 1px solid #666;
+        border-radius: 4px;
+        padding: 8px;
+        min-width: 48px;
+        text-align: center;
+        background: #fff;
+        cursor: pointer;
+        line-height: 1.3;
+      }
+      .seat-box.inactive {
+        background: #eee;
+        color: #999;
+        text-decoration: line-through;
+      }
+      #seat-panel {
+        max-width: 240px;
+        border: 1px solid #ccc;
+        padding: 12px;
+        margin-top: 16px;
+      }
+      #seat-panel h2 {
+        margin-top: 0;
+      }
+    </style>
   </head>
   <body>
+    <h1>座席管理</h1>
+    <p><a href="?page=home">ホームへ戻る</a></p>
+    <p>座席をクリックすると使用可否の切替メニューが開きます。</p>
+
+    <div class="floor-plan">
+      <div class="tables-row" id="tables-row"></div>
+      <div class="counter-seats" id="counter-seats"></div>
+    </div>
+
+    <div id="others-section" style="display:none;">
+      <h2>レイアウト外の座席</h2>
+      <div class="counter-seats" id="others-list"></div>
+    </div>
+
+    <div id="seat-panel" style="display:none;">
+      <h2 id="panel-title"></h2>
+      <button type="button" id="toggle-active"></button>
+      <button type="button" id="close-panel">閉じる</button>
+    </div>
+
+    <?!= include('client/shared/javascript') ?>
+    <script>
+      var KNOWN_LAYOUT = {
+        tables: ['TB', 'TA'],
+        counter: ['C8', 'C7', 'C6', 'C5', 'C4', 'C3', 'C2', 'C1']
+      };
+      var currentSeats = {};
+      var editingSeatId = null;
+
+      function loadSeatList() {
+        google.script.run.withSuccessHandler(renderSeatList).getSeatList();
+      }
+
+      function renderSeatList(seatList) {
+        currentSeats = {};
+        seatList.forEach(function (s) {
+          currentSeats[s.SeatId] = s;
+        });
+
+        renderSeatGroup('tables-row', KNOWN_LAYOUT.tables);
+        renderSeatGroup('counter-seats', KNOWN_LAYOUT.counter);
+
+        var knownIds = KNOWN_LAYOUT.tables.concat(KNOWN_LAYOUT.counter);
+        var others = seatList.filter(function (s) {
+          return knownIds.indexOf(s.SeatId) === -1;
+        });
+        renderSeatGroup('others-list', others.map(function (s) { return s.SeatId; }));
+        document.getElementById('others-section').style.display = others.length === 0 ? 'none' : '';
+      }
+
+      function renderSeatGroup(containerId, seatIds) {
+        var container = document.getElementById(containerId);
+        container.innerHTML = '';
+        seatIds.forEach(function (seatId) {
+          var seat = currentSeats[seatId];
+          if (!seat) {
+            return;
+          }
+          container.appendChild(buildSeatBox(seat));
+        });
+      }
+
+      function buildSeatBox(seat) {
+        var box = document.createElement('div');
+        box.className = 'seat-box' + (seat.IsActive ? '' : ' inactive');
+        box.innerHTML = seat.SeatId + '<br>(' + seat.Capacity + ')';
+        box.addEventListener('click', function () {
+          openPanel(seat);
+        });
+        return box;
+      }
+
+      function openPanel(seat) {
+        editingSeatId = seat.SeatId;
+        document.getElementById('panel-title').textContent = seat.SeatId;
+        document.getElementById('toggle-active').textContent = seat.IsActive ? '無効にする' : '有効にする';
+        document.getElementById('seat-panel').style.display = '';
+      }
+
+      document.getElementById('close-panel').addEventListener('click', function () {
+        document.getElementById('seat-panel').style.display = 'none';
+      });
+
+      document.getElementById('toggle-active').addEventListener('click', function () {
+        google.script.run.withSuccessHandler(function () {
+          document.getElementById('seat-panel').style.display = 'none';
+          loadSeatList();
+        }).toggleSeatActive(editingSeatId);
+      });
+
+      loadSeatList();
+    </script>
   </body>
 </html>
