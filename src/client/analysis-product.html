@@ -1,9 +1,236 @@
-<!-- SCR-008 商品分析（未実装） -->
+<!-- SCR-008 商品分析 -->
 <!DOCTYPE html>
 <html>
   <head>
     <base target="_top">
+    <?!= include('client/shared/stylesheet') ?>
+    <style>
+      .period-row {
+        display: flex;
+        align-items: center;
+        gap: var(--space-sm);
+        margin-bottom: var(--space-md);
+        flex-wrap: wrap;
+      }
+      #reference-date {
+        width: 32px;
+        height: 32px;
+        color: transparent;
+        background: var(--ai-soft);
+        border: 1px solid var(--ai-soft);
+        border-radius: var(--radius-sm);
+        padding: 4px;
+        cursor: pointer;
+      }
+      #reference-date::-webkit-calendar-picker-indicator {
+        opacity: 1;
+        cursor: pointer;
+      }
+      .period-nav {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+      }
+      #period-label {
+        color: var(--ink-muted);
+        font-weight: bold;
+      }
+      .sort-row {
+        display: flex;
+        align-items: center;
+        gap: var(--space-sm);
+        margin-bottom: var(--space-sm);
+      }
+      .sort-row label {
+        color: var(--ink-muted);
+        font-size: 0.9em;
+      }
+      .abc-badge {
+        display: inline-block;
+        padding: 1px 8px;
+        border-radius: 999px;
+        font-weight: 700;
+        font-size: 0.85em;
+      }
+      .abc-badge.abc-a { background: var(--good-soft); color: var(--good); }
+      .abc-badge.abc-b { background: var(--warn-soft); color: var(--warn); }
+      .abc-badge.abc-c { background: var(--surface-2); color: var(--ink-muted); }
+      td.num, th.num {
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+      }
+      .back-link {
+        display: inline-block;
+        margin-top: var(--space-md);
+      }
+    </style>
   </head>
-  <body>
+  <body data-page="<?= currentPage ?>">
+    <?!= include('client/shared/icons') ?>
+    <div class="app-shell">
+      <?!= include('client/shared/sidebar', {baseUrl: baseUrl}) ?>
+      <main class="main-content">
+        <h1>商品分析</h1>
+
+        <div class="period-row">
+          <div class="tabs" id="period-tabs"></div>
+          <input type="date" id="reference-date" title="基準日を選択">
+          <span class="period-nav">
+            <button type="button" class="icon-btn" id="period-prev" title="前へ"><svg class="icon"><use href="#icon-chevron-left"></use></svg></button>
+            <span>期間：<span id="period-label"></span></span>
+            <button type="button" class="icon-btn" id="period-next" title="次へ"><svg class="icon"><use href="#icon-chevron-right"></use></svg></button>
+          </span>
+        </div>
+
+        <p id="load-error" class="error"></p>
+
+        <div class="kpi-row">
+          <div class="kpi-tile primary">
+            <div class="kpi-label">売上高</div>
+            <div class="kpi-value">¥<span id="kpi-total">0</span></div>
+          </div>
+          <div class="kpi-tile">
+            <div class="kpi-label">販売点数</div>
+            <div class="kpi-value"><span id="kpi-quantity">0</span>点</div>
+          </div>
+          <div class="kpi-tile">
+            <div class="kpi-label">平均注文点数</div>
+            <div class="kpi-value"><span id="kpi-avg-order">-</span>点/人</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>フード / ドリンク構成比</h2>
+          <div class="split-bar">
+            <div class="segment-drink" id="split-drink"></div>
+            <div class="segment-food" id="split-food"></div>
+          </div>
+          <div class="legend">
+            <span><span class="dot dot-drink"></span>ドリンク　¥<span id="drink-amount">0</span>（<span id="drink-ratio">0</span>%・<span id="drink-quantity">0</span>点）</span>
+            <span><span class="dot dot-food"></span>フード　¥<span id="food-amount">0</span>（<span id="food-ratio">0</span>%・<span id="food-quantity">0</span>点）</span>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>商品別ランキング・ABC分析</h2>
+          <div class="sort-row">
+            <label for="sort-select">並び替え：</label>
+            <select id="sort-select">
+              <option value="amount">売上順</option>
+              <option value="quantity">販売数量順</option>
+              <option value="grossProfit">粗利益順</option>
+            </select>
+          </div>
+          <div class="table-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th>商品名</th>
+                  <th>分類</th>
+                  <th class="num">売上</th>
+                  <th class="num">構成比</th>
+                  <th class="num">数量</th>
+                  <th class="num">粗利益</th>
+                  <th class="num">原価率</th>
+                  <th>ABC</th>
+                </tr>
+              </thead>
+              <tbody id="product-table-body"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <a class="back-link" href="<?= baseUrl ?>?page=dashboard">← ダッシュボードに戻る</a>
+      </main>
+    </div>
+
+    <?!= include('client/shared/javascript') ?>
+    <script>
+      var periodController = createPeriodController({
+        tabsEl: document.getElementById('period-tabs'),
+        dateEl: document.getElementById('reference-date'),
+        prevBtn: document.getElementById('period-prev'),
+        nextBtn: document.getElementById('period-next'),
+        periodLabels: { day: '日次', week: '週次', month: '月次' },
+        initialPeriod: 'day',
+        onChange: loadAnalysis
+      });
+
+      document.getElementById('sort-select').addEventListener('change', loadAnalysis);
+
+      function loadAnalysis() {
+        document.getElementById('load-error').textContent = '';
+        var sortBy = document.getElementById('sort-select').value;
+        google.script.run
+          .withSuccessHandler(renderAnalysis)
+          .withFailureHandler(function (error) {
+            document.getElementById('load-error').textContent = 'データの取得に失敗しました：' + error.message;
+          })
+          .getProductAnalysisData(periodController.getPeriod(), periodController.getDate(), sortBy);
+      }
+
+      function renderAnalysis(data) {
+        document.getElementById('period-label').textContent = data.periodLabel;
+        document.getElementById('kpi-total').textContent = data.totalAmount;
+        document.getElementById('kpi-quantity').textContent = data.totalQuantity;
+        document.getElementById('kpi-avg-order').textContent = data.avgOrderQuantity === null ? '-' : data.avgOrderQuantity;
+
+        var food = data.categoryTotals.filter(function (c) { return c.category === 'フード'; })[0] || { amount: 0, quantity: 0 };
+        var drink = data.categoryTotals.filter(function (c) { return c.category === 'ドリンク'; })[0] || { amount: 0, quantity: 0 };
+        var beverageTotal = food.amount + drink.amount;
+        var drinkRatio = beverageTotal > 0 ? Math.round((drink.amount / beverageTotal) * 100) : 0;
+        var foodRatio = beverageTotal > 0 ? 100 - drinkRatio : 0;
+
+        document.getElementById('drink-amount').textContent = drink.amount;
+        document.getElementById('drink-ratio').textContent = drinkRatio;
+        document.getElementById('drink-quantity').textContent = drink.quantity;
+        document.getElementById('food-amount').textContent = food.amount;
+        document.getElementById('food-ratio').textContent = foodRatio;
+        document.getElementById('food-quantity').textContent = food.quantity;
+        document.getElementById('split-drink').style.width = drinkRatio + '%';
+        document.getElementById('split-food').style.width = foodRatio + '%';
+
+        var tbody = document.getElementById('product-table-body');
+        tbody.innerHTML = '';
+        if (data.items.length === 0) {
+          var emptyRow = document.createElement('tr');
+          var emptyCell = document.createElement('td');
+          emptyCell.colSpan = 8;
+          emptyCell.className = 'ranking-empty';
+          emptyCell.textContent = 'この期間の会計データがまだありません。';
+          emptyRow.appendChild(emptyCell);
+          tbody.appendChild(emptyRow);
+          return;
+        }
+        data.items.forEach(function (item) {
+          var tr = document.createElement('tr');
+          tr.appendChild(makeCell(item.MenuName));
+          tr.appendChild(makeCell(item.category));
+          tr.appendChild(makeCell('¥' + item.amount, 'num'));
+          tr.appendChild(makeCell(item.sharePercent + '%', 'num'));
+          tr.appendChild(makeCell(item.quantity, 'num'));
+          tr.appendChild(makeCell(item.grossProfit === null ? '-' : '¥' + item.grossProfit, 'num'));
+          tr.appendChild(makeCell(item.costRate === null ? '-' : item.costRate + '%', 'num'));
+          var abcCell = document.createElement('td');
+          var badge = document.createElement('span');
+          badge.className = 'abc-badge abc-' + item.abcClass.toLowerCase();
+          badge.textContent = item.abcClass;
+          abcCell.appendChild(badge);
+          tr.appendChild(abcCell);
+          tbody.appendChild(tr);
+        });
+      }
+
+      function makeCell(text, className) {
+        var td = document.createElement('td');
+        if (className) {
+          td.className = className;
+        }
+        td.textContent = text;
+        return td;
+      }
+
+      loadAnalysis();
+    </script>
   </body>
 </html>
