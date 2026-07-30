@@ -39,6 +39,7 @@
 - UI.mdにSCR-001〜SCR-011の全11画面（ホーム〜月次推移・比較）の詳細仕様（目的・表示項目・使用データ・操作・画面遷移）を記載（UI.md）
 - ARCHITECTURE.mdにレイヤー構成（UI層／アプリケーション層／ドメイン層／データアクセス層）・ディレクトリ構成・層間の依存ルールを追加（ARCHITECTURE.md）
 - 天候に基づく事前アドバイスの実現方式（店主の朝入力運用／外部天気API）をTODOとしてDATABASE.mdに追加（シート：BusinessDay）
+- 開発環境を構築：`clasp`導入、GASプロジェクト新規作成（standalone、`rootDir: src`）、DEVELOP.mdにセットアップ手順を記載
 
 ### Changed
 

@@ -18,8 +18,21 @@
 
 ## 2. 開発環境セットアップ
 
-- 必要なツール（clasp等）
-- GASプロジェクトとの紐付け
+- 必要なツール：Node.js、npm、`clasp`（`@google/clasp`）。`clasp`はグローバルインストールせず`devDependencies`で管理し、`npx clasp <command>`で実行する
+- GASプロジェクトとの紐付け：`.clasp.json`（`scriptId`・`rootDir: "src"`）をリポジトリにコミットして共有する。認証情報（`~/.clasprc.json`）は各開発者のマシンに個別に保存し、コミットしない（`.gitignore`対象）
+
+### 初回セットアップ手順（このリポジトリを初めてGASプロジェクトと紐付ける場合）
+
+1. `npm install` — `clasp`等の依存関係をインストール
+2. `npx clasp login` — Googleアカウントでログイン（ブラウザでOAuth認証。表示される権限は「すべて選択」でよい）
+3. 初回のみ：https://script.google.com/home/usersettings で「Apps Script API」を有効化（反映まで数分かかる場合がある）
+4. `npx clasp create --type standalone --title "pos-app" --rootDir ./src` — GASプロジェクトを新規作成（`.clasp.json`が生成される）
+
+### 2台目以降の開発環境（`.clasp.json`が既にリポジトリにある場合）
+
+1. `npm install`
+2. `npx clasp login` — 自分のGoogleアカウントでログイン（Apps Script APIへの編集権限が必要）
+3. 必要に応じて`npx clasp pull` — GASエディタ側で行われた変更をローカルに同期
 
 ## 3. 開発フロー
 
