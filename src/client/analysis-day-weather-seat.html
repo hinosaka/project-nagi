@@ -1,9 +1,239 @@
-<!-- SCR-010 曜日・天候・座席分析（未実装） -->
+<!-- SCR-010 曜日・天候・座席分析 -->
 <!DOCTYPE html>
 <html>
   <head>
     <base target="_top">
+    <?!= include('client/shared/stylesheet') ?>
+    <style>
+      .period-row {
+        display: flex;
+        align-items: center;
+        gap: var(--space-sm);
+        margin-bottom: var(--space-md);
+        flex-wrap: wrap;
+      }
+      #reference-date {
+        width: 32px;
+        height: 32px;
+        color: transparent;
+        background: var(--ai-soft);
+        border: 1px solid var(--ai-soft);
+        border-radius: var(--radius-sm);
+        padding: 4px;
+        cursor: pointer;
+      }
+      #reference-date::-webkit-calendar-picker-indicator {
+        opacity: 1;
+        cursor: pointer;
+      }
+      .period-nav {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+      }
+      #period-label {
+        color: var(--ink-muted);
+        font-weight: bold;
+      }
+      .bar-chart {
+        display: flex;
+        align-items: flex-end;
+        gap: var(--space-sm);
+        height: 140px;
+        padding-top: var(--space-md);
+      }
+      .bar-col {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: flex-end;
+        height: 100%;
+        gap: 4px;
+      }
+      .bar-amount {
+        font-size: 0.75em;
+        color: var(--ink-muted);
+        font-variant-numeric: tabular-nums;
+      }
+      .bar {
+        width: 60%;
+        min-height: 2px;
+        background: var(--ai);
+        border-radius: 4px 4px 0 0;
+      }
+      .bar-label {
+        font-size: 0.85em;
+        color: var(--ink-muted);
+      }
+      td.num, th.num {
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+      }
+      .back-link {
+        display: inline-block;
+        margin-top: var(--space-md);
+      }
+    </style>
   </head>
-  <body>
+  <body data-page="<?= currentPage ?>">
+    <?!= include('client/shared/icons') ?>
+    <div class="app-shell">
+      <?!= include('client/shared/sidebar', {baseUrl: baseUrl}) ?>
+      <main class="main-content">
+        <h1>曜日・天候・座席分析</h1>
+
+        <div class="period-row">
+          <div class="tabs" id="period-tabs"></div>
+          <input type="date" id="reference-date" title="基準日を選択">
+          <span class="period-nav">
+            <button type="button" class="icon-btn" id="period-prev" title="前へ"><svg class="icon"><use href="#icon-chevron-left"></use></svg></button>
+            <span>期間：<span id="period-label"></span></span>
+            <button type="button" class="icon-btn" id="period-next" title="次へ"><svg class="icon"><use href="#icon-chevron-right"></use></svg></button>
+          </span>
+        </div>
+
+        <p id="load-error" class="error"></p>
+
+        <div class="card">
+          <h2>曜日別の売上・来店</h2>
+          <div class="bar-chart" id="day-bar-chart"></div>
+          <div class="table-scroll">
+            <table>
+              <thead>
+                <tr><th>曜日</th><th class="num">売上</th><th class="num">来店組数</th><th class="num">来店人数</th><th class="num">客単価</th></tr>
+              </thead>
+              <tbody id="day-table-body"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>天候別の傾向</h2>
+          <div class="table-scroll">
+            <table>
+              <thead>
+                <tr><th>天候</th><th class="num">売上</th><th class="num">来店組数</th></tr>
+              </thead>
+              <tbody id="weather-table-body"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>座席種別ごとの利用状況</h2>
+          <div class="table-scroll">
+            <table>
+              <thead>
+                <tr><th>座席種別</th><th class="num">利用件数</th><th class="num">稼働率</th></tr>
+              </thead>
+              <tbody id="seat-table-body"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <a class="back-link" href="<?= baseUrl ?>?page=dashboard">← ダッシュボードに戻る</a>
+      </main>
+    </div>
+
+    <?!= include('client/shared/javascript') ?>
+    <script>
+      var periodController = createPeriodController({
+        tabsEl: document.getElementById('period-tabs'),
+        dateEl: document.getElementById('reference-date'),
+        prevBtn: document.getElementById('period-prev'),
+        nextBtn: document.getElementById('period-next'),
+        periodLabels: { day: '日次', week: '週次', month: '月次' },
+        initialPeriod: 'week',
+        onChange: loadAnalysis
+      });
+
+      function loadAnalysis() {
+        document.getElementById('load-error').textContent = '';
+        google.script.run
+          .withSuccessHandler(renderAnalysis)
+          .withFailureHandler(function (error) {
+            document.getElementById('load-error').textContent = 'データの取得に失敗しました：' + error.message;
+          })
+          .getDayWeatherSeatAnalysisData(periodController.getPeriod(), periodController.getDate());
+      }
+
+      function makeCell(text, className) {
+        var td = document.createElement('td');
+        if (className) {
+          td.className = className;
+        }
+        td.textContent = text;
+        return td;
+      }
+
+      function renderAnalysis(data) {
+        document.getElementById('period-label').textContent = data.periodLabel;
+
+        var maxAmount = data.dayStats.reduce(function (max, d) { return Math.max(max, d.amount); }, 0);
+        var chart = document.getElementById('day-bar-chart');
+        chart.innerHTML = '';
+        data.dayStats.forEach(function (d) {
+          var col = document.createElement('div');
+          col.className = 'bar-col';
+          var amountLabel = document.createElement('div');
+          amountLabel.className = 'bar-amount';
+          amountLabel.textContent = d.amount > 0 ? '¥' + d.amount : '';
+          var bar = document.createElement('div');
+          bar.className = 'bar';
+          bar.style.height = (maxAmount > 0 ? Math.max((d.amount / maxAmount) * 100, d.amount > 0 ? 4 : 0) : 0) + '%';
+          var label = document.createElement('div');
+          label.className = 'bar-label';
+          label.textContent = d.day;
+          col.appendChild(amountLabel);
+          col.appendChild(bar);
+          col.appendChild(label);
+          chart.appendChild(col);
+        });
+
+        var dayBody = document.getElementById('day-table-body');
+        dayBody.innerHTML = '';
+        data.dayStats.forEach(function (d) {
+          var tr = document.createElement('tr');
+          tr.appendChild(makeCell(d.day));
+          tr.appendChild(makeCell('¥' + d.amount, 'num'));
+          tr.appendChild(makeCell(d.visitCount + '組', 'num'));
+          tr.appendChild(makeCell(d.partySize + '人', 'num'));
+          tr.appendChild(makeCell('¥' + d.perPersonAmount, 'num'));
+          dayBody.appendChild(tr);
+        });
+
+        var weatherBody = document.getElementById('weather-table-body');
+        weatherBody.innerHTML = '';
+        if (data.weatherStats.length === 0) {
+          var emptyRow = document.createElement('tr');
+          var emptyCell = makeCell('この期間の会計データがまだありません。');
+          emptyCell.colSpan = 3;
+          emptyCell.className = 'ranking-empty';
+          emptyRow.appendChild(emptyCell);
+          weatherBody.appendChild(emptyRow);
+        } else {
+          data.weatherStats.forEach(function (w) {
+            var tr = document.createElement('tr');
+            tr.appendChild(makeCell(w.weather));
+            tr.appendChild(makeCell('¥' + w.amount, 'num'));
+            tr.appendChild(makeCell(w.visitCount + '組', 'num'));
+            weatherBody.appendChild(tr);
+          });
+        }
+
+        var seatBody = document.getElementById('seat-table-body');
+        seatBody.innerHTML = '';
+        data.seatStats.forEach(function (s) {
+          var tr = document.createElement('tr');
+          tr.appendChild(makeCell(s.seatType));
+          tr.appendChild(makeCell(s.visitCount + '件', 'num'));
+          tr.appendChild(makeCell(s.utilizationRate + '%', 'num'));
+          seatBody.appendChild(tr);
+        });
+      }
+
+      loadAnalysis();
+    </script>
   </body>
 </html>

@@ -8,7 +8,8 @@ var PAGE_FILES = {
   dashboard: 'client/dashboard',
   budget: 'client/budget',
   'analysis-product': 'client/analysis-product',
-  'analysis-customer': 'client/analysis-customer'
+  'analysis-customer': 'client/analysis-customer',
+  'analysis-day-weather-seat': 'client/analysis-day-weather-seat'
 };
 
 function doGet(e) {
