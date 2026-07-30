@@ -1,6 +1,6 @@
 # docs 索引
 
-各ドキュメントの役割・責務分担をまとめた索引。プロジェクト全体の目的・進め方は [../CLAUDE.md](../CLAUDE.md) を参照。
+各ドキュメントの役割・責務分担をまとめた索引。Claude Codeの役割分担・意思決定の原則は [../CLAUDE.md](../CLAUDE.md) を参照。
 
 ## 目次
 
@@ -21,7 +21,7 @@
 
 ## 読む順番の目安
 
-1. [../CLAUDE.md](../CLAUDE.md) — プロジェクトの目的・進め方
+1. [../CLAUDE.md](../CLAUDE.md) — 役割分担・意思決定の原則
 2. [SPEC.md](./SPEC.md) — 何を作るか
 3. [UI.md](./UI.md) / [DATABASE.md](./DATABASE.md) — 画面・データ
 4. [ARCHITECTURE.md](./ARCHITECTURE.md) — 実装方法
