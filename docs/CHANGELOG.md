@@ -40,6 +40,7 @@
 - ARCHITECTURE.mdにレイヤー構成（UI層／アプリケーション層／ドメイン層／データアクセス層）・ディレクトリ構成・層間の依存ルールを追加（ARCHITECTURE.md）
 - 天候に基づく事前アドバイスの実現方式（店主の朝入力運用／外部天気API）をTODOとしてDATABASE.mdに追加（シート：BusinessDay）
 - 開発環境を構築：`clasp`導入、GASプロジェクト新規作成（standalone、`rootDir: src`）、DEVELOP.mdにセットアップ手順を記載
+- ARCHITECTURE.mdのディレクトリ構成に沿って`src/client/`（11画面分のHTMLひな形＋`shared/`）・`src/server/`（`main.gs`、`application/`・`domain/`・`repository/`）を作成（中身は未実装）
 
 ### Changed
 
