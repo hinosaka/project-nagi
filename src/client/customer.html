@@ -1,9 +1,191 @@
-<!-- SCR-004 顧客管理（未実装） -->
+<!-- SCR-004 顧客管理 -->
 <!DOCTYPE html>
 <html>
   <head>
     <base target="_top">
+    <?!= include('client/shared/stylesheet') ?>
+    <style>
+      .modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.4);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .modal-box {
+        background: #fff;
+        border-radius: 6px;
+        padding: 16px 20px;
+        max-width: 360px;
+        width: 90%;
+      }
+      .modal-box textarea {
+        width: 100%;
+        min-height: 60px;
+      }
+      .customer-name-link {
+        color: #06c;
+        cursor: pointer;
+        text-decoration: underline;
+      }
+    </style>
   </head>
   <body>
+    <h1>顧客管理</h1>
+    <p><a href="?page=home">ホームへ戻る</a></p>
+
+    <h2>新規登録</h2>
+    <form id="register-form">
+      <div class="form-row">
+        <label for="CustomerName">ニックネーム</label>
+        <input type="text" id="CustomerName" required>
+      </div>
+      <div class="form-row">
+        <button type="submit">登録</button>
+      </div>
+      <p id="form-error" class="error"></p>
+    </form>
+
+    <h2>顧客一覧</h2>
+    <p id="list-error" class="error"></p>
+    <table id="customer-table">
+      <thead>
+        <tr>
+          <th>ニックネーム</th>
+          <th>来店回数</th>
+          <th>最終来店日</th>
+          <th>初回来店日</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+
+    <div class="modal-overlay" id="detail-modal" style="display:none;">
+      <div class="modal-box">
+        <h2 id="detail-title"></h2>
+        <div class="form-row">
+          <label for="detail-phone">電話番号</label>
+          <input type="text" id="detail-phone">
+        </div>
+        <div class="form-row">
+          <label>過去注文の多いメニュー</label>
+          <p>伝票入力の実装後に表示されます。</p>
+        </div>
+        <div class="form-row">
+          <label for="detail-memo">メモ</label><br>
+          <textarea id="detail-memo"></textarea>
+        </div>
+        <div class="form-row">
+          <button type="button" id="detail-save">保存</button>
+          <button type="button" id="detail-close">閉じる</button>
+        </div>
+        <p id="detail-error" class="error"></p>
+      </div>
+    </div>
+
+    <?!= include('client/shared/javascript') ?>
+    <script>
+      var currentCustomers = {};
+
+      function loadCustomerList() {
+        document.getElementById('list-error').textContent = '';
+        google.script.run
+          .withSuccessHandler(renderCustomerList)
+          .withFailureHandler(function (error) {
+            document.getElementById('list-error').textContent = '一覧の取得に失敗しました：' + error.message;
+          })
+          .getCustomerList();
+      }
+
+      function renderCustomerList(customerList) {
+        currentCustomers = {};
+        var tbody = document.querySelector('#customer-table tbody');
+        tbody.innerHTML = '';
+        customerList.forEach(function (customer) {
+          currentCustomers[customer.CustomerId] = customer;
+
+          var tr = document.createElement('tr');
+
+          var nameTd = document.createElement('td');
+          var nameLink = document.createElement('span');
+          nameLink.className = 'customer-name-link';
+          nameLink.textContent = customer.CustomerName;
+          nameLink.addEventListener('click', function () {
+            openDetail(customer.CustomerId);
+          });
+          nameTd.appendChild(nameLink);
+          tr.appendChild(nameTd);
+
+          tr.appendChild(cell(customer.VisitCount));
+          tr.appendChild(cell(customer.LastVisitDate));
+          tr.appendChild(cell(customer.FirstVisitDate));
+
+          tbody.appendChild(tr);
+        });
+      }
+
+      function cell(value) {
+        var td = document.createElement('td');
+        td.textContent = value;
+        return td;
+      }
+
+      function openDetail(customerId) {
+        var customer = currentCustomers[customerId];
+        document.getElementById('detail-title').textContent = customer.CustomerName;
+        document.getElementById('detail-phone').value = customer.PhoneNumber || '';
+        document.getElementById('detail-memo').value = customer.Memo || '';
+        document.getElementById('detail-error').textContent = '';
+        document.getElementById('detail-modal').dataset.customerId = customerId;
+        document.getElementById('detail-modal').style.display = '';
+      }
+
+      document.getElementById('detail-close').addEventListener('click', function () {
+        document.getElementById('detail-modal').style.display = 'none';
+      });
+
+      document.getElementById('detail-save').addEventListener('click', function () {
+        document.getElementById('detail-error').textContent = '';
+
+        var detailInput = {
+          CustomerId: document.getElementById('detail-modal').dataset.customerId,
+          PhoneNumber: document.getElementById('detail-phone').value,
+          Memo: document.getElementById('detail-memo').value
+        };
+
+        google.script.run
+          .withSuccessHandler(function () {
+            document.getElementById('detail-modal').style.display = 'none';
+            loadCustomerList();
+          })
+          .withFailureHandler(function (error) {
+            document.getElementById('detail-error').textContent = error.message;
+          })
+          .saveCustomerDetail(detailInput);
+      });
+
+      document.getElementById('register-form').addEventListener('submit', function (event) {
+        event.preventDefault();
+        document.getElementById('form-error').textContent = '';
+
+        var customerName = document.getElementById('CustomerName').value;
+
+        google.script.run
+          .withSuccessHandler(function () {
+            document.getElementById('register-form').reset();
+            loadCustomerList();
+          })
+          .withFailureHandler(function (error) {
+            document.getElementById('form-error').textContent = error.message;
+          })
+          .registerCustomer(customerName);
+      });
+
+      loadCustomerList();
+    </script>
   </body>
 </html>

@@ -2,7 +2,8 @@
 var PAGE_FILES = {
   home: 'client/home',
   menu: 'client/menu',
-  seat: 'client/seat'
+  seat: 'client/seat',
+  customer: 'client/customer'
 };
 
 function doGet(e) {

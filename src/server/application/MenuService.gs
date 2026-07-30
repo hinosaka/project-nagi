@@ -26,7 +26,7 @@ function saveMenu(menuInput) {
     menu.IsActive = existing.IsActive;
   } else {
     var existingIds = MenuRepository.findAll().map(function (m) { return m.MenuId; });
-    menu.MenuId = MenuIdRule.generateNext(existingIds);
+    menu.MenuId = SequentialIdRule.generateNext('M', existingIds);
     menu.IsActive = true;
   }
 

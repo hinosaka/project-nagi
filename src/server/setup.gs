@@ -5,6 +5,7 @@ function setupDatabase() {
   var spreadsheet = getOrCreateSpreadsheet_();
   ensureMenuSheet_(spreadsheet);
   ensureSeatSheet_(spreadsheet);
+  ensureCustomerSheet_(spreadsheet);
   removeUnusedDefaultSheet_(spreadsheet);
   Logger.log('セットアップ完了。URL=' + spreadsheet.getUrl());
 }
@@ -38,6 +39,14 @@ function ensureSeatSheet_(spreadsheet) {
   }
   sheet.appendRow(['TA', 'テーブル', 4, true]);
   sheet.appendRow(['TB', 'テーブル', 4, true]);
+}
+
+function ensureCustomerSheet_(spreadsheet) {
+  if (spreadsheet.getSheetByName('Customer')) {
+    return;
+  }
+  var sheet = spreadsheet.insertSheet('Customer');
+  sheet.appendRow(['CustomerId', 'CustomerName', 'PhoneNumber', 'FirstVisitDate', 'LastVisitDate', 'VisitCount', 'IsActive', 'Memo']);
 }
 
 function removeUnusedDefaultSheet_(spreadsheet) {
