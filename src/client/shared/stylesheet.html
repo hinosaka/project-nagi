@@ -371,6 +371,26 @@
     color: var(--ai);
   }
 
+  .kpi-tile.tile-food {
+    background: var(--warn-soft);
+    border-color: var(--warn-soft);
+  }
+
+  .kpi-tile.tile-food .kpi-label,
+  .kpi-tile.tile-food .kpi-value {
+    color: var(--warn);
+  }
+
+  .kpi-tile.tile-drink {
+    background: var(--ai-soft);
+    border-color: var(--ai-soft);
+  }
+
+  .kpi-tile.tile-drink .kpi-label,
+  .kpi-tile.tile-drink .kpi-value {
+    color: var(--ai);
+  }
+
   .kpi-label {
     font-size: 0.78em;
     color: var(--ink-muted);
@@ -391,6 +411,48 @@
 
   .kpi-delta.up { color: var(--good); }
   .kpi-delta.down { color: var(--bad); }
+
+  /* ===== 構成比バー（フード/ドリンク比率など） ===== */
+  .split-bar {
+    display: flex;
+    height: 14px;
+    border-radius: 999px;
+    overflow: hidden;
+    background: var(--surface-2);
+    margin: var(--space-sm) 0;
+  }
+
+  .split-bar .segment-drink {
+    background: var(--ai);
+  }
+
+  .split-bar .segment-food {
+    background: var(--warn);
+  }
+
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-md);
+    font-size: 0.85em;
+    color: var(--ink-muted);
+  }
+
+  .legend .dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-right: 4px;
+  }
+
+  .legend .dot-drink {
+    background: var(--ai);
+  }
+
+  .legend .dot-food {
+    background: var(--warn);
+  }
 
   /* ===== 状態表示 ===== */
   .badge {

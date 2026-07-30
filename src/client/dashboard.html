@@ -1,9 +1,198 @@
-<!-- SCR-006 ダッシュボード（未実装） -->
+<!-- SCR-006 ダッシュボード -->
 <!DOCTYPE html>
 <html>
   <head>
     <base target="_top">
+    <?!= include('client/shared/stylesheet') ?>
+    <style>
+      .period-row {
+        display: flex;
+        align-items: center;
+        gap: var(--space-sm);
+        margin-bottom: var(--space-md);
+        flex-wrap: wrap;
+      }
+      #reference-date {
+        width: 32px;
+        height: 32px;
+        color: transparent;
+        background: var(--ai-soft);
+        border: 1px solid var(--ai-soft);
+        border-radius: var(--radius-sm);
+        padding: 4px;
+        cursor: pointer;
+      }
+      #reference-date::-webkit-calendar-picker-indicator {
+        opacity: 1;
+        cursor: pointer;
+      }
+      .period-nav {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+      }
+      #period-label {
+        color: var(--ink-muted);
+        font-weight: bold;
+      }
+      .ranking-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: var(--space-md);
+      }
+      .ranking-list {
+        margin: var(--space-xs) 0 0;
+        padding-left: 1.4em;
+      }
+      .ranking-list li {
+        padding: 3px 0;
+        display: flex;
+        justify-content: space-between;
+      }
+      .ranking-list .rank-amount {
+        font-variant-numeric: tabular-nums;
+        color: var(--ink-muted);
+      }
+    </style>
   </head>
-  <body>
+  <body data-page="<?= currentPage ?>">
+    <?!= include('client/shared/icons') ?>
+    <div class="app-shell">
+      <?!= include('client/shared/sidebar', {baseUrl: baseUrl}) ?>
+      <main class="main-content">
+        <h1>ダッシュボード</h1>
+
+        <div class="period-row">
+          <div class="tabs" id="period-tabs"></div>
+          <input type="date" id="reference-date" title="基準日を選択">
+          <span class="period-nav">
+            <button type="button" class="icon-btn" id="period-prev" title="前へ"><svg class="icon"><use href="#icon-chevron-left"></use></svg></button>
+            <span>期間：<span id="period-label"></span></span>
+            <button type="button" class="icon-btn" id="period-next" title="次へ"><svg class="icon"><use href="#icon-chevron-right"></use></svg></button>
+          </span>
+        </div>
+
+        <p id="load-error" class="error"></p>
+
+        <div class="kpi-row">
+          <div class="kpi-tile primary">
+            <div class="kpi-label">売上高</div>
+            <div class="kpi-value">¥<span id="kpi-total">0</span></div>
+          </div>
+          <div class="kpi-tile">
+            <div class="kpi-label">客単価</div>
+            <div class="kpi-value">¥<span id="kpi-per-person">0</span></div>
+          </div>
+          <div class="kpi-tile">
+            <div class="kpi-label">来店組数</div>
+            <div class="kpi-value"><span id="kpi-visit-count">0</span>組</div>
+          </div>
+          <div class="kpi-tile">
+            <div class="kpi-label">来店人数</div>
+            <div class="kpi-value"><span id="kpi-party-size">0</span>人</div>
+          </div>
+          <div class="kpi-tile tile-food">
+            <div class="kpi-label">フード売上</div>
+            <div class="kpi-value">¥<span id="kpi-food-amount">0</span></div>
+          </div>
+          <div class="kpi-tile tile-drink">
+            <div class="kpi-label">ドリンク売上</div>
+            <div class="kpi-value">¥<span id="kpi-drink-amount">0</span></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>フード / ドリンク構成比</h2>
+          <div class="split-bar">
+            <div class="segment-drink" id="split-drink"></div>
+            <div class="segment-food" id="split-food"></div>
+          </div>
+          <div class="legend">
+            <span><span class="dot dot-drink"></span>ドリンク　<span id="drink-ratio">0</span>%</span>
+            <span><span class="dot dot-food"></span>フード　<span id="food-ratio">0</span>%</span>
+          </div>
+        </div>
+
+        <div class="ranking-grid">
+          <div class="card">
+            <h2>フードランキング TOP5</h2>
+            <ol id="food-ranking-list" class="ranking-list"></ol>
+          </div>
+          <div class="card">
+            <h2>ドリンクランキング TOP5</h2>
+            <ol id="drink-ranking-list" class="ranking-list"></ol>
+          </div>
+        </div>
+      </main>
+    </div>
+
+    <?!= include('client/shared/javascript') ?>
+    <script>
+      var periodController = createPeriodController({
+        tabsEl: document.getElementById('period-tabs'),
+        dateEl: document.getElementById('reference-date'),
+        prevBtn: document.getElementById('period-prev'),
+        nextBtn: document.getElementById('period-next'),
+        periodLabels: { day: '日次', week: '週次', month: '月次' },
+        initialPeriod: 'day',
+        onChange: loadDashboard
+      });
+
+      function loadDashboard() {
+        document.getElementById('load-error').textContent = '';
+        google.script.run
+          .withSuccessHandler(renderDashboard)
+          .withFailureHandler(function (error) {
+            document.getElementById('load-error').textContent = 'データの取得に失敗しました：' + error.message;
+          })
+          .getDashboardData(periodController.getPeriod(), periodController.getDate());
+      }
+
+      function renderDashboard(data) {
+        document.getElementById('period-label').textContent = data.periodLabel;
+        document.getElementById('kpi-total').textContent = data.totalAmount;
+        document.getElementById('kpi-per-person').textContent = data.perPersonAmount;
+        document.getElementById('kpi-visit-count').textContent = data.visitCount;
+        document.getElementById('kpi-party-size').textContent = data.partySize;
+        document.getElementById('kpi-food-amount').textContent = data.foodAmount;
+        document.getElementById('kpi-drink-amount').textContent = data.drinkAmount;
+
+        var beverageTotal = data.drinkAmount + data.foodAmount;
+        var drinkRatio = beverageTotal > 0 ? Math.round((data.drinkAmount / beverageTotal) * 100) : 0;
+        var foodRatio = beverageTotal > 0 ? 100 - drinkRatio : 0;
+        document.getElementById('drink-ratio').textContent = drinkRatio;
+        document.getElementById('food-ratio').textContent = foodRatio;
+        document.getElementById('split-drink').style.width = drinkRatio + '%';
+        document.getElementById('split-food').style.width = foodRatio + '%';
+
+        renderRankingList('food-ranking-list', data.foodRanking);
+        renderRankingList('drink-ranking-list', data.drinkRanking);
+      }
+
+      function renderRankingList(listId, items) {
+        var list = document.getElementById(listId);
+        list.innerHTML = '';
+        if (items.length === 0) {
+          var empty = document.createElement('li');
+          empty.className = 'ranking-empty';
+          empty.textContent = 'この期間の会計データがまだありません。';
+          list.appendChild(empty);
+          return;
+        }
+        items.forEach(function (item) {
+          var li = document.createElement('li');
+          var nameSpan = document.createElement('span');
+          nameSpan.textContent = item.MenuName + '（' + item.Quantity + '点）';
+          var amountSpan = document.createElement('span');
+          amountSpan.className = 'rank-amount';
+          amountSpan.textContent = '¥' + item.Amount;
+          li.appendChild(nameSpan);
+          li.appendChild(amountSpan);
+          list.appendChild(li);
+        });
+      }
+
+      loadDashboard();
+    </script>
   </body>
 </html>
