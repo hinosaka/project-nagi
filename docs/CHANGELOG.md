@@ -61,6 +61,8 @@
 
 ### Changed
 
+- 座席管理（SCR-005）の無効な座席から取り消し線を削除（背景色のグレーアウトのみで表現）
+
 ### Fixed
 
 - 顧客管理（SCR-004）で一覧が表示されない不具合を修正：`getCustomerList()`の失敗が画面に表示されず無言で終わっていたためエラー表示を追加。あわせて`FirstVisitDate`/`LastVisitDate`を`Date`型のまま`google.script.run`で返していたのをやめ、サーバー側で文字列（`yyyy/MM/dd`）に整形してから返すよう変更（画面：SCR-004）
