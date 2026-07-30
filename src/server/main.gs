@@ -7,7 +7,8 @@ var PAGE_FILES = {
   sales: 'client/sales-entry',
   dashboard: 'client/dashboard',
   budget: 'client/budget',
-  'analysis-product': 'client/analysis-product'
+  'analysis-product': 'client/analysis-product',
+  'analysis-customer': 'client/analysis-customer'
 };
 
 function doGet(e) {

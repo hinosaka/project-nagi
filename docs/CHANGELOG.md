@@ -33,6 +33,7 @@
 - フード/ドリンク構成比の凡例（`.legend`/`.dot`）を`shared/stylesheet.html`に共通化
 - 予算管理（SCR-007）を実装：対象月選択（月ピッカー＋前月/翌月ボタン）、目標売上・備考の登録編集（フォーム化しEnterキーでも保存可能）、実績売上の自動集計、達成率（達成/未達で色分け）を表示。`BudgetService.gs`（`getBudgetData()`/`saveBudgetTarget()`）、`SalesTargetRepository.gs`を追加し、`setupDatabase()`にSalesTargetシートの作成を追加（画面：SCR-007、要件：REQ-027, REQ-028、シート：SalesTarget, Sales）
 - 商品分析（SCR-008）を実装：期間切り替え、売上高・販売点数・平均注文点数、フード/ドリンク構成比（売上・点数）、商品別ランキング（売上・構成比・数量・粗利益・原価率・ABC分析、並び替え対応）を表示。`ProductAnalysisService.gs`（`getProductAnalysisData()`）を追加（画面：SCR-008、要件：REQ-018, REQ-029, REQ-030, REQ-031, REQ-034、シート：SalesDetail, Menu）
+- 顧客分析（SCR-009）を実装：期間切り替え、常連率・新規来店・リピート来店、新規/リピート内訳（構成比バー）を表示。新規/リピート判定はCustomer.VisitCountを使わずSales.CustomerId×Sales.SalesDateから来店順を都度算出する方式とした（DATABASE.md 5章準拠）。`CustomerAnalysisService.gs`（`getCustomerAnalysisData()`）を追加（画面：SCR-009、要件：REQ-020, REQ-032、シート：Sales, Customer）
 
 - 座席管理（SCR-005）を実装：店内レイアウト（テーブルTB/TA・カウンターC1〜C8）に基づく配置図での一覧と、切替メニュー内の「無効にする」「有効にする」ボタンによる使用可否切替（誤操作防止のため座席クリックでは切り替わらない）。座席番号・種別・定員は固定のため編集・新規追加は対象外（画面：SCR-005、シート：Seat）
 - `setupDatabase()`を拡張し、Seatシートの作成と初期データ（C1〜C8、TA、TB）の投入に対応。未作成のシートだけを追加する形にリファクタリングし、再実行可能にした（シート：Seat）
