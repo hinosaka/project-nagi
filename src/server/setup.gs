@@ -7,7 +7,7 @@ function setupDatabase() {
     return;
   }
 
-  var spreadsheet = SpreadsheetApp.create('pos-app DB');
+  var spreadsheet = SpreadsheetApp.create('店長のノート DB');
 
   var menuSheet = spreadsheet.getSheets()[0];
   menuSheet.setName('Menu');

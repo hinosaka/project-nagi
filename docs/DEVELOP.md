@@ -26,7 +26,7 @@
 1. `npm install` — `clasp`等の依存関係をインストール
 2. `npx clasp login` — Googleアカウントでログイン（ブラウザでOAuth認証。表示される権限は「すべて選択」でよい）
 3. 初回のみ：https://script.google.com/home/usersettings で「Apps Script API」を有効化（反映まで数分かかる場合がある）
-4. `npx clasp create --type standalone --title "pos-app" --rootDir ./src` — GASプロジェクトを新規作成（`.clasp.json`が生成される）
+4. `npx clasp create --type standalone --title "店長のノート" --rootDir ./src` — GASプロジェクトを新規作成（`.clasp.json`が生成される）
 5. `npx clasp push` の後、`npx clasp open`でApps Scriptエディタを開き、関数選択で`setupDatabase`を選んで実行する — データベース（スプレッドシート）を新規作成し、`SPREADSHEET_ID`をScript Propertiesに保存する（このプロジェクト全体で一度だけでよく、開発者ごとに実行する必要はない）
 
 ### 2台目以降の開発環境（`.clasp.json`が既にリポジトリにある場合）

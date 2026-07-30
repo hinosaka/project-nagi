@@ -10,7 +10,7 @@ function doGet(e) {
 
   return HtmlService.createTemplateFromFile(file)
     .evaluate()
-    .setTitle('pos-app')
+    .setTitle('店長のノート')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1');
 }
 
