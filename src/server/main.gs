@@ -9,7 +9,8 @@ var PAGE_FILES = {
   budget: 'client/budget',
   'analysis-product': 'client/analysis-product',
   'analysis-customer': 'client/analysis-customer',
-  'analysis-day-weather-seat': 'client/analysis-day-weather-seat'
+  'analysis-day-weather-seat': 'client/analysis-day-weather-seat',
+  'analysis-monthly': 'client/analysis-monthly'
 };
 
 function doGet(e) {

@@ -1,9 +1,197 @@
-<!-- SCR-011 月次推移・比較（未実装） -->
+<!-- SCR-011 月次推移・比較 -->
 <!DOCTYPE html>
 <html>
   <head>
     <base target="_top">
+    <?!= include('client/shared/stylesheet') ?>
+    <style>
+      .month-row {
+        display: flex;
+        align-items: center;
+        gap: var(--space-sm);
+        margin-bottom: var(--space-md);
+      }
+      #target-month {
+        border: none;
+        background: transparent;
+        font-weight: bold;
+        font-size: 1.05em;
+        width: 140px;
+        padding: 4px 0;
+      }
+      .kpi-delta {
+        font-size: 0.85em;
+        font-variant-numeric: tabular-nums;
+      }
+      .rate-value.up { color: var(--good); }
+      .rate-value.down { color: var(--bad); }
+      .bar-chart {
+        display: flex;
+        align-items: flex-end;
+        gap: 6px;
+        height: 160px;
+        padding-top: var(--space-md);
+        overflow-x: auto;
+      }
+      .bar-col {
+        flex: 1;
+        min-width: 32px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: flex-end;
+        height: 100%;
+        gap: 4px;
+      }
+      .bar-col.current .bar {
+        background: var(--ai);
+      }
+      .bar-col:not(.current) .bar {
+        background: var(--surface-2);
+      }
+      .bar-amount {
+        font-size: 0.7em;
+        color: var(--ink-muted);
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
+      }
+      .bar {
+        width: 70%;
+        min-height: 2px;
+        border-radius: 4px 4px 0 0;
+      }
+      .bar-label {
+        font-size: 0.75em;
+        color: var(--ink-muted);
+        white-space: nowrap;
+      }
+      .back-link {
+        display: inline-block;
+        margin-top: var(--space-md);
+      }
+    </style>
   </head>
-  <body>
+  <body data-page="<?= currentPage ?>">
+    <?!= include('client/shared/icons') ?>
+    <div class="app-shell">
+      <?!= include('client/shared/sidebar', {baseUrl: baseUrl}) ?>
+      <main class="main-content">
+        <h1>月次推移・比較</h1>
+
+        <div class="month-row">
+          <button type="button" class="icon-btn" id="month-prev" title="前月"><svg class="icon"><use href="#icon-chevron-left"></use></svg></button>
+          <input type="month" id="target-month">
+          <button type="button" class="icon-btn" id="month-next" title="翌月"><svg class="icon"><use href="#icon-chevron-right"></use></svg></button>
+        </div>
+
+        <p id="load-error" class="error"></p>
+
+        <div class="kpi-row">
+          <div class="kpi-tile primary">
+            <div class="kpi-label">当月実績</div>
+            <div class="kpi-value">¥<span id="kpi-current">0</span></div>
+          </div>
+          <div class="kpi-tile">
+            <div class="kpi-label">前月比</div>
+            <div class="kpi-value"><span id="kpi-mom" class="rate-value">-</span></div>
+            <div class="kpi-delta" id="kpi-mom-detail"></div>
+          </div>
+          <div class="kpi-tile">
+            <div class="kpi-label">前年同月比</div>
+            <div class="kpi-value"><span id="kpi-yoy" class="rate-value">-</span></div>
+            <div class="kpi-delta" id="kpi-yoy-detail"></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>直近12ヶ月の推移</h2>
+          <div class="bar-chart" id="trend-chart"></div>
+        </div>
+
+        <a class="back-link" href="<?= baseUrl ?>?page=dashboard">← ダッシュボードに戻る</a>
+      </main>
+    </div>
+
+    <?!= include('client/shared/javascript') ?>
+    <script>
+      function currentYearMonth() {
+        var d = new Date();
+        var mm = ('0' + (d.getMonth() + 1)).slice(-2);
+        return d.getFullYear() + '-' + mm;
+      }
+
+      function shiftMonth(value, direction) {
+        var parts = value.split('-');
+        var d = new Date(Number(parts[0]), Number(parts[1]) - 1 + direction, 1);
+        var mm = ('0' + (d.getMonth() + 1)).slice(-2);
+        return d.getFullYear() + '-' + mm;
+      }
+
+      var monthInput = document.getElementById('target-month');
+      monthInput.value = currentYearMonth();
+
+      document.getElementById('month-prev').addEventListener('click', function () {
+        monthInput.value = shiftMonth(monthInput.value, -1);
+        loadTrend();
+      });
+      document.getElementById('month-next').addEventListener('click', function () {
+        monthInput.value = shiftMonth(monthInput.value, 1);
+        loadTrend();
+      });
+      monthInput.addEventListener('change', loadTrend);
+
+      function loadTrend() {
+        document.getElementById('load-error').textContent = '';
+        google.script.run
+          .withSuccessHandler(renderTrend)
+          .withFailureHandler(function (error) {
+            document.getElementById('load-error').textContent = 'データの取得に失敗しました：' + error.message;
+          })
+          .getMonthlyTrendData(monthInput.value);
+      }
+
+      function renderRateTile(valueId, detailId, rate, compareAmount, compareLabel) {
+        var valueEl = document.getElementById(valueId);
+        var detailEl = document.getElementById(detailId);
+        valueEl.classList.remove('up', 'down');
+        if (rate === null) {
+          valueEl.textContent = '比較対象なし';
+          detailEl.textContent = '';
+          return;
+        }
+        valueEl.textContent = (rate > 0 ? '+' : '') + rate + '%';
+        valueEl.classList.add(rate >= 0 ? 'up' : 'down');
+        detailEl.textContent = compareLabel + '：¥' + compareAmount;
+      }
+
+      function renderTrend(data) {
+        document.getElementById('kpi-current').textContent = data.targetAmount;
+        renderRateTile('kpi-mom', 'kpi-mom-detail', data.momRate, data.prevAmount, data.prevMonth);
+        renderRateTile('kpi-yoy', 'kpi-yoy-detail', data.yoyRate, data.lastYearAmount, data.lastYearMonth);
+
+        var maxAmount = data.trend.reduce(function (max, t) { return Math.max(max, t.amount); }, 0);
+        var chart = document.getElementById('trend-chart');
+        chart.innerHTML = '';
+        data.trend.forEach(function (t) {
+          var col = document.createElement('div');
+          col.className = 'bar-col' + (t.month === data.targetMonth ? ' current' : '');
+          var amountLabel = document.createElement('div');
+          amountLabel.className = 'bar-amount';
+          amountLabel.textContent = t.amount > 0 ? '¥' + t.amount : '';
+          var bar = document.createElement('div');
+          bar.className = 'bar';
+          bar.style.height = (maxAmount > 0 ? Math.max((t.amount / maxAmount) * 100, t.amount > 0 ? 4 : 0) : 0) + '%';
+          var label = document.createElement('div');
+          label.className = 'bar-label';
+          label.textContent = Number(t.month.split('-')[1]) + '月';
+          col.appendChild(amountLabel);
+          col.appendChild(bar);
+          col.appendChild(label);
+          chart.appendChild(col);
+        });
+      }
+
+      loadTrend();
+    </script>
   </body>
 </html>
