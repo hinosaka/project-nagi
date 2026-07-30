@@ -6,6 +6,9 @@ function setupDatabase() {
   ensureMenuSheet_(spreadsheet);
   ensureSeatSheet_(spreadsheet);
   ensureCustomerSheet_(spreadsheet);
+  ensureSalesSheet_(spreadsheet);
+  ensureSalesDetailSheet_(spreadsheet);
+  ensureBusinessDaySheet_(spreadsheet);
   removeUnusedDefaultSheet_(spreadsheet);
   Logger.log('セットアップ完了。URL=' + spreadsheet.getUrl());
 }
@@ -47,6 +50,30 @@ function ensureCustomerSheet_(spreadsheet) {
   }
   var sheet = spreadsheet.insertSheet('Customer');
   sheet.appendRow(['CustomerId', 'CustomerName', 'PhoneNumber', 'FirstVisitDate', 'LastVisitDate', 'VisitCount', 'IsActive', 'Memo']);
+}
+
+function ensureSalesSheet_(spreadsheet) {
+  if (spreadsheet.getSheetByName('Sales')) {
+    return;
+  }
+  var sheet = spreadsheet.insertSheet('Sales');
+  sheet.appendRow(['SalesId', 'SalesDate', 'CustomerId', 'SeatId', 'PartySize', 'TotalAmount', 'Note', 'RegisteredAt']);
+}
+
+function ensureSalesDetailSheet_(spreadsheet) {
+  if (spreadsheet.getSheetByName('SalesDetail')) {
+    return;
+  }
+  var sheet = spreadsheet.insertSheet('SalesDetail');
+  sheet.appendRow(['SalesDetailId', 'SalesId', 'MenuId', 'MenuName', 'UnitPrice', 'UnitCost', 'Quantity', 'Subtotal', 'CustomerId', 'CategoryLarge']);
+}
+
+function ensureBusinessDaySheet_(spreadsheet) {
+  if (spreadsheet.getSheetByName('BusinessDay')) {
+    return;
+  }
+  var sheet = spreadsheet.insertSheet('BusinessDay');
+  sheet.appendRow(['BusinessDayId', 'SalesDate', 'DayOfWeek', 'Weather']);
 }
 
 function removeUnusedDefaultSheet_(spreadsheet) {

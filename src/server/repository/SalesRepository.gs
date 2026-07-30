@@ -1,0 +1,39 @@
+// データアクセス層：Salesシートの読み書き。会計は登録・修正・削除のたびに実データを直接更新する（論理削除ではない）
+var SalesRepository = {
+  HEADERS: ['SalesId', 'SalesDate', 'CustomerId', 'SeatId', 'PartySize', 'TotalAmount', 'Note', 'RegisteredAt'],
+
+  findAll: function () {
+    var sheet = SpreadsheetConfig.getSheet('Sales');
+    var values = sheet.getDataRange().getValues();
+    return SheetUtil.rowsToObjects(values);
+  },
+
+  findByDate: function (salesDate) {
+    return this.findAll().filter(function (s) {
+      return DateUtil.isSameDate(s.SalesDate, salesDate);
+    });
+  },
+
+  findByCustomerId: function (customerId) {
+    return this.findAll().filter(function (s) {
+      return s.CustomerId === customerId;
+    });
+  },
+
+  save: function (sales) {
+    var sheet = SpreadsheetConfig.getSheet('Sales');
+    var row = SheetUtil.objectToRow(this.HEADERS, sales);
+    var rowIndex = SheetUtil.findRowIndexById(sheet, 'SalesId', sales.SalesId);
+
+    if (rowIndex === -1) {
+      sheet.appendRow(row);
+    } else {
+      sheet.getRange(rowIndex, 1, 1, row.length).setValues([row]);
+    }
+  },
+
+  deleteById: function (salesId) {
+    var sheet = SpreadsheetConfig.getSheet('Sales');
+    SheetUtil.deleteRowsByColumnValue(sheet, 'SalesId', salesId);
+  }
+};

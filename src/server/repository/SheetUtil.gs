@@ -28,5 +28,17 @@ var SheetUtil = {
       }
     }
     return -1;
+  },
+
+  // 指定列の値が一致する行を全て物理削除する（Sales/SalesDetailなど実削除を許可するデータ用）
+  deleteRowsByColumnValue: function (sheet, columnName, value) {
+    var values = sheet.getDataRange().getValues();
+    var headers = values[0];
+    var colIndex = headers.indexOf(columnName);
+    for (var i = values.length - 1; i >= 1; i--) {
+      if (values[i][colIndex] === value) {
+        sheet.deleteRow(i + 1);
+      }
+    }
   }
 };

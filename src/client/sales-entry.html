@@ -1,9 +1,749 @@
-<!-- SCR-002 伝票入力（未実装） -->
+<!-- SCR-002 伝票入力 -->
 <!DOCTYPE html>
 <html>
   <head>
     <base target="_top">
+    <?!= include('client/shared/stylesheet') ?>
+    <style>
+      .suggestions {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        border: 1px solid #ccc;
+        max-width: 260px;
+        background: #fff;
+        position: relative;
+        z-index: 10;
+      }
+      .suggestions li {
+        padding: 4px 8px;
+        cursor: pointer;
+      }
+      .suggestions li:hover {
+        background: #eef;
+      }
+      #form-date-label {
+        color: #c60;
+        font-weight: bold;
+      }
+      #weather-section {
+        margin: 8px 0;
+        padding: 8px;
+        background: #f5f5f5;
+      }
+      .weather-btn {
+        font-size: 1.5em;
+        padding: 4px 10px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        background: #fff;
+        cursor: pointer;
+      }
+      .weather-btn.selected {
+        background: #dce8ff;
+        border-color: #06c;
+      }
+      #menu-quick-select h4 {
+        margin: 10px 0 2px;
+      }
+      #menu-quick-select h5 {
+        margin: 4px 0 2px;
+        color: #555;
+        font-weight: normal;
+      }
+      .quick-select-buttons {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin-bottom: 8px;
+      }
+      .quick-select-btn {
+        padding: 10px 14px;
+        font-size: 1em;
+        border: 1px solid #666;
+        border-radius: 4px;
+        background: #fff;
+        cursor: pointer;
+      }
+      .quick-select-btn:active {
+        background: #dde;
+      }
+      #detail-rows input[type="number"] {
+        width: 45px;
+        text-align: center;
+      }
+      #detail-rows input[type="text"] {
+        width: 140px;
+      }
+      .qty-control {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+      }
+      .qty-control button {
+        width: 28px;
+      }
+      #total-amount {
+        font-weight: bold;
+        font-size: 1.3em;
+      }
+      .icon-btn {
+        font-size: 1.1em;
+        border: none;
+        background: none;
+        cursor: pointer;
+      }
+    </style>
   </head>
   <body>
+    <h1>伝票入力</h1>
+    <p><a href="<?= baseUrl ?>?page=home">ホームへ戻る</a></p>
+
+    <div class="form-row">
+      <label for="sales-date">会計日</label>
+      <input type="date" id="sales-date">
+    </div>
+
+    <div id="weather-section">
+      <span id="weather-display"></span>
+      <span id="weather-buttons">
+        <button type="button" class="weather-btn" data-weather="晴れ" title="晴れ">☀️</button>
+        <button type="button" class="weather-btn" data-weather="曇り" title="曇り">☁️</button>
+        <button type="button" class="weather-btn" data-weather="雨" title="雨">☔</button>
+        <button type="button" class="weather-btn" data-weather="雪" title="雪">❄️</button>
+      </span>
+    </div>
+
+    <h2>この日の会計一覧</h2>
+    <p id="list-error" class="error"></p>
+    <table id="sales-table">
+      <thead>
+        <tr>
+          <th>人数</th>
+          <th>座席</th>
+          <th>顧客</th>
+          <th>合計金額</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+
+    <h2 id="form-title">新規登録</h2>
+    <p id="form-date-label"></p>
+    <form id="sales-form">
+      <input type="hidden" id="sales-id">
+
+      <div class="form-row">
+        <label for="party-size">人数</label>
+        <input type="number" id="party-size" min="1" required>
+      </div>
+
+      <div class="form-row">
+        <label for="seat-select">座席（任意）</label>
+        <select id="seat-select"></select>
+      </div>
+
+      <div class="form-row">
+        <label for="customer-input">顧客（任意）</label>
+        <input type="text" id="customer-input" autocomplete="off" placeholder="ニックネームを入力">
+        <input type="hidden" id="customer-id">
+        <ul id="customer-suggestions" class="suggestions" style="display:none;"></ul>
+        <p>候補にない名前のまま保存すると、その名前で新規顧客登録されます。</p>
+      </div>
+
+      <p>
+        合計金額：<span id="total-amount">0</span>円
+        客単価：<span id="per-person-amount">-</span>円
+        フード：<span id="food-amount">0</span>円
+        ドリンク：<span id="drink-amount">0</span>円
+      </p>
+
+      <h3>明細</h3>
+      <div id="menu-quick-select"></div>
+
+      <table id="detail-rows">
+        <thead>
+          <tr>
+            <th>商品</th>
+            <th>商品名</th>
+            <th>単価</th>
+            <th>数量</th>
+            <th>小計</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+      <button type="button" id="add-detail-row" title="明細行を追加（登録外）">＋</button>
+
+      <div class="form-row">
+        <label for="note">備考（任意）</label>
+        <input type="text" id="note">
+      </div>
+
+      <div class="form-row">
+        <button type="submit">保存</button>
+        <button type="button" id="cancel-edit" style="display:none;">キャンセル</button>
+      </div>
+      <p id="form-error" class="error"></p>
+    </form>
+
+    <?!= include('client/shared/javascript') ?>
+    <script>
+      var masterData = { menuList: [], seatList: [], customerList: [] };
+      var formDirty = false;
+      var formSalesDate = '';
+
+      function currentSalesDate() {
+        return document.getElementById('sales-date').value;
+      }
+
+      function updateFormDateLabel() {
+        var label = document.getElementById('form-date-label');
+        label.textContent = formSalesDate && formSalesDate !== currentSalesDate()
+          ? '対象日：' + formSalesDate + '（現在表示中の日付とは異なります）'
+          : '';
+      }
+
+      function todayStr() {
+        var d = new Date();
+        var mm = ('0' + (d.getMonth() + 1)).slice(-2);
+        var dd = ('0' + d.getDate()).slice(-2);
+        return d.getFullYear() + '-' + mm + '-' + dd;
+      }
+
+      function cell(value) {
+        var td = document.createElement('td');
+        td.textContent = value;
+        return td;
+      }
+
+      function loadDayData(preserveForm) {
+        document.getElementById('list-error').textContent = '';
+        google.script.run
+          .withSuccessHandler(function (data) {
+            masterData = data;
+            renderSeatOptions();
+            renderMenuQuickSelect();
+            renderWeather(data.businessDay);
+            renderSalesList(data.salesList);
+            if (!preserveForm) {
+              resetSalesForm();
+            }
+          })
+          .withFailureHandler(function (error) {
+            document.getElementById('list-error').textContent = 'データの取得に失敗しました：' + error.message;
+          })
+          .getSalesEntryData(currentSalesDate());
+      }
+
+      function renderSeatOptions() {
+        var select = document.getElementById('seat-select');
+        var previousValue = select.value;
+        select.innerHTML = '';
+        var noneOption = document.createElement('option');
+        noneOption.value = '';
+        noneOption.textContent = '座席なし';
+        select.appendChild(noneOption);
+        masterData.seatList.forEach(function (seat) {
+          var option = document.createElement('option');
+          option.value = seat.SeatId;
+          option.textContent = seat.SeatId;
+          select.appendChild(option);
+        });
+        if (previousValue) {
+          select.value = previousValue;
+        }
+      }
+
+      // 大分類（ドリンク優先→フード→その他）ごとに中分類でグルーピングしたツリーを作る。
+      // 明細行の「その他◯◯（直接入力）」選択肢の生成にも使う
+      function buildCategoryTree() {
+        var large = {};
+        var largeOrder = [];
+        masterData.menuList.forEach(function (menu) {
+          var l = menu.CategoryLarge || 'その他';
+          var m = menu.CategoryMedium || 'その他';
+          if (!large[l]) {
+            large[l] = { mediumOrder: [], items: {} };
+            largeOrder.push(l);
+          }
+          if (!large[l].items[m]) {
+            large[l].items[m] = [];
+            large[l].mediumOrder.push(m);
+          }
+          large[l].items[m].push(menu);
+        });
+
+        var priorityOrder = ['ドリンク', 'フード'];
+        var categories = priorityOrder.filter(function (c) { return large[c]; })
+          .concat(largeOrder.filter(function (c) { return priorityOrder.indexOf(c) === -1; }));
+
+        return { large: large, categories: categories };
+      }
+
+      function renderMenuQuickSelect() {
+        var container = document.getElementById('menu-quick-select');
+        container.innerHTML = '';
+
+        var tree = buildCategoryTree();
+        tree.categories.forEach(function (cat) {
+          var heading = document.createElement('h4');
+          heading.textContent = cat;
+          container.appendChild(heading);
+
+          tree.large[cat].mediumOrder.forEach(function (medium) {
+            var subHeading = document.createElement('h5');
+            subHeading.textContent = medium;
+            container.appendChild(subHeading);
+
+            var buttonWrap = document.createElement('div');
+            buttonWrap.className = 'quick-select-buttons';
+            tree.large[cat].items[medium].forEach(function (menu) {
+              var btn = document.createElement('button');
+              btn.type = 'button';
+              btn.className = 'quick-select-btn';
+              btn.textContent = menu.MenuName;
+              btn.addEventListener('click', function () {
+                addOrIncrementDetail(menu);
+              });
+              buttonWrap.appendChild(btn);
+            });
+            container.appendChild(buttonWrap);
+          });
+        });
+      }
+
+      function addOrIncrementDetail(menu) {
+        formDirty = true;
+        var rows = document.querySelectorAll('#detail-rows tbody tr');
+        for (var i = 0; i < rows.length; i++) {
+          if (rows[i].querySelector('.detail-menu').value === menu.MenuId) {
+            var qtyInput = rows[i].querySelector('.detail-qty');
+            qtyInput.value = Number(qtyInput.value) + 1;
+            rows[i]._recalcSubtotal();
+            return;
+          }
+        }
+        createDetailRow({
+          MenuId: menu.MenuId,
+          MenuName: menu.MenuName,
+          UnitPrice: menu.Price,
+          UnitCost: menu.Cost,
+          Quantity: 1,
+          CategoryLarge: menu.CategoryLarge
+        });
+      }
+
+      function renderWeather(businessDay) {
+        var display = document.getElementById('weather-display');
+        var buttons = document.querySelectorAll('.weather-btn');
+        if (businessDay) {
+          display.textContent = businessDay.DayOfWeek + '曜日';
+        } else {
+          display.textContent = 'この日の天候はまだ入力されていません。';
+        }
+        buttons.forEach(function (btn) {
+          btn.classList.toggle('selected', !!businessDay && btn.dataset.weather === businessDay.Weather);
+        });
+      }
+
+      document.querySelectorAll('.weather-btn').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          google.script.run
+            .withSuccessHandler(renderWeather)
+            .withFailureHandler(function (error) {
+              alert(error.message);
+            })
+            .saveBusinessDayWeatherAndGetData(currentSalesDate(), btn.dataset.weather);
+        });
+      });
+
+      function renderSalesList(salesList) {
+        var tbody = document.querySelector('#sales-table tbody');
+        tbody.innerHTML = '';
+        salesList.forEach(function (sales) {
+          var tr = document.createElement('tr');
+          tr.appendChild(cell(sales.PartySize));
+          tr.appendChild(cell(sales.SeatId || '-'));
+          tr.appendChild(cell(sales.CustomerName || '-'));
+          tr.appendChild(cell('¥' + sales.TotalAmount));
+
+          var actionTd = document.createElement('td');
+          var editButton = document.createElement('button');
+          editButton.type = 'button';
+          editButton.className = 'icon-btn';
+          editButton.title = '編集';
+          editButton.textContent = '✏️';
+          editButton.addEventListener('click', function () {
+            startEditSales(sales);
+          });
+          var deleteButton = document.createElement('button');
+          deleteButton.type = 'button';
+          deleteButton.className = 'icon-btn';
+          deleteButton.title = '削除';
+          deleteButton.textContent = '🗑️';
+          deleteButton.addEventListener('click', function () {
+            if (confirm('この会計を削除しますか？')) {
+              google.script.run
+                .withSuccessHandler(loadDayData)
+                .withFailureHandler(function (error) {
+                  alert(error.message);
+                })
+                .deleteSalesEntry(sales.SalesId);
+            }
+          });
+          actionTd.appendChild(editButton);
+          actionTd.appendChild(deleteButton);
+          tr.appendChild(actionTd);
+
+          tbody.appendChild(tr);
+        });
+      }
+
+      function createDetailRow(prefill) {
+        var tr = document.createElement('tr');
+
+        var menuSelect = document.createElement('select');
+        menuSelect.className = 'detail-menu';
+
+        var tree = buildCategoryTree();
+        tree.categories.forEach(function (cat) {
+          var otherOption = document.createElement('option');
+          otherOption.value = '__other__' + cat;
+          otherOption.textContent = 'その他' + cat + '（直接入力）';
+          otherOption.dataset.isOther = 'true';
+          otherOption.dataset.category = cat;
+          menuSelect.appendChild(otherOption);
+        });
+        var fallbackOption = document.createElement('option');
+        fallbackOption.value = '__other__';
+        fallbackOption.textContent = 'その他（直接入力）';
+        fallbackOption.dataset.isOther = 'true';
+        fallbackOption.dataset.category = '';
+        menuSelect.appendChild(fallbackOption);
+
+        masterData.menuList.forEach(function (menu) {
+          var option = document.createElement('option');
+          option.value = menu.MenuId;
+          option.textContent = menu.MenuName;
+          option.dataset.name = menu.MenuName;
+          option.dataset.price = menu.Price;
+          option.dataset.cost = menu.Cost;
+          option.dataset.category = menu.CategoryLarge || '';
+          menuSelect.appendChild(option);
+        });
+
+        var nameInput = document.createElement('input');
+        nameInput.type = 'text';
+        nameInput.className = 'detail-name';
+        nameInput.placeholder = '商品名';
+
+        var priceInput = document.createElement('input');
+        priceInput.type = 'number';
+        priceInput.className = 'detail-price';
+        priceInput.min = '0';
+
+        var costHidden = document.createElement('input');
+        costHidden.type = 'hidden';
+        costHidden.className = 'detail-cost';
+
+        var categoryHidden = document.createElement('input');
+        categoryHidden.type = 'hidden';
+        categoryHidden.className = 'detail-category';
+
+        var qtyInput = document.createElement('input');
+        qtyInput.type = 'number';
+        qtyInput.className = 'detail-qty';
+        qtyInput.min = '1';
+        qtyInput.value = '1';
+        qtyInput.readOnly = true;
+
+        var qtyMinus = document.createElement('button');
+        qtyMinus.type = 'button';
+        qtyMinus.textContent = '－';
+        var qtyPlus = document.createElement('button');
+        qtyPlus.type = 'button';
+        qtyPlus.textContent = '＋';
+
+        var subtotalSpan = document.createElement('span');
+        subtotalSpan.className = 'detail-subtotal';
+        subtotalSpan.textContent = '0';
+
+        var removeButton = document.createElement('button');
+        removeButton.type = 'button';
+        removeButton.className = 'icon-btn';
+        removeButton.title = '削除';
+        removeButton.textContent = '🗑️';
+        removeButton.addEventListener('click', function () {
+          formDirty = true;
+          tr.remove();
+          recalcTotal();
+        });
+
+        function recalcRowSubtotal() {
+          var price = Number(priceInput.value) || 0;
+          var qty = Number(qtyInput.value) || 0;
+          subtotalSpan.textContent = price * qty;
+          recalcTotal();
+        }
+        tr._recalcSubtotal = recalcRowSubtotal;
+
+        qtyMinus.addEventListener('click', function () {
+          formDirty = true;
+          qtyInput.value = Math.max(1, Number(qtyInput.value) - 1);
+          recalcRowSubtotal();
+        });
+        qtyPlus.addEventListener('click', function () {
+          formDirty = true;
+          qtyInput.value = Number(qtyInput.value) + 1;
+          recalcRowSubtotal();
+        });
+
+        menuSelect.addEventListener('change', function () {
+          formDirty = true;
+          var wasMenuLinked = nameInput.readOnly;
+          var selected = menuSelect.options[menuSelect.selectedIndex];
+          if (selected.dataset.isOther === 'true') {
+            // 実メニューからの切り替え時のみ商品名・単価をクリアする。
+            // 「その他ドリンク」⇔「その他フード」など、その他同士の切り替えでは手入力済みの内容を残す
+            if (wasMenuLinked) {
+              nameInput.value = '';
+              priceInput.value = '';
+              costHidden.value = '';
+            }
+            categoryHidden.value = selected.dataset.category || '';
+            nameInput.readOnly = false;
+            priceInput.readOnly = false;
+          } else {
+            nameInput.value = selected.dataset.name;
+            priceInput.value = selected.dataset.price;
+            costHidden.value = selected.dataset.cost;
+            categoryHidden.value = selected.dataset.category || '';
+            nameInput.readOnly = true;
+            priceInput.readOnly = true;
+          }
+          recalcRowSubtotal();
+        });
+
+        priceInput.addEventListener('input', function () {
+          formDirty = true;
+          recalcRowSubtotal();
+        });
+        nameInput.addEventListener('input', function () {
+          formDirty = true;
+        });
+
+        var menuTd = document.createElement('td');
+        menuTd.appendChild(menuSelect);
+        var nameTd = document.createElement('td');
+        nameTd.appendChild(nameInput);
+        var priceTd = document.createElement('td');
+        priceTd.appendChild(priceInput);
+        priceTd.appendChild(costHidden);
+        priceTd.appendChild(categoryHidden);
+        var qtyTd = document.createElement('td');
+        var qtyControl = document.createElement('span');
+        qtyControl.className = 'qty-control';
+        qtyControl.appendChild(qtyMinus);
+        qtyControl.appendChild(qtyInput);
+        qtyControl.appendChild(qtyPlus);
+        qtyTd.appendChild(qtyControl);
+        var subtotalTd = document.createElement('td');
+        subtotalTd.appendChild(subtotalSpan);
+        var actionTd = document.createElement('td');
+        actionTd.appendChild(removeButton);
+
+        tr.appendChild(menuTd);
+        tr.appendChild(nameTd);
+        tr.appendChild(priceTd);
+        tr.appendChild(qtyTd);
+        tr.appendChild(subtotalTd);
+        tr.appendChild(actionTd);
+
+        if (prefill) {
+          if (prefill.MenuId) {
+            menuSelect.value = prefill.MenuId;
+            nameInput.readOnly = true;
+            priceInput.readOnly = true;
+          } else {
+            var otherValue = prefill.CategoryLarge ? ('__other__' + prefill.CategoryLarge) : '__other__';
+            var hasOption = Array.prototype.some.call(menuSelect.options, function (o) {
+              return o.value === otherValue;
+            });
+            menuSelect.value = hasOption ? otherValue : '__other__';
+          }
+          nameInput.value = prefill.MenuName;
+          priceInput.value = prefill.UnitPrice;
+          costHidden.value = prefill.UnitCost || '';
+          categoryHidden.value = prefill.CategoryLarge || '';
+          qtyInput.value = prefill.Quantity;
+          subtotalSpan.textContent = Number(prefill.UnitPrice) * Number(prefill.Quantity);
+        }
+
+        document.querySelector('#detail-rows tbody').appendChild(tr);
+        recalcTotal();
+      }
+
+      function recalcTotal() {
+        var rows = document.querySelectorAll('#detail-rows tbody tr');
+        var total = 0;
+        var foodTotal = 0;
+        var drinkTotal = 0;
+        rows.forEach(function (tr) {
+          var subtotal = Number(tr.querySelector('.detail-subtotal').textContent) || 0;
+          var category = tr.querySelector('.detail-category').value;
+          total += subtotal;
+          if (category === 'フード') {
+            foodTotal += subtotal;
+          } else if (category === 'ドリンク') {
+            drinkTotal += subtotal;
+          }
+        });
+
+        document.getElementById('total-amount').textContent = total;
+        document.getElementById('food-amount').textContent = foodTotal;
+        document.getElementById('drink-amount').textContent = drinkTotal;
+
+        var partySize = Number(document.getElementById('party-size').value) || 0;
+        document.getElementById('per-person-amount').textContent = partySize > 0 ? Math.round(total / partySize) : '-';
+      }
+
+      function collectDetails() {
+        var rows = document.querySelectorAll('#detail-rows tbody tr');
+        return Array.prototype.map.call(rows, function (tr) {
+          var menuSelect = tr.querySelector('.detail-menu');
+          var selected = menuSelect.options[menuSelect.selectedIndex];
+          var isOther = selected && selected.dataset.isOther === 'true';
+          return {
+            MenuId: isOther ? '' : menuSelect.value,
+            MenuName: tr.querySelector('.detail-name').value,
+            UnitPrice: tr.querySelector('.detail-price').value,
+            UnitCost: tr.querySelector('.detail-cost').value,
+            Quantity: tr.querySelector('.detail-qty').value,
+            CategoryLarge: tr.querySelector('.detail-category').value
+          };
+        });
+      }
+
+      document.getElementById('add-detail-row').addEventListener('click', function () {
+        formDirty = true;
+        createDetailRow();
+      });
+
+      document.getElementById('customer-input').addEventListener('input', function () {
+        formDirty = true;
+        document.getElementById('customer-id').value = '';
+        var keyword = this.value.trim();
+        var list = document.getElementById('customer-suggestions');
+        list.innerHTML = '';
+        if (!keyword) {
+          list.style.display = 'none';
+          return;
+        }
+        var matches = masterData.customerList.filter(function (c) {
+          return c.CustomerName.indexOf(keyword) !== -1;
+        }).slice(0, 8);
+        if (matches.length === 0) {
+          list.style.display = 'none';
+          return;
+        }
+        matches.forEach(function (c) {
+          var li = document.createElement('li');
+          li.textContent = c.CustomerName + '（最終来店：' + (c.LastVisitDate || '-') + '）';
+          li.addEventListener('click', function () {
+            document.getElementById('customer-input').value = c.CustomerName;
+            document.getElementById('customer-id').value = c.CustomerId;
+            list.style.display = 'none';
+          });
+          list.appendChild(li);
+        });
+        list.style.display = '';
+      });
+
+      document.getElementById('party-size').addEventListener('input', function () {
+        formDirty = true;
+        recalcTotal();
+      });
+      document.getElementById('seat-select').addEventListener('change', function () {
+        formDirty = true;
+      });
+      document.getElementById('note').addEventListener('input', function () {
+        formDirty = true;
+      });
+
+      function startEditSales(sales) {
+        document.getElementById('form-title').textContent = '編集：' + sales.SalesId;
+        formSalesDate = currentSalesDate();
+        updateFormDateLabel();
+        document.getElementById('sales-id').value = sales.SalesId;
+        document.getElementById('party-size').value = sales.PartySize;
+        document.getElementById('seat-select').value = sales.SeatId || '';
+        document.getElementById('note').value = sales.Note || '';
+        document.getElementById('customer-id').value = sales.CustomerId || '';
+        document.getElementById('customer-input').value = sales.CustomerName || '';
+
+        document.querySelector('#detail-rows tbody').innerHTML = '';
+        sales.details.forEach(function (d) {
+          createDetailRow(d);
+        });
+        recalcTotal();
+        document.getElementById('cancel-edit').style.display = '';
+        document.getElementById('form-error').textContent = '';
+        formDirty = false;
+      }
+
+      function resetSalesForm() {
+        document.getElementById('form-title').textContent = '新規登録';
+        formSalesDate = currentSalesDate();
+        updateFormDateLabel();
+        document.getElementById('sales-id').value = '';
+        document.getElementById('sales-form').reset();
+        document.getElementById('customer-id').value = '';
+        document.querySelector('#detail-rows tbody').innerHTML = '';
+        createDetailRow();
+        document.getElementById('cancel-edit').style.display = 'none';
+        document.getElementById('form-error').textContent = '';
+        formDirty = false;
+      }
+
+      document.getElementById('cancel-edit').addEventListener('click', resetSalesForm);
+
+      document.getElementById('sales-form').addEventListener('submit', function (event) {
+        event.preventDefault();
+        document.getElementById('form-error').textContent = '';
+
+        var customerId = document.getElementById('customer-id').value;
+        var customerName = document.getElementById('customer-input').value.trim();
+
+        var input = {
+          SalesId: document.getElementById('sales-id').value,
+          SalesDate: formSalesDate,
+          PartySize: document.getElementById('party-size').value,
+          SeatId: document.getElementById('seat-select').value,
+          CustomerId: customerId,
+          NewCustomerName: (!customerId && customerName) ? customerName : '',
+          Note: document.getElementById('note').value,
+          details: collectDetails()
+        };
+
+        google.script.run
+          .withSuccessHandler(loadDayData)
+          .withFailureHandler(function (error) {
+            document.getElementById('form-error').textContent = error.message;
+          })
+          .saveSalesEntry(input);
+      });
+
+      document.getElementById('sales-date').addEventListener('change', function () {
+        // 入力中の内容がある場合はフォームを維持したまま、一覧・天候だけ選択した日付のものに切り替える
+        loadDayData(formDirty);
+        updateFormDateLabel();
+      });
+
+      document.getElementById('sales-date').value = todayStr();
+      loadDayData();
+    </script>
   </body>
 </html>

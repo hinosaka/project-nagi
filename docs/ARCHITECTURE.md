@@ -77,7 +77,7 @@ src/
 - HTML Serviceは通常のWebと異なり`<link>`/`<script src>`で外部の`.css`/`.js`ファイルを読み込めない。共通CSS/JSも`.html`ファイルとして作成し、`<?!= include('client/shared/stylesheet') ?>`のようなスクリプトレットで各画面に差し込む。`include()`に渡すファイル名は、GAS上のファイル名（`rootDir`である`src`からの相対パス。例：`src/client/shared/stylesheet.html`→`client/shared/stylesheet`）そのものを指定する必要があり、画面ファイルからの相対パスではない点に注意する
 - Webアプリ公開設定：アクセス可能なユーザーは「全員（Googleアカウントでのログインが必要）」、実行ユーザーは「自分（デプロイしたアカウント）」とする。店主の代理としてスタッフが利用することを許容する前提（[SPEC.md](./SPEC.md#1-本ドキュメントについて)参照）のもと、スタッフ個別にスプレッドシートへの編集権限を付与せずに済むよう、スクリプトは店主のアカウント権限で実行する（`src/appsscript.json`の`webapp.access: "ANYONE"` / `webapp.executeAs: "USER_DEPLOYING"`）
 - スプレッドシートへの直接アクセスを防ぐ実装（方針の根拠は [DATABASE.md](./DATABASE.md) の「データ管理方針」参照）
-- ページルーティング：GASのWebアプリは`doGet`を1つしか持てないため、`e.parameter.page`（例：`?page=menu`）でHTMLファイルを出し分ける（`server/main.gs`の`PAGE_FILES`）
+- ページルーティング：GASのWebアプリは`doGet`を1つしか持てないため、`e.parameter.page`（例：`?page=menu`）でHTMLファイルを出し分ける（`server/main.gs`の`PAGE_FILES`）。画面内の遷移リンクは相対パス（`href="?page=xxx"`）ではなく絶対URLで書く必要がある。Webアプリの`/exec` URLはアクセス時に`googleusercontent.com`のURLへリダイレクトされ、相対リンクはリダイレクト後のURLを基準に解決されて壊れるため。`doGet`で`template.baseUrl = ScriptApp.getService().getUrl()`をセットし、各画面で`<a href="<?= baseUrl ?>?page=xxx">`のように使う
 - スプレッドシートIDの保持：`PropertiesService.getScriptProperties()`に`SPREADSHEET_ID`として保存する。ハードコードしない（コード変更・再デプロイなしにDB切り替えができるようにするため）。初回のみ`server/setup.gs`の`setupDatabase()`をApps Scriptエディタから手動実行し、スプレッドシートの新規作成とID保存を行う（`clasp run`によるコマンド実行はAPI Executableデプロイ等の追加設定が必要になるため、現状の規模では採用しない）
 - TODO：AI分析機能で外部APIを呼び出す場合の技術的な制約（タイムアウト・リトライ等）への対応方針（実装着手前に決定）
 

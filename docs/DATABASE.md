@@ -90,6 +90,7 @@ Googleスプレッドシート（唯一のデータベース）の構造を定�
 | Quantity | 数値 | ○ | 数量 |
 | Subtotal | 数値 | ○ | 小計（`UnitPrice × Quantity`）。登録時に計算して保存する |
 | CustomerId | 文字列 | - | `Sales.CustomerId`の複製（非正規化）。顧客ごとのメニュー傾向を、Salesと結合せずSalesDetail単独で集計できるようにするために持つ |
+| CategoryLarge | 文字列 | - | 大分類（例：ドリンク／フード）。`MenuId`がある場合は`Menu.CategoryLarge`のスナップショット。登録外の場合も店主が選択した分類を保存し、カテゴリ別集計の対象にする（分類不明の場合のみ空欄） |
 
 - 関連：`Sales.SalesId`、`Menu.MenuId`（任意）、`Customer.CustomerId`（`Sales.CustomerId`経由の複製）を参照する
 
@@ -173,7 +174,7 @@ Googleスプレッドシート（唯一のデータベース）の構造を定�
 - トランザクションデータ（Sales/SalesDetail）は登録時点の情報をスナップショットとして保持し、マスタ（Menu）の現在値の変更による影響を受けない
 - 集計値（`Sales.TotalAmount`、`SalesDetail.Subtotal`、`Customer.VisitCount`/`LastVisitDate`）は登録時にアプリケーションが計算して保存し、スプレッドシートの数式には依存しない
 - `Sales`の修正・削除により`CustomerId`の紐付けが変わる場合（修正・削除・顧客の変更）、影響を受ける`Customer.VisitCount`/`LastVisitDate`は再計算して整合させる
-- `SalesDetail.MenuId`が空欄の行（登録外メニュー）はMenuのカテゴリ情報を持たないため、商品名ベースの集計はできるが、カテゴリ別集計（`CategoryLarge`/`CategoryMedium`）には反映されない
+- `SalesDetail.MenuId`が空欄の行（登録外メニュー）は、入力時に店主が選択した`SalesDetail.CategoryLarge`により大分類の集計には反映される（伝票入力画面で「その他ドリンク」「その他フード」等から選ぶ）。ただし`CategoryMedium`（中分類）は持たないため、中分類別の集計には反映されない
 - 分析の利便性のため、一部の関連キー（`SalesDetail.CustomerId`）はシート結合を省くために非正規化して重複保持する。正の値は常に`Sales.CustomerId`側とする
 - `BusinessDay.DayOfWeek`は`SalesDate`から一意に定まる値であり、登録時にアプリケーションが計算して保存する（分析時に数式なしで参照できるようにするため）
 - 客単価は`Sales.TotalAmount ÷ Sales.PartySize`で都度算出する値とし、列としては持たない（単純な四則演算であり、保存しても更新漏れのリスクが増えるだけのため）
