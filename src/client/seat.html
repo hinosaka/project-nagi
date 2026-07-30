@@ -6,66 +6,81 @@
     <?!= include('client/shared/stylesheet') ?>
     <style>
       .floor-plan {
-        border: 1px solid #999;
-        padding: 16px;
-        margin-top: 8px;
         max-width: 640px;
       }
       .tables-row {
         display: flex;
         justify-content: space-evenly;
-        margin-bottom: 16px;
+        margin-bottom: var(--space-md);
       }
       .counter-seats {
         display: flex;
-        gap: 8px;
+        gap: var(--space-sm);
         justify-content: center;
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        padding-bottom: 4px;
       }
       .seat-box {
-        border: 1px solid #666;
-        border-radius: 4px;
-        padding: 8px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        padding: var(--space-sm);
         min-width: 48px;
+        flex-shrink: 0;
         text-align: center;
-        background: #fff;
+        background: var(--surface);
         cursor: pointer;
         line-height: 1.3;
       }
+      .seat-box.table-box {
+        min-width: 96px;
+        padding: 18px;
+        font-size: 1.15em;
+      }
+      .seat-box:hover {
+        border-color: var(--ai);
+      }
+      .seat-box.selected {
+        border-color: var(--ai);
+        background: var(--ai-soft);
+      }
       .seat-box.inactive {
-        background: #eee;
-        color: #999;
+        background: var(--surface-2);
+        color: var(--ink-muted);
+        border-color: var(--surface-2);
         text-decoration: line-through;
       }
       #seat-panel {
         max-width: 240px;
-        border: 1px solid #ccc;
-        padding: 12px;
-        margin-top: 16px;
       }
       #seat-panel h2 {
         margin-top: 0;
       }
     </style>
   </head>
-  <body>
-    <h1>座席管理</h1>
-    <p><a href="<?= baseUrl ?>?page=home">ホームへ戻る</a></p>
-    <p>座席をクリックすると使用可否の切替メニューが開きます。</p>
+  <body data-page="<?= currentPage ?>">
+    <?!= include('client/shared/icons') ?>
+    <div class="app-shell">
+      <?!= include('client/shared/sidebar', {baseUrl: baseUrl}) ?>
+      <main class="main-content">
+        <h1>座席管理</h1>
+        <p>座席をクリックすると使用可否の切替メニューが開きます。</p>
 
-    <div class="floor-plan">
-      <div class="tables-row" id="tables-row"></div>
-      <div class="counter-seats" id="counter-seats"></div>
-    </div>
+        <div class="card floor-plan">
+          <div class="tables-row" id="tables-row"></div>
+          <div class="counter-seats" id="counter-seats"></div>
+        </div>
 
-    <div id="others-section" style="display:none;">
-      <h2>レイアウト外の座席</h2>
-      <div class="counter-seats" id="others-list"></div>
-    </div>
+        <div id="others-section" class="card" style="display:none;">
+          <h2>レイアウト外の座席</h2>
+          <div class="counter-seats" id="others-list"></div>
+        </div>
 
-    <div id="seat-panel" style="display:none;">
-      <h2 id="panel-title"></h2>
-      <button type="button" id="toggle-active"></button>
-      <button type="button" id="close-panel">閉じる</button>
+        <div id="seat-panel" class="card" style="display:none;">
+          <h2 id="panel-title"></h2>
+          <button type="button" id="toggle-active"></button>
+        </div>
+      </main>
     </div>
 
     <?!= include('client/shared/javascript') ?>
@@ -112,28 +127,51 @@
 
       function buildSeatBox(seat) {
         var box = document.createElement('div');
-        box.className = 'seat-box' + (seat.IsActive ? '' : ' inactive');
+        box.className = 'seat-box'
+          + (KNOWN_LAYOUT.tables.indexOf(seat.SeatId) !== -1 ? ' table-box' : '')
+          + (seat.IsActive ? '' : ' inactive')
+          + (seat.SeatId === editingSeatId ? ' selected' : '');
+        box.dataset.seatId = seat.SeatId;
         box.innerHTML = seat.SeatId + '<br>(' + seat.Capacity + ')';
-        box.addEventListener('click', function () {
+        box.addEventListener('click', function (event) {
+          event.stopPropagation();
           openPanel(seat);
         });
         return box;
       }
 
+      function updateSelectedBoxes() {
+        document.querySelectorAll('.seat-box').forEach(function (box) {
+          box.classList.toggle('selected', box.dataset.seatId === editingSeatId);
+        });
+      }
+
       function openPanel(seat) {
         editingSeatId = seat.SeatId;
+        updateSelectedBoxes();
         document.getElementById('panel-title').textContent = seat.SeatId;
-        document.getElementById('toggle-active').textContent = seat.IsActive ? '無効にする' : '有効にする';
+        var toggleBtn = document.getElementById('toggle-active');
+        toggleBtn.textContent = seat.IsActive ? '無効にする' : '有効にする';
+        toggleBtn.className = seat.IsActive ? 'btn-danger' : 'btn-success';
         document.getElementById('seat-panel').style.display = '';
       }
 
-      document.getElementById('close-panel').addEventListener('click', function () {
+      function closePanel() {
+        editingSeatId = null;
+        updateSelectedBoxes();
         document.getElementById('seat-panel').style.display = 'none';
+      }
+
+      document.addEventListener('click', function (event) {
+        var panel = document.getElementById('seat-panel');
+        if (panel.style.display !== 'none' && !event.target.closest('#seat-panel')) {
+          closePanel();
+        }
       });
 
       document.getElementById('toggle-active').addEventListener('click', function () {
         google.script.run.withSuccessHandler(function () {
-          document.getElementById('seat-panel').style.display = 'none';
+          closePanel();
           loadSeatList();
         }).toggleSeatActive(editingSeatId);
       });

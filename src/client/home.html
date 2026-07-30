@@ -3,14 +3,18 @@
 <html>
   <head>
     <base target="_top">
+    <?!= include('client/shared/stylesheet') ?>
   </head>
-  <body>
-    <h1>店長のノート</h1>
-    <ul>
-      <li><a href="<?= baseUrl ?>?page=sales">伝票入力</a></li>
-      <li><a href="<?= baseUrl ?>?page=menu">メニュー管理</a></li>
-      <li><a href="<?= baseUrl ?>?page=seat">座席管理</a></li>
-      <li><a href="<?= baseUrl ?>?page=customer">顧客管理</a></li>
-    </ul>
+  <body data-page="<?= currentPage ?>">
+    <?!= include('client/shared/icons') ?>
+    <div class="app-shell">
+      <?!= include('client/shared/sidebar', {baseUrl: baseUrl}) ?>
+      <main class="main-content">
+        <h1>店長のノート</h1>
+        <p>左のメニューから各画面へ移動してください。</p>
+      </main>
+    </div>
+
+    <?!= include('client/shared/javascript') ?>
   </body>
 </html>

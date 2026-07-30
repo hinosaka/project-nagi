@@ -9,9 +9,10 @@
         list-style: none;
         margin: 0;
         padding: 0;
-        border: 1px solid #ccc;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
         max-width: 260px;
-        background: #fff;
+        background: var(--surface);
         position: relative;
         z-index: 10;
       }
@@ -20,36 +21,39 @@
         cursor: pointer;
       }
       .suggestions li:hover {
-        background: #eef;
+        background: var(--ai-soft);
       }
       #form-date-label {
-        color: #c60;
+        color: var(--warn);
         font-weight: bold;
       }
-      #weather-section {
-        margin: 8px 0;
-        padding: 8px;
-        background: #f5f5f5;
+      #date-weekday {
+        margin-left: 8px;
+        font-weight: bold;
+      }
+      #sales-date {
+        width: 28px;
+        color: transparent;
+        background: transparent;
+        border: none;
+        padding: 4px 0;
+        cursor: pointer;
+      }
+      #sales-date::-webkit-calendar-picker-indicator {
+        opacity: 1;
+        cursor: pointer;
       }
       .weather-btn {
         font-size: 1.5em;
         padding: 4px 10px;
-        border: 1px solid #ccc;
-        border-radius: 4px;
-        background: #fff;
         cursor: pointer;
       }
       .weather-btn.selected {
-        background: #dce8ff;
-        border-color: #06c;
+        background: var(--ai-soft);
+        border-color: var(--ai);
       }
       #menu-quick-select h4 {
         margin: 10px 0 2px;
-      }
-      #menu-quick-select h5 {
-        margin: 4px 0 2px;
-        color: #555;
-        font-weight: normal;
       }
       .quick-select-buttons {
         display: flex;
@@ -59,14 +63,11 @@
       }
       .quick-select-btn {
         padding: 10px 14px;
-        font-size: 1em;
-        border: 1px solid #666;
-        border-radius: 4px;
-        background: #fff;
-        cursor: pointer;
+        min-width: 92px;
+        text-align: center;
       }
       .quick-select-btn:active {
-        background: #dde;
+        background: var(--ai-soft);
       }
       #detail-rows input[type="number"] {
         width: 45px;
@@ -80,114 +81,175 @@
         align-items: center;
         gap: 4px;
       }
+      .qty-control input {
+        border: none;
+        background: transparent;
+      }
       .qty-control button {
         width: 28px;
-      }
-      #total-amount {
         font-weight: bold;
-        font-size: 1.3em;
       }
-      .icon-btn {
-        font-size: 1.1em;
-        border: none;
-        background: none;
-        cursor: pointer;
+      .qty-minus {
+        background: var(--bad-soft);
+        border-color: var(--bad-soft);
+        color: var(--bad);
       }
+      .qty-minus:hover {
+        background: var(--bad);
+        color: #fff;
+      }
+      .qty-plus {
+        background: var(--good-soft);
+        border-color: var(--good-soft);
+        color: var(--good);
+      }
+      .qty-plus:hover {
+        background: var(--good);
+        color: #fff;
+      }
+      #add-detail-row {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        width: 100%;
+        justify-content: center;
+      }
+      .totals-main {
+        font-size: 1.15em;
+        font-weight: bold;
+        margin: var(--space-sm) 0 2px;
+      }
+      .totals-sub {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 16px;
+        align-items: center;
+        color: var(--ink-muted);
+        margin: 0 0 var(--space-sm);
+      }
+      .totals-food, .totals-drink {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+      }
+      .totals-food { color: var(--warn); }
+      .totals-drink { color: var(--ai); }
     </style>
   </head>
-  <body>
-    <h1>伝票入力</h1>
-    <p><a href="<?= baseUrl ?>?page=home">ホームへ戻る</a></p>
+  <body data-page="<?= currentPage ?>">
+    <?!= include('client/shared/icons') ?>
+    <div class="app-shell">
+      <?!= include('client/shared/sidebar', {baseUrl: baseUrl}) ?>
+      <main class="main-content">
+        <h1>伝票入力</h1>
 
-    <div class="form-row">
-      <label for="sales-date">会計日</label>
-      <input type="date" id="sales-date">
+        <div class="form-row">
+          <label for="sales-date">会計日</label>
+          <input type="date" id="sales-date">
+          <span id="date-weekday"></span>
+        </div>
+
+        <div id="weather-section">
+          <span id="weather-display"></span>
+          <span id="weather-buttons">
+            <button type="button" class="weather-btn" data-weather="晴れ" title="晴れ"><svg class="icon"><use href="#icon-sun"></use></svg></button>
+            <button type="button" class="weather-btn" data-weather="曇り" title="曇り"><svg class="icon"><use href="#icon-cloud"></use></svg></button>
+            <button type="button" class="weather-btn" data-weather="雨" title="雨"><svg class="icon"><use href="#icon-cloud-rain"></use></svg></button>
+            <button type="button" class="weather-btn" data-weather="雪" title="雪"><svg class="icon"><use href="#icon-cloud-snow"></use></svg></button>
+          </span>
+        </div>
+
+        <h2>会計一覧</h2>
+        <p id="list-error" class="error"></p>
+        <div class="table-scroll">
+          <table id="sales-table">
+            <thead>
+              <tr>
+                <th>人数</th>
+                <th>座席</th>
+                <th>顧客</th>
+                <th>合計金額</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+
+        <h2 id="form-title">伝票追加</h2>
+        <div class="card">
+          <p id="form-date-label"></p>
+          <form id="sales-form">
+            <input type="hidden" id="sales-id">
+
+            <div class="form-row">
+              <label for="party-size">人数</label>
+              <input type="number" id="party-size" min="1" inputmode="numeric" required>
+            </div>
+
+            <div class="form-row">
+              <label for="seat-select">座席（任意）</label>
+              <select id="seat-select"></select>
+            </div>
+
+            <div class="form-row">
+              <label for="customer-input">顧客（任意）</label>
+              <input type="text" id="customer-input" autocomplete="off" placeholder="ニックネームを入力">
+              <input type="hidden" id="customer-id">
+              <span class="popover-wrap">
+                <button type="button" class="info-btn" title="説明を表示"><svg class="icon"><use href="#icon-info"></use></svg></button>
+                <span class="popover">候補にない名前のまま保存すると、その名前で新規顧客登録されます。</span>
+              </span>
+              <ul id="customer-suggestions" class="suggestions" style="display:none;"></ul>
+            </div>
+
+            <p class="totals-main">合計金額：<span id="total-amount">0</span>円</p>
+            <p class="totals-sub">
+              客単価：<span id="per-person-amount">-</span>円
+              <span class="totals-drink"><svg class="icon"><use href="#icon-coffee"></use></svg><span id="drink-amount">0</span>円</span>
+              <span class="totals-food"><svg class="icon"><use href="#icon-utensils"></use></svg><span id="food-amount">0</span>円</span>
+            </p>
+
+            <h3>明細</h3>
+            <div id="menu-quick-select"></div>
+
+            <div class="table-scroll">
+              <table id="detail-rows">
+                <thead>
+                  <tr>
+                    <th>商品</th>
+                    <th>商品名</th>
+                    <th>単価</th>
+                    <th>数量</th>
+                    <th>小計</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+                <tfoot>
+                  <tr>
+                    <td colspan="6">
+                      <button type="button" id="add-detail-row" title="明細行を追加（登録外）"><svg class="icon"><use href="#icon-plus"></use></svg> 明細を追加</button>
+                    </td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+
+            <div class="form-row">
+              <label for="note">備考（任意）</label>
+              <input type="text" id="note">
+            </div>
+
+            <div class="form-row form-actions">
+              <button type="submit">保存</button>
+              <button type="button" id="cancel-edit" style="display:none;">キャンセル</button>
+            </div>
+            <p id="form-error" class="error"></p>
+          </form>
+        </div>
+      </main>
     </div>
-
-    <div id="weather-section">
-      <span id="weather-display"></span>
-      <span id="weather-buttons">
-        <button type="button" class="weather-btn" data-weather="晴れ" title="晴れ">☀️</button>
-        <button type="button" class="weather-btn" data-weather="曇り" title="曇り">☁️</button>
-        <button type="button" class="weather-btn" data-weather="雨" title="雨">☔</button>
-        <button type="button" class="weather-btn" data-weather="雪" title="雪">❄️</button>
-      </span>
-    </div>
-
-    <h2>この日の会計一覧</h2>
-    <p id="list-error" class="error"></p>
-    <table id="sales-table">
-      <thead>
-        <tr>
-          <th>人数</th>
-          <th>座席</th>
-          <th>顧客</th>
-          <th>合計金額</th>
-          <th></th>
-        </tr>
-      </thead>
-      <tbody></tbody>
-    </table>
-
-    <h2 id="form-title">新規登録</h2>
-    <p id="form-date-label"></p>
-    <form id="sales-form">
-      <input type="hidden" id="sales-id">
-
-      <div class="form-row">
-        <label for="party-size">人数</label>
-        <input type="number" id="party-size" min="1" required>
-      </div>
-
-      <div class="form-row">
-        <label for="seat-select">座席（任意）</label>
-        <select id="seat-select"></select>
-      </div>
-
-      <div class="form-row">
-        <label for="customer-input">顧客（任意）</label>
-        <input type="text" id="customer-input" autocomplete="off" placeholder="ニックネームを入力">
-        <input type="hidden" id="customer-id">
-        <ul id="customer-suggestions" class="suggestions" style="display:none;"></ul>
-        <p>候補にない名前のまま保存すると、その名前で新規顧客登録されます。</p>
-      </div>
-
-      <p>
-        合計金額：<span id="total-amount">0</span>円
-        客単価：<span id="per-person-amount">-</span>円
-        フード：<span id="food-amount">0</span>円
-        ドリンク：<span id="drink-amount">0</span>円
-      </p>
-
-      <h3>明細</h3>
-      <div id="menu-quick-select"></div>
-
-      <table id="detail-rows">
-        <thead>
-          <tr>
-            <th>商品</th>
-            <th>商品名</th>
-            <th>単価</th>
-            <th>数量</th>
-            <th>小計</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody></tbody>
-      </table>
-      <button type="button" id="add-detail-row" title="明細行を追加（登録外）">＋</button>
-
-      <div class="form-row">
-        <label for="note">備考（任意）</label>
-        <input type="text" id="note">
-      </div>
-
-      <div class="form-row">
-        <button type="submit">保存</button>
-        <button type="button" id="cancel-edit" style="display:none;">キャンセル</button>
-      </div>
-      <p id="form-error" class="error"></p>
-    </form>
 
     <?!= include('client/shared/javascript') ?>
     <script>
@@ -204,6 +266,18 @@
         label.textContent = formSalesDate && formSalesDate !== currentSalesDate()
           ? '対象日：' + formSalesDate + '（現在表示中の日付とは異なります）'
           : '';
+      }
+
+      function updateDateWeekdayLabel() {
+        var dateStr = currentSalesDate();
+        var label = document.getElementById('date-weekday');
+        if (!dateStr) {
+          label.textContent = '';
+          return;
+        }
+        var d = new Date(dateStr);
+        var days = ['日', '月', '火', '水', '木', '金', '土'];
+        label.textContent = d.getUTCFullYear() + '/' + (d.getUTCMonth() + 1) + '/' + d.getUTCDate() + '(' + days[d.getUTCDay()] + ')';
       }
 
       function todayStr() {
@@ -339,11 +413,7 @@
       function renderWeather(businessDay) {
         var display = document.getElementById('weather-display');
         var buttons = document.querySelectorAll('.weather-btn');
-        if (businessDay) {
-          display.textContent = businessDay.DayOfWeek + '曜日';
-        } else {
-          display.textContent = 'この日の天候はまだ入力されていません。';
-        }
+        display.textContent = businessDay ? '' : '天候を選択してください';
         buttons.forEach(function (btn) {
           btn.classList.toggle('selected', !!businessDay && btn.dataset.weather === businessDay.Weather);
         });
@@ -375,7 +445,7 @@
           editButton.type = 'button';
           editButton.className = 'icon-btn';
           editButton.title = '編集';
-          editButton.textContent = '✏️';
+          editButton.innerHTML = iconSvg('edit');
           editButton.addEventListener('click', function () {
             startEditSales(sales);
           });
@@ -383,7 +453,7 @@
           deleteButton.type = 'button';
           deleteButton.className = 'icon-btn';
           deleteButton.title = '削除';
-          deleteButton.textContent = '🗑️';
+          deleteButton.innerHTML = iconSvg('trash');
           deleteButton.addEventListener('click', function () {
             if (confirm('この会計を削除しますか？')) {
               google.script.run
@@ -444,6 +514,7 @@
         priceInput.type = 'number';
         priceInput.className = 'detail-price';
         priceInput.min = '0';
+        priceInput.inputMode = 'numeric';
 
         var costHidden = document.createElement('input');
         costHidden.type = 'hidden';
@@ -462,9 +533,11 @@
 
         var qtyMinus = document.createElement('button');
         qtyMinus.type = 'button';
+        qtyMinus.className = 'qty-minus';
         qtyMinus.textContent = '－';
         var qtyPlus = document.createElement('button');
         qtyPlus.type = 'button';
+        qtyPlus.className = 'qty-plus';
         qtyPlus.textContent = '＋';
 
         var subtotalSpan = document.createElement('span');
@@ -475,7 +548,7 @@
         removeButton.type = 'button';
         removeButton.className = 'icon-btn';
         removeButton.title = '削除';
-        removeButton.textContent = '🗑️';
+        removeButton.innerHTML = iconSvg('trash');
         removeButton.addEventListener('click', function () {
           formDirty = true;
           tr.remove();
@@ -695,7 +768,7 @@
       }
 
       function resetSalesForm() {
-        document.getElementById('form-title').textContent = '新規登録';
+        document.getElementById('form-title').textContent = '伝票追加';
         formSalesDate = currentSalesDate();
         updateFormDateLabel();
         document.getElementById('sales-id').value = '';
@@ -738,11 +811,13 @@
 
       document.getElementById('sales-date').addEventListener('change', function () {
         // 入力中の内容がある場合はフォームを維持したまま、一覧・天候だけ選択した日付のものに切り替える
+        updateDateWeekdayLabel();
         loadDayData(formDirty);
         updateFormDateLabel();
       });
 
       document.getElementById('sales-date').value = todayStr();
+      updateDateWeekdayLabel();
       loadDayData();
     </script>
   </body>

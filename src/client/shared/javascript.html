@@ -1,3 +1,43 @@
 <script>
-  // 共通JS（未実装）
+  // 単色SVGアイコン（shared/icons.htmlのスプライトを参照）のHTML文字列を返す
+  function iconSvg(name) {
+    return '<svg class="icon"><use href="#icon-' + name + '"></use></svg>';
+  }
+
+  (function () {
+    var currentPage = document.body.dataset.page;
+    document.querySelectorAll('.sidebar .nav-item').forEach(function (item) {
+      if (item.dataset.page === currentPage) {
+        item.classList.add('active');
+      }
+    });
+  })();
+
+  // ハンバーガーボタン（狭幅画面）でナビの開閉
+  (function () {
+    var hamburgerBtn = document.getElementById('hamburger-btn');
+    var navItems = document.getElementById('nav-items');
+    if (hamburgerBtn && navItems) {
+      hamburgerBtn.addEventListener('click', function () {
+        navItems.classList.toggle('open');
+      });
+    }
+  })();
+
+  // 補足説明ポップオーバー（.info-btnクリックで隣接する.popoverを開閉。外側クリックで閉じる）
+  document.addEventListener('click', function (event) {
+    var infoBtn = event.target.closest ? event.target.closest('.info-btn') : null;
+    if (infoBtn) {
+      var popover = infoBtn.parentElement.querySelector('.popover');
+      var wasOpen = popover.classList.contains('open');
+      document.querySelectorAll('.popover.open').forEach(function (p) { p.classList.remove('open'); });
+      if (!wasOpen) {
+        popover.classList.add('open');
+      }
+      return;
+    }
+    if (!event.target.closest('.popover')) {
+      document.querySelectorAll('.popover.open').forEach(function (p) { p.classList.remove('open'); });
+    }
+  });
 </script>

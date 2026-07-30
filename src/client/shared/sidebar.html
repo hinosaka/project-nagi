@@ -1,0 +1,15 @@
+<nav class="sidebar">
+  <div class="sidebar-header">
+    <div class="brand">店長のノート</div>
+    <button type="button" class="hamburger-btn" id="hamburger-btn" aria-label="メニューを開く">
+      <svg class="icon"><use href="#icon-menu"></use></svg>
+    </button>
+  </div>
+  <div class="nav-items" id="nav-items">
+    <a class="nav-item" data-page="home" href="<?= baseUrl ?>?page=home"><svg class="icon"><use href="#icon-home"></use></svg>ホーム</a>
+    <a class="nav-item" data-page="sales" href="<?= baseUrl ?>?page=sales"><svg class="icon"><use href="#icon-receipt"></use></svg>伝票入力</a>
+    <a class="nav-item" data-page="menu" href="<?= baseUrl ?>?page=menu"><svg class="icon"><use href="#icon-utensils"></use></svg>メニュー管理</a>
+    <a class="nav-item" data-page="seat" href="<?= baseUrl ?>?page=seat"><svg class="icon"><use href="#icon-armchair"></use></svg>座席管理</a>
+    <a class="nav-item" data-page="customer" href="<?= baseUrl ?>?page=customer"><svg class="icon"><use href="#icon-user"></use></svg>顧客管理</a>
+  </div>
+</nav>

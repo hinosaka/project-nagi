@@ -4,100 +4,298 @@
   <head>
     <base target="_top">
     <?!= include('client/shared/stylesheet') ?>
+    <style>
+      .group-header {
+        background: var(--paper);
+        color: var(--ink-muted);
+        font-weight: 700;
+        padding: 6px 10px;
+      }
+    </style>
   </head>
-  <body>
-    <h1>メニュー管理</h1>
-    <p><a href="<?= baseUrl ?>?page=home">ホームへ戻る</a></p>
+  <body data-page="<?= currentPage ?>">
+    <?!= include('client/shared/icons') ?>
+    <div class="app-shell">
+      <?!= include('client/shared/sidebar', {baseUrl: baseUrl}) ?>
+      <main class="main-content">
+        <h1>メニュー管理</h1>
 
-    <h2 id="form-title">新規登録</h2>
-    <form id="menu-form">
-      <input type="hidden" id="MenuId" value="">
-      <div class="form-row">
-        <label for="MenuName">商品名</label>
-        <input type="text" id="MenuName" required>
-      </div>
-      <div class="form-row">
-        <label for="Price">価格（円）</label>
-        <input type="number" id="Price" min="0" required>
-      </div>
-      <div class="form-row">
-        <label for="Cost">原価（円・任意）</label>
-        <input type="number" id="Cost" min="0">
-      </div>
-      <div class="form-row">
-        <label for="CategoryLarge">大分類</label>
-        <input type="text" id="CategoryLarge" required>
-      </div>
-      <div class="form-row">
-        <label for="CategoryMedium">中分類</label>
-        <input type="text" id="CategoryMedium" required>
-      </div>
-      <div class="form-row">
-        <button type="submit">保存</button>
-        <button type="button" id="cancel-edit" style="display:none;">キャンセル</button>
-      </div>
-      <p id="form-error" class="error"></p>
-    </form>
+        <h2 id="form-title">メニュー追加</h2>
+        <div class="card">
+          <form id="menu-form">
+            <input type="hidden" id="MenuId" value="">
+            <div class="form-row">
+              <label for="CategoryLarge">大分類</label>
+              <select id="CategoryLarge" required></select>
+            </div>
+            <div class="form-row">
+              <label for="CategoryMedium">中分類</label>
+              <select id="CategoryMedium" required></select>
+            </div>
+            <div class="form-row">
+              <label for="MenuName">商品名</label>
+              <input type="text" id="MenuName" required>
+            </div>
+            <div class="form-row">
+              <label for="Price">価格（円）</label>
+              <input type="number" id="Price" min="0" inputmode="numeric" required>
+            </div>
+            <div class="form-row">
+              <label for="Cost">原価（円・任意）</label>
+              <input type="number" id="Cost" min="0" inputmode="numeric">
+            </div>
+            <div class="form-row form-actions">
+              <button type="submit">登録</button>
+              <button type="button" id="cancel-edit" style="display:none;">キャンセル</button>
+            </div>
+            <p id="form-error" class="error"></p>
+          </form>
+        </div>
 
-    <h2>商品一覧</h2>
-    <table id="menu-table">
-      <thead>
-        <tr>
-          <th>商品名</th>
-          <th>価格</th>
-          <th>原価</th>
-          <th>大分類</th>
-          <th>中分類</th>
-          <th>販売中</th>
-          <th></th>
-        </tr>
-      </thead>
-      <tbody></tbody>
-    </table>
+        <h2>商品一覧</h2>
+        <div class="tabs" id="menu-tabs"></div>
+        <div class="table-scroll">
+          <table id="menu-table">
+            <thead>
+              <tr>
+                <th>商品名</th>
+                <th>価格</th>
+                <th>原価</th>
+                <th>状態</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </main>
+    </div>
 
     <?!= include('client/shared/javascript') ?>
     <script>
+      var allMenuList = [];
+      var currentTab = 'all';
+      var CATEGORY_PRIORITY = ['ドリンク', 'フード'];
+      var CATEGORY_ICON = { 'ドリンク': 'coffee', 'フード': 'utensils' };
+      var CATEGORY_COLOR = { 'ドリンク': 'var(--ai)', 'フード': 'var(--warn)' };
+
       function loadMenuList() {
-        google.script.run.withSuccessHandler(renderMenuList).getMenuList();
-      }
+        var keepLarge = document.getElementById('CategoryLarge').value;
+        var keepMedium = document.getElementById('CategoryMedium').value;
 
-      function renderMenuList(menuList) {
-        var tbody = document.querySelector('#menu-table tbody');
-        tbody.innerHTML = '';
-        menuList.forEach(function (menu) {
-          var tr = document.createElement('tr');
+        google.script.run.withSuccessHandler(function (menuList) {
+          allMenuList = menuList;
 
-          tr.appendChild(cell(menu.MenuName));
-          tr.appendChild(cell(menu.Price));
-          tr.appendChild(cell(menu.Cost));
-          tr.appendChild(cell(menu.CategoryLarge));
-          tr.appendChild(cell(menu.CategoryMedium));
-          tr.appendChild(cell(menu.IsActive ? '○' : '販売終了'));
-
-          var actionTd = document.createElement('td');
-          var editButton = document.createElement('button');
-          editButton.type = 'button';
-          editButton.textContent = '編集';
-          editButton.addEventListener('click', function () {
-            startEdit(menu);
-          });
-          actionTd.appendChild(editButton);
-
-          if (menu.IsActive) {
-            var deactivateButton = document.createElement('button');
-            deactivateButton.type = 'button';
-            deactivateButton.textContent = '販売終了';
-            deactivateButton.addEventListener('click', function () {
-              if (confirm(menu.MenuName + ' を販売終了にしますか？')) {
-                google.script.run.withSuccessHandler(loadMenuList).deactivateMenu(menu.MenuId);
-              }
-            });
-            actionTd.appendChild(deactivateButton);
+          if (keepLarge && keepLarge !== '__new__') {
+            populateCategoryLargeSelect(keepLarge);
+            populateCategoryMediumSelect(keepMedium && keepMedium !== '__new__' ? keepMedium : null);
+          } else {
+            populateCategoryLargeSelect(null);
+            populateCategoryMediumSelect(null);
           }
 
-          tr.appendChild(actionTd);
-          tbody.appendChild(tr);
+          renderTabs();
+          renderMenuTable();
+        }).getMenuList();
+      }
+
+      function categoryRank(cat) {
+        var i = CATEGORY_PRIORITY.indexOf(cat);
+        return i === -1 ? 99 : i;
+      }
+
+      function distinctValues(list, key) {
+        var seen = {};
+        var result = [];
+        list.forEach(function (item) {
+          var v = item[key];
+          if (v && !seen[v]) {
+            seen[v] = true;
+            result.push(v);
+          }
         });
+        return result;
+      }
+
+      function fillSelectWithNewOption(select, values, selected) {
+        if (selected && values.indexOf(selected) === -1) {
+          values = [selected].concat(values);
+        }
+        select.innerHTML = '';
+        values.forEach(function (v) {
+          var opt = document.createElement('option');
+          opt.value = v;
+          opt.textContent = v;
+          select.appendChild(opt);
+        });
+        var newOpt = document.createElement('option');
+        newOpt.value = '__new__';
+        newOpt.textContent = '＋ 新規入力...';
+        select.appendChild(newOpt);
+        select.value = selected || (values[0] || '__new__');
+      }
+
+      function populateCategoryLargeSelect(selected) {
+        var values = distinctValues(allMenuList, 'CategoryLarge').sort(function (a, b) {
+          return categoryRank(a) - categoryRank(b);
+        });
+        fillSelectWithNewOption(document.getElementById('CategoryLarge'), values, selected);
+      }
+
+      function populateCategoryMediumSelect(selected) {
+        var large = document.getElementById('CategoryLarge').value;
+        var scoped = allMenuList.filter(function (m) { return m.CategoryLarge === large; });
+        var values = distinctValues(scoped, 'CategoryMedium').sort(function (a, b) {
+          return a.localeCompare(b, 'ja');
+        });
+        fillSelectWithNewOption(document.getElementById('CategoryMedium'), values, selected);
+      }
+
+      function handleCategoryChange(select, afterFn) {
+        if (select.value === '__new__') {
+          var newVal = prompt('新しい値を入力してください');
+          if (newVal) {
+            var opt = document.createElement('option');
+            opt.value = newVal;
+            opt.textContent = newVal;
+            select.insertBefore(opt, select.lastElementChild);
+            select.value = newVal;
+          } else {
+            select.selectedIndex = 0;
+          }
+        }
+        if (afterFn) {
+          afterFn();
+        }
+      }
+
+      document.getElementById('CategoryLarge').addEventListener('change', function () {
+        handleCategoryChange(this, function () {
+          populateCategoryMediumSelect(null);
+        });
+      });
+      document.getElementById('CategoryMedium').addEventListener('change', function () {
+        handleCategoryChange(this);
+      });
+
+      function renderTabs() {
+        var counts = {};
+        var order = [];
+        allMenuList.forEach(function (m) {
+          var c = m.CategoryLarge || 'その他';
+          if (counts[c] === undefined) {
+            counts[c] = 0;
+            order.push(c);
+          }
+          counts[c]++;
+        });
+        order.sort(function (a, b) { return categoryRank(a) - categoryRank(b); });
+
+        var container = document.getElementById('menu-tabs');
+        container.innerHTML = '';
+        container.appendChild(buildTabButton('all', 'すべて (' + allMenuList.length + ')', null));
+        order.forEach(function (cat) {
+          container.appendChild(buildTabButton(cat, cat + ' (' + counts[cat] + ')', CATEGORY_ICON[cat]));
+        });
+      }
+
+      function buildTabButton(value, label, iconName) {
+        var tab = document.createElement('button');
+        tab.type = 'button';
+        tab.className = 'tab' + (value === currentTab ? ' active' : '');
+        if (iconName) {
+          tab.innerHTML = '<svg class="icon" style="color:' + CATEGORY_COLOR[value] + '"><use href="#icon-' + iconName + '"></use></svg> ' + label;
+        } else {
+          tab.textContent = label;
+        }
+        tab.addEventListener('click', function () {
+          currentTab = value;
+          renderTabs();
+          renderMenuTable();
+        });
+        return tab;
+      }
+
+      function renderMenuTable() {
+        var filtered = currentTab === 'all'
+          ? allMenuList
+          : allMenuList.filter(function (m) { return (m.CategoryLarge || 'その他') === currentTab; });
+
+        var groups = {};
+        var groupOrder = [];
+        filtered.forEach(function (m) {
+          var med = m.CategoryMedium || 'その他';
+          if (!groups[med]) {
+            groups[med] = [];
+            groupOrder.push(med);
+          }
+          groups[med].push(m);
+        });
+        groupOrder.sort(function (a, b) { return a.localeCompare(b, 'ja'); });
+
+        var tbody = document.querySelector('#menu-table tbody');
+        tbody.innerHTML = '';
+
+        groupOrder.forEach(function (med) {
+          var items = groups[med].slice().sort(function (a, b) {
+            return (a.MenuName || '').localeCompare(b.MenuName || '', 'ja');
+          });
+
+          var headerRow = document.createElement('tr');
+          var headerTd = document.createElement('td');
+          headerTd.colSpan = 5;
+          headerTd.className = 'group-header';
+          headerTd.textContent = med + '（' + items.length + '）';
+          headerRow.appendChild(headerTd);
+          tbody.appendChild(headerRow);
+
+          items.forEach(function (menu) {
+            tbody.appendChild(buildMenuRow(menu));
+          });
+        });
+      }
+
+      function buildMenuRow(menu) {
+        var tr = document.createElement('tr');
+
+        tr.appendChild(cell(menu.MenuName));
+        tr.appendChild(cell(menu.Price));
+        tr.appendChild(cell(menu.Cost));
+
+        var statusTd = document.createElement('td');
+        var badge = document.createElement('span');
+        badge.className = 'badge ' + (menu.IsActive ? 'badge-active' : 'badge-inactive');
+        badge.textContent = menu.IsActive ? '販売中' : '販売終了';
+        statusTd.appendChild(badge);
+        tr.appendChild(statusTd);
+
+        var actionTd = document.createElement('td');
+        var editButton = document.createElement('button');
+        editButton.type = 'button';
+        editButton.className = 'icon-btn';
+        editButton.title = '編集';
+        editButton.innerHTML = iconSvg('edit');
+        editButton.addEventListener('click', function () {
+          startEdit(menu);
+        });
+        actionTd.appendChild(editButton);
+
+        if (menu.IsActive) {
+          var deactivateButton = document.createElement('button');
+          deactivateButton.type = 'button';
+          deactivateButton.className = 'icon-btn';
+          deactivateButton.title = '販売終了';
+          deactivateButton.innerHTML = iconSvg('ban');
+          deactivateButton.addEventListener('click', function () {
+            if (confirm(menu.MenuName + ' を販売終了にしますか？')) {
+              google.script.run.withSuccessHandler(loadMenuList).deactivateMenu(menu.MenuId);
+            }
+          });
+          actionTd.appendChild(deactivateButton);
+        }
+
+        tr.appendChild(actionTd);
+        return tr;
       }
 
       function cell(value) {
@@ -112,15 +310,27 @@
         document.getElementById('MenuName').value = menu.MenuName;
         document.getElementById('Price').value = menu.Price;
         document.getElementById('Cost').value = menu.Cost;
-        document.getElementById('CategoryLarge').value = menu.CategoryLarge;
-        document.getElementById('CategoryMedium').value = menu.CategoryMedium;
+        populateCategoryLargeSelect(menu.CategoryLarge);
+        populateCategoryMediumSelect(menu.CategoryMedium);
         document.getElementById('cancel-edit').style.display = '';
       }
 
       function resetForm() {
-        document.getElementById('form-title').textContent = '新規登録';
+        document.getElementById('form-title').textContent = 'メニュー追加';
         document.getElementById('menu-form').reset();
         document.getElementById('MenuId').value = '';
+        populateCategoryLargeSelect(null);
+        populateCategoryMediumSelect(null);
+        document.getElementById('cancel-edit').style.display = 'none';
+      }
+
+      // 新規登録の直後は、連続入力しやすいよう大分類・中分類だけ残して他をクリアする
+      function clearEntryKeepCategory() {
+        document.getElementById('form-title').textContent = 'メニュー追加';
+        document.getElementById('MenuId').value = '';
+        document.getElementById('MenuName').value = '';
+        document.getElementById('Price').value = '';
+        document.getElementById('Cost').value = '';
         document.getElementById('cancel-edit').style.display = 'none';
       }
 
@@ -130,18 +340,30 @@
         event.preventDefault();
         document.getElementById('form-error').textContent = '';
 
+        var categoryLarge = document.getElementById('CategoryLarge').value;
+        var categoryMedium = document.getElementById('CategoryMedium').value;
+        if (categoryLarge === '__new__' || categoryMedium === '__new__') {
+          document.getElementById('form-error').textContent = '大分類・中分類を選択または入力してください';
+          return;
+        }
+
+        var isNew = !document.getElementById('MenuId').value;
         var menuInput = {
           MenuId: document.getElementById('MenuId').value,
           MenuName: document.getElementById('MenuName').value,
           Price: document.getElementById('Price').value,
           Cost: document.getElementById('Cost').value,
-          CategoryLarge: document.getElementById('CategoryLarge').value,
-          CategoryMedium: document.getElementById('CategoryMedium').value
+          CategoryLarge: categoryLarge,
+          CategoryMedium: categoryMedium
         };
 
         google.script.run
           .withSuccessHandler(function () {
-            resetForm();
+            if (isNew) {
+              clearEntryKeepCategory();
+            } else {
+              resetForm();
+            }
             loadMenuList();
           })
           .withFailureHandler(function (error) {
