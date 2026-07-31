@@ -188,13 +188,21 @@ function dashboardPctDiff_(current, base) {
   return Math.round(((current - base) / base) * 1000) / 10;
 }
 
+function dashboardDiffAmount_(current, base) {
+  return Math.round((current - base) * 100) / 100;
+}
+
 function buildDashboardKpiDiffs_(current, compare) {
   var kpis = {};
   Object.keys(DASHBOARD_KPI_LABELS_).forEach(function (key) {
-    kpis[key] = { value: current[key], diffPercent: dashboardPctDiff_(current[key], compare[key]) };
+    kpis[key] = {
+      value: current[key],
+      diffAmount: dashboardDiffAmount_(current[key], compare[key]),
+      diffPercent: dashboardPctDiff_(current[key], compare[key])
+    };
   });
-  kpis.foodAmount = { value: current.foodAmount, diffPercent: dashboardPctDiff_(current.foodAmount, compare.foodAmount) };
-  kpis.drinkAmount = { value: current.drinkAmount, diffPercent: dashboardPctDiff_(current.drinkAmount, compare.drinkAmount) };
+  kpis.foodAmount = { value: current.foodAmount, diffAmount: dashboardDiffAmount_(current.foodAmount, compare.foodAmount), diffPercent: dashboardPctDiff_(current.foodAmount, compare.foodAmount) };
+  kpis.drinkAmount = { value: current.drinkAmount, diffAmount: dashboardDiffAmount_(current.drinkAmount, compare.drinkAmount), diffPercent: dashboardPctDiff_(current.drinkAmount, compare.drinkAmount) };
   return kpis;
 }
 

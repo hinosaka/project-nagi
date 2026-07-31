@@ -259,12 +259,24 @@
           .getDashboardData(currentPeriod, startDateStr, endDateStr, currentCompareBasis());
       }
 
-      function deltaHtml(diff) {
-        if (diff === null || diff === undefined) {
+      // 矢印＋実数（符号付き）｜%（符号付き）の形式で差分を表示する
+      function deltaHtml(kpi, formatAmount) {
+        if (!kpi || kpi.diffPercent === null || kpi.diffPercent === undefined) {
           return '<span class="kpi-delta flat">-</span>';
         }
-        var up = diff >= 0;
-        return '<span class="kpi-delta ' + (up ? 'up' : 'down') + '">' + (up ? UP_ICON : DOWN_ICON) + (up ? '+' : '') + diff + '%</span>';
+        var up = kpi.diffAmount >= 0;
+        var percentText = (up ? '+' : '') + kpi.diffPercent + '%';
+        return '<span class="kpi-delta ' + (up ? 'up' : 'down') + '">' + (up ? UP_ICON : DOWN_ICON) +
+          formatAmount(kpi.diffAmount) + ' | ' + percentText + '</span>';
+      }
+
+      function signedAmount(n, unit) {
+        var sign = n < 0 ? '-' : '+';
+        return sign + Math.abs(n).toLocaleString() + unit;
+      }
+      function yenAmountFormat(n) {
+        var sign = n < 0 ? '-' : '+';
+        return sign + '¥' + Math.abs(n).toLocaleString();
       }
 
       function renderKpis(data) {
@@ -272,26 +284,26 @@
         var salesCard = document.getElementById('kpi-sales-card');
         salesCard.innerHTML =
           '<div class="kpi-label">売上高</div>' +
-          '<div class="kpi-value-row"><span class="kpi-value">¥' + k.totalAmount.value.toLocaleString() + '</span>' + deltaHtml(k.totalAmount.diffPercent) + '</div>' +
+          '<div class="kpi-value-row"><span class="kpi-value">¥' + k.totalAmount.value.toLocaleString() + '</span>' + deltaHtml(k.totalAmount, yenAmountFormat) + '</div>' +
           '<div class="kpi-sub-lines">' +
           '<div class="kpi-sub-line"><span>ドリンク</span><span class="val">¥' + k.drinkAmount.value.toLocaleString() + '</span></div>' +
           '<div class="kpi-sub-line"><span>フード</span><span class="val">¥' + k.foodAmount.value.toLocaleString() + '</span></div>' +
           '</div>';
 
         var detail = [
-          { label: '客単価', value: '¥' + k.perPersonAmount.value.toLocaleString(), sub: '/ 人', diff: k.perPersonAmount.diffPercent },
-          { label: '合計客数', value: k.totalPartySize.value + '人', diff: k.totalPartySize.diffPercent },
-          { label: '合計組数', value: k.visitCount.value + '組', diff: k.visitCount.diffPercent }
+          { label: '客単価', value: '¥' + k.perPersonAmount.value.toLocaleString(), sub: '/ 人', kpi: k.perPersonAmount, format: yenAmountFormat },
+          { label: '合計客数', value: k.totalPartySize.value + '人', kpi: k.totalPartySize, format: function (n) { return signedAmount(n, '人'); } },
+          { label: '合計組数', value: k.visitCount.value + '組', kpi: k.visitCount, format: function (n) { return signedAmount(n, '組'); } }
         ];
         var colsHtml = detail.map(function (item) {
           return '<div class="kpi-detail-col">' +
             '<div class="kpi-label">' + item.label + '</div>' +
-            '<div class="kpi-value-row"><span class="kpi-value">' + item.value + (item.sub ? '<span class="kpi-sub">' + item.sub + '</span>' : '') + '</span>' + deltaHtml(item.diff) + '</div>' +
+            '<div class="kpi-value-row"><span class="kpi-value">' + item.value + (item.sub ? '<span class="kpi-sub">' + item.sub + '</span>' : '') + '</span>' + deltaHtml(item.kpi, item.format) + '</div>' +
             '</div>';
         }).join('');
         document.getElementById('kpi-detail-card').innerHTML =
           '<div class="kpi-detail-cols">' + colsHtml + '</div>' +
-          '<div class="kpi-turnover-row"><span class="kpi-label">客席回転率</span><span class="kpi-value">' + k.turnoverRate.value + '回転</span>' + deltaHtml(k.turnoverRate.diffPercent) + '</div>';
+          '<div class="kpi-turnover-row"><span class="kpi-label">客席回転率</span><span class="kpi-value">' + k.turnoverRate.value + '回転</span>' + deltaHtml(k.turnoverRate, function (n) { return signedAmount(n, '回転'); }) + '</div>';
       }
 
       function renderRanking(ranking) {
