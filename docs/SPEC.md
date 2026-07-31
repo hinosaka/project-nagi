@@ -83,8 +83,8 @@
 | REQ-019 | 曜日・天候別の売上・来店人数の傾向を確認できる | Should | BusinessDay |
 | REQ-020 | 顧客の新規／リピート傾向を確認できる | Should | Customer |
 | REQ-021 | 座席（種別）ごとの日次利用件数を確認できる | Should | Seat |
-| REQ-036 | ホーム画面で、直近の営業日の売上サマリー（売上高・客単価・来店組数など）をすぐに確認できる | Must | Sales, SalesDetail |
-| REQ-037 | ホーム画面で、過去データとの比較に基づく一言アドバイスを確認できる（例：先週同曜日比の増減、直近の売れ筋商品） | Should | Sales, SalesDetail。天候に基づく事前予測（例：天候による売れ筋予測）は対象外。当日の予報天気を持つ手段が現状ないため（[DATABASE.md](./DATABASE.md#5-データ管理方針)のTODO参照） |
+| REQ-036 | ダッシュボード画面で、直近の営業日の売上サマリー（売上高・客単価・来店組数など）をすぐに確認できる | Must | Sales, SalesDetail |
+| REQ-037 | ダッシュボード画面で、過去データとの比較に基づく一言アドバイスを確認できる（例：先週同曜日比の増減、直近の売れ筋商品） | Should | Sales, SalesDetail。天候に基づく事前予測（例：天候による売れ筋予測）は対象外。当日の予報天気を持つ手段が現状ないため（[DATABASE.md](./DATABASE.md#5-データ管理方針)のTODO参照） |
 | REQ-029 | 商品別・期間別の粗利益・原価率を確認できる | Should | Menu.Cost, SalesDetail.UnitCost（原価未登録の商品は集計対象外） |
 | REQ-030 | 商品を売上順にランキング表示できる | Should | SalesDetail, Menu |
 | REQ-031 | 売上構成比に基づくABC分析（重点管理商品の抽出）を確認できる | Should | SalesDetail, Menu |

@@ -1,21 +1,18 @@
 // アプリケーション層：エントリーポイント。pageパラメータで画面を出し分ける（実装済みの画面のみ対応）
 var PAGE_FILES = {
-  home: 'client/home',
   menu: 'client/menu',
   seat: 'client/seat',
   customer: 'client/customer',
   sales: 'client/sales-entry',
   dashboard: 'client/dashboard',
-  budget: 'client/budget',
+  'sales-stats': 'client/sales-stats',
   'analysis-product': 'client/analysis-product',
-  'analysis-customer': 'client/analysis-customer',
-  'analysis-day-weather-seat': 'client/analysis-day-weather-seat',
-  'analysis-monthly': 'client/analysis-monthly'
+  'data-analysis': 'client/data-analysis'
 };
 
 function doGet(e) {
-  var page = (e && e.parameter && e.parameter.page) || 'home';
-  var file = PAGE_FILES[page] || PAGE_FILES.home;
+  var page = (e && e.parameter && e.parameter.page) || 'dashboard';
+  var file = PAGE_FILES[page] || PAGE_FILES.dashboard;
 
   var template = HtmlService.createTemplateFromFile(file);
   // Webアプリの/exec URLはアクセス時にgoogleusercontent.comへリダイレクトされるため、

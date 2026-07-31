@@ -1,4 +1,4 @@
-<!-- SCR-010 曜日・天候・座席分析 -->
+<!-- SCR-009, SCR-010 データ分析（顧客分析・曜日/天候/座席分析を統合） -->
 <!DOCTYPE html>
 <html>
   <head>
@@ -34,6 +34,24 @@
       #period-label {
         color: var(--ink-muted);
         font-weight: bold;
+      }
+      .tab-panel {
+        display: none;
+      }
+      .tab-panel.active {
+        display: block;
+      }
+      .split-bar .segment-new {
+        background: var(--ai);
+      }
+      .split-bar .segment-repeat {
+        background: var(--good);
+      }
+      .dot-new { background: var(--ai); }
+      .dot-repeat { background: var(--good); }
+      .note-text {
+        color: var(--ink-muted);
+        font-size: 0.85em;
       }
       .bar-chart {
         display: flex;
@@ -81,7 +99,7 @@
     <div class="app-shell">
       <?!= include('client/shared/sidebar', {baseUrl: baseUrl}) ?>
       <main class="main-content">
-        <h1>曜日・天候・座席分析</h1>
+        <h1>データ分析</h1>
 
         <div class="period-row">
           <div class="tabs" id="period-tabs"></div>
@@ -93,42 +111,76 @@
           </span>
         </div>
 
+        <div class="tabs" id="content-tabs"></div>
+
         <p id="load-error" class="error"></p>
 
-        <div class="card">
-          <h2>曜日別の売上・来店</h2>
-          <div class="bar-chart" id="day-bar-chart"></div>
-          <div class="table-scroll">
-            <table>
-              <thead>
-                <tr><th>曜日</th><th class="num">売上</th><th class="num">来店組数</th><th class="num">来店人数</th><th class="num">客単価</th></tr>
-              </thead>
-              <tbody id="day-table-body"></tbody>
-            </table>
+        <div class="tab-panel" id="panel-customer">
+          <div class="kpi-row">
+            <div class="kpi-tile primary">
+              <div class="kpi-label">常連率</div>
+              <div class="kpi-value"><span id="kpi-rate">-</span></div>
+            </div>
+            <div class="kpi-tile">
+              <div class="kpi-label">新規来店</div>
+              <div class="kpi-value"><span id="kpi-new">0</span>組</div>
+            </div>
+            <div class="kpi-tile">
+              <div class="kpi-label">リピート来店</div>
+              <div class="kpi-value"><span id="kpi-repeat">0</span>組</div>
+            </div>
+          </div>
+
+          <div class="card">
+            <h2>新規 / リピート内訳</h2>
+            <div class="split-bar">
+              <div class="segment-new" id="split-new"></div>
+              <div class="segment-repeat" id="split-repeat"></div>
+            </div>
+            <div class="legend">
+              <span><span class="dot dot-new"></span>新規　<span id="new-count">0</span>組（<span id="new-ratio">0</span>%）・¥<span id="new-amount">0</span></span>
+              <span><span class="dot dot-repeat"></span>リピート　<span id="repeat-count">0</span>組（<span id="repeat-ratio">0</span>%）・¥<span id="repeat-amount">0</span></span>
+            </div>
+            <p class="note-text">顧客が紐づいていない会計：<span id="no-customer-count">0</span>組（常連率の算出対象外）</p>
           </div>
         </div>
 
-        <div class="card">
-          <h2>天候別の傾向</h2>
-          <div class="table-scroll">
-            <table>
-              <thead>
-                <tr><th>天候</th><th class="num">売上</th><th class="num">来店組数</th></tr>
-              </thead>
-              <tbody id="weather-table-body"></tbody>
-            </table>
+        <div class="tab-panel" id="panel-day-weather-seat">
+          <div class="card">
+            <h2>曜日別の売上・来店</h2>
+            <div class="bar-chart" id="day-bar-chart"></div>
+            <div class="table-scroll">
+              <table>
+                <thead>
+                  <tr><th>曜日</th><th class="num">売上</th><th class="num">来店組数</th><th class="num">来店人数</th><th class="num">客単価</th></tr>
+                </thead>
+                <tbody id="day-table-body"></tbody>
+              </table>
+            </div>
           </div>
-        </div>
 
-        <div class="card">
-          <h2>座席種別ごとの利用状況</h2>
-          <div class="table-scroll">
-            <table>
-              <thead>
-                <tr><th>座席種別</th><th class="num">利用件数</th><th class="num">稼働率</th></tr>
-              </thead>
-              <tbody id="seat-table-body"></tbody>
-            </table>
+          <div class="card">
+            <h2>天候別の傾向</h2>
+            <div class="table-scroll">
+              <table>
+                <thead>
+                  <tr><th>天候</th><th class="num">売上</th><th class="num">来店組数</th></tr>
+                </thead>
+                <tbody id="weather-table-body"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="card">
+            <h2>座席種別ごとの利用状況</h2>
+            <div class="table-scroll">
+              <table>
+                <thead>
+                  <tr><th>座席種別</th><th class="num">利用件数</th><th class="num">稼働率</th></tr>
+                </thead>
+                <tbody id="seat-table-body"></tbody>
+              </table>
+            </div>
           </div>
         </div>
 
@@ -138,20 +190,85 @@
 
     <?!= include('client/shared/javascript') ?>
     <script>
+      var currentTab = 'customer';
+      var CONTENT_TAB_LABELS = { customer: '顧客', 'day-weather-seat': '曜日・天候・座席' };
+
       var periodController = createPeriodController({
         tabsEl: document.getElementById('period-tabs'),
         dateEl: document.getElementById('reference-date'),
         prevBtn: document.getElementById('period-prev'),
         nextBtn: document.getElementById('period-next'),
         periodLabels: { day: '日次', week: '週次', month: '月次' },
-        initialPeriod: 'week',
-        onChange: loadAnalysis
+        initialPeriod: 'day',
+        onChange: loadActiveTab
       });
 
-      function loadAnalysis() {
+      function renderContentTabs() {
+        var container = document.getElementById('content-tabs');
+        container.innerHTML = '';
+        Object.keys(CONTENT_TAB_LABELS).forEach(function (key) {
+          var tab = document.createElement('button');
+          tab.type = 'button';
+          tab.className = 'tab' + (key === currentTab ? ' active' : '');
+          tab.textContent = CONTENT_TAB_LABELS[key];
+          tab.addEventListener('click', function () {
+            currentTab = key;
+            renderContentTabs();
+            renderPanels();
+            loadActiveTab();
+          });
+          container.appendChild(tab);
+        });
+      }
+
+      function renderPanels() {
+        document.getElementById('panel-customer').classList.toggle('active', currentTab === 'customer');
+        document.getElementById('panel-day-weather-seat').classList.toggle('active', currentTab === 'day-weather-seat');
+      }
+
+      function loadActiveTab() {
+        if (currentTab === 'customer') {
+          loadCustomerAnalysis();
+        } else {
+          loadDayWeatherSeatAnalysis();
+        }
+      }
+
+      function loadCustomerAnalysis() {
         document.getElementById('load-error').textContent = '';
         google.script.run
-          .withSuccessHandler(renderAnalysis)
+          .withSuccessHandler(renderCustomerAnalysis)
+          .withFailureHandler(function (error) {
+            document.getElementById('load-error').textContent = 'データの取得に失敗しました：' + error.message;
+          })
+          .getCustomerAnalysisData(periodController.getPeriod(), periodController.getDate());
+      }
+
+      function renderCustomerAnalysis(data) {
+        document.getElementById('period-label').textContent = data.periodLabel;
+        document.getElementById('kpi-rate').textContent = data.regularRate === null ? '対象なし' : data.regularRate + '%';
+        document.getElementById('kpi-new').textContent = data.newCount;
+        document.getElementById('kpi-repeat').textContent = data.repeatCount;
+
+        var total = data.linkedTotal;
+        var newRatio = total > 0 ? Math.round((data.newCount / total) * 100) : 0;
+        var repeatRatio = total > 0 ? 100 - newRatio : 0;
+
+        document.getElementById('new-count').textContent = data.newCount;
+        document.getElementById('new-ratio').textContent = newRatio;
+        document.getElementById('new-amount').textContent = data.newAmount;
+        document.getElementById('repeat-count').textContent = data.repeatCount;
+        document.getElementById('repeat-ratio').textContent = repeatRatio;
+        document.getElementById('repeat-amount').textContent = data.repeatAmount;
+        document.getElementById('no-customer-count').textContent = data.noCustomerCount;
+        document.getElementById('split-new').style.width = newRatio + '%';
+        document.getElementById('split-repeat').style.width = repeatRatio + '%';
+      }
+
+      function loadDayWeatherSeatAnalysis() {
+        document.getElementById('load-error').textContent = '';
+        google.script.run
+          .withSuccessHandler(renderDayWeatherSeatAnalysis)
           .withFailureHandler(function (error) {
             document.getElementById('load-error').textContent = 'データの取得に失敗しました：' + error.message;
           })
@@ -167,7 +284,7 @@
         return td;
       }
 
-      function renderAnalysis(data) {
+      function renderDayWeatherSeatAnalysis(data) {
         document.getElementById('period-label').textContent = data.periodLabel;
 
         var maxAmount = data.dayStats.reduce(function (max, d) { return Math.max(max, d.amount); }, 0);
@@ -233,7 +350,9 @@
         });
       }
 
-      loadAnalysis();
+      renderContentTabs();
+      renderPanels();
+      loadActiveTab();
     </script>
   </body>
 </html>

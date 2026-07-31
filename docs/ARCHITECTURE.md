@@ -33,19 +33,18 @@ GASのWebアプリは「クライアント（ブラウザ側）」と「サー�
 ```
 src/
 ├── client/                          # UI層（HTML Service）
-│   ├── home.html
 │   ├── sales-entry.html             # 伝票入力（SCR-002）
-│   ├── menu.html
+│   ├── menu.html                    # 商品管理（SCR-003）
 │   ├── customer.html
 │   ├── seat.html
-│   ├── dashboard.html
-│   ├── budget.html
-│   ├── analysis-product.html        # 商品分析（SCR-008）
-│   ├── analysis-customer.html       # 顧客分析（SCR-009）
-│   ├── analysis-day-weather-seat.html # 曜日・天候・座席分析（SCR-010）
-│   ├── analysis-monthly.html        # 月次推移・比較（SCR-011）
+│   ├── dashboard.html               # ダッシュボード（SCR-006）。トップURLのデフォルト遷移先
+│   ├── sales-stats.html             # 売上統計（SCR-007, SCR-011を統合）
+│   ├── analysis-product.html        # 商品統計（SCR-008）
+│   ├── data-analysis.html           # データ分析（SCR-009, SCR-010を統合）
 │   └── shared/                      # 共通CSS/JS（includeスクリプトレットで各画面に差し込む）
 │       ├── stylesheet.html
+│       ├── sidebar.html
+│       ├── icons.html
 │       └── javascript.html
 ├── server/
 │   ├── main.gs                      # doGet等のエントリーポイント（アプリケーション層）
