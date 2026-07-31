@@ -1,28 +1,162 @@
 // アプリケーション層：ダッシュボード（SCR-006）のユースケース。
 // google.script.runの制約により、クライアント公開分はトップレベル関数として定義する
+//
+// 期間は本日／昨日／過去7日間／当月／期間指定（custom）の5種類。
+// 差分基準（前日比／前週同曜日比／前月同日比）は単日のときのみ適用し、複数日の期間は常に
+// 「直前の同じ長さの期間」と比較する（ユーザーとの合意事項。UI.md 4.5参照）
 
-function getDashboardData(periodType, referenceDateStr) {
-  var range = calcPeriodRange_(periodType, new Date(referenceDateStr));
+var DASHBOARD_KPI_LABELS_ = {
+  totalAmount: '売上高',
+  perPersonAmount: '客単価',
+  totalPartySize: '合計客数',
+  visitCount: '合計組数',
+  turnoverRate: '客席回転率'
+};
 
-  var salesInRange = SalesRepository.findAll().filter(function (s) {
+function getDashboardData(periodType, startDateStr, endDateStr, compareBasis) {
+  var allSales = SalesRepository.findAll();
+  var allDetails = SalesDetailRepository.findAll();
+  var activeSeatCount = SeatRepository.findAll().filter(function (s) { return s.IsActive; }).length;
+
+  var range = calcDashboardPeriodRange_(periodType, startDateStr, endDateStr);
+  var compareRange = calcDashboardComparePeriodRange_(range, compareBasis);
+
+  var current = summarizeDashboardPeriod_(allSales, allDetails, range, activeSeatCount);
+  var compare = summarizeDashboardPeriod_(allSales, allDetails, compareRange, activeSeatCount);
+  var kpis = buildDashboardKpiDiffs_(current, compare);
+
+  var graphRange = buildDashboardGraphRange_(periodType, range);
+  var ranking = buildDashboardTop10_(allDetails, current.salesIdSet);
+
+  return {
+    periodLabel: buildDashboardPeriodLabel_(periodType, range),
+    isSingleDay: range.dayCount === 1,
+    kpis: kpis,
+    graph: buildDashboardGraphData_(allSales, graphRange),
+    ranking: ranking,
+    category: buildDashboardCategoryBreakdown_(allDetails, current.salesIdSet),
+    advice: buildDashboardAdvice_(kpis, ranking)
+  };
+}
+
+// ----- 期間の算出 -----
+
+function calcDashboardPeriodRange_(periodType, startDateStr, endDateStr) {
+  var today = new Date();
+  today.setHours(0, 0, 0, 0);
+  var start;
+  var end;
+
+  if (periodType === 'yesterday') {
+    start = new Date(today);
+    start.setDate(start.getDate() - 1);
+    end = new Date(start);
+  } else if (periodType === 'last7') {
+    end = new Date(today);
+    start = new Date(today);
+    start.setDate(start.getDate() - 6);
+  } else if (periodType === 'month') {
+    start = new Date(today.getFullYear(), today.getMonth(), 1);
+    end = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+  } else if (periodType === 'custom') {
+    start = new Date(startDateStr);
+    end = new Date(endDateStr);
+  } else {
+    start = new Date(today);
+    end = new Date(today);
+  }
+
+  start.setHours(0, 0, 0, 0);
+  end.setHours(23, 59, 59, 999);
+
+  var msPerDay = 24 * 60 * 60 * 1000;
+  var startDateOnly = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+  var endDateOnly = new Date(end.getFullYear(), end.getMonth(), end.getDate());
+  var dayCount = Math.round((endDateOnly - startDateOnly) / msPerDay) + 1;
+
+  return { start: start, end: end, dayCount: dayCount };
+}
+
+// 単日のときのみcompareBasisに従ってシフトする。複数日のときは常に「直前の同じ長さの期間」と比較する
+function calcDashboardComparePeriodRange_(range, compareBasis) {
+  var start;
+  var end;
+
+  if (range.dayCount === 1) {
+    if (compareBasis === 'prevMonth') {
+      start = new Date(range.start.getFullYear(), range.start.getMonth() - 1, range.start.getDate());
+    } else {
+      var shiftDays = compareBasis === 'prevWeek' ? 7 : 1;
+      start = new Date(range.start);
+      start.setDate(start.getDate() - shiftDays);
+    }
+    end = new Date(start);
+  } else {
+    end = new Date(range.start);
+    end.setDate(end.getDate() - 1);
+    start = new Date(end);
+    start.setDate(start.getDate() - (range.dayCount - 1));
+  }
+
+  start.setHours(0, 0, 0, 0);
+  end.setHours(23, 59, 59, 999);
+  return { start: start, end: end };
+}
+
+// 単日・当月選択時はその月の全日数、過去7日間はその7日間、期間指定はその期間を含む過去28日間をグラフ範囲にする
+function buildDashboardGraphRange_(periodType, range) {
+  if (range.dayCount === 1 || periodType === 'month') {
+    var monthStart = new Date(range.start.getFullYear(), range.start.getMonth(), 1);
+    var monthEnd = new Date(range.start.getFullYear(), range.start.getMonth() + 1, 0);
+    monthEnd.setHours(23, 59, 59, 999);
+    return { start: monthStart, end: monthEnd };
+  }
+  if (periodType === 'custom') {
+    var contextStart = new Date(range.end);
+    contextStart.setDate(contextStart.getDate() - 27);
+    contextStart.setHours(0, 0, 0, 0);
+    return { start: contextStart, end: range.end };
+  }
+  return range;
+}
+
+function dashboardFullDate_(d) {
+  var mm = ('0' + (d.getMonth() + 1)).slice(-2);
+  var dd = ('0' + d.getDate()).slice(-2);
+  return d.getFullYear() + '年' + mm + '月' + dd + '日';
+}
+
+// 集計対象日の表示。単日は日付＋曜日（例：2026年07月31日　金）、当月は年月、それ以外は範囲表示
+function buildDashboardPeriodLabel_(periodType, range) {
+  if (range.dayCount === 1) {
+    return dashboardFullDate_(range.start) + '　' + DayOfWeekRule.fromDate(range.start);
+  }
+  if (periodType === 'month') {
+    return range.start.getFullYear() + '年' + ('0' + (range.start.getMonth() + 1)).slice(-2) + '月';
+  }
+  return dashboardFullDate_(range.start) + ' 〜 ' + dashboardFullDate_(range.end);
+}
+
+// ----- 集計 -----
+
+function summarizeDashboardPeriod_(allSales, allDetails, range, activeSeatCount) {
+  var salesIdSet = {};
+  var totalAmount = 0;
+  var totalPartySize = 0;
+
+  var salesInRange = allSales.filter(function (s) {
     var d = new Date(s.SalesDate);
     return d >= range.start && d <= range.end;
   });
-
-  var totalAmount = salesInRange.reduce(function (sum, s) { return sum + (Number(s.TotalAmount) || 0); }, 0);
-  var totalPartySize = salesInRange.reduce(function (sum, s) { return sum + (Number(s.PartySize) || 0); }, 0);
-  var visitCount = salesInRange.length;
-  var perPersonAmount = totalPartySize > 0 ? Math.round(totalAmount / totalPartySize) : 0;
-
-  var salesIdSet = {};
-  salesInRange.forEach(function (s) { salesIdSet[s.SalesId] = true; });
+  salesInRange.forEach(function (s) {
+    totalAmount += Number(s.TotalAmount) || 0;
+    totalPartySize += Number(s.PartySize) || 0;
+    salesIdSet[s.SalesId] = true;
+  });
 
   var foodAmount = 0;
   var drinkAmount = 0;
-  var menuTotals = {};
-  var menuOrder = [];
-
-  SalesDetailRepository.findAll().forEach(function (d) {
+  allDetails.forEach(function (d) {
     if (!salesIdSet[d.SalesId]) {
       return;
     }
@@ -32,41 +166,163 @@ function getDashboardData(periodType, referenceDateStr) {
     } else if (d.CategoryLarge === 'ドリンク') {
       drinkAmount += subtotal;
     }
-
-    if (d.MenuName) {
-      if (menuTotals[d.MenuName] === undefined) {
-        menuTotals[d.MenuName] = { amount: 0, quantity: 0, category: d.CategoryLarge || '' };
-        menuOrder.push(d.MenuName);
-      }
-      menuTotals[d.MenuName].amount += subtotal;
-      menuTotals[d.MenuName].quantity += Number(d.Quantity) || 0;
-    }
   });
 
-  function buildRanking(category) {
-    return menuOrder
-      .filter(function (name) { return menuTotals[name].category === category; })
-      .map(function (name) {
-        return { MenuName: name, Amount: menuTotals[name].amount, Quantity: menuTotals[name].quantity };
-      })
-      .sort(function (a, b) { return b.Amount - a.Amount; })
-      .slice(0, 5);
-  }
-
+  var visitCount = salesInRange.length;
   return {
-    periodLabel: range.label,
     totalAmount: totalAmount,
-    perPersonAmount: perPersonAmount,
-    partySize: totalPartySize,
-    visitCount: visitCount,
     foodAmount: foodAmount,
     drinkAmount: drinkAmount,
-    foodRanking: buildRanking('フード'),
-    drinkRanking: buildRanking('ドリンク')
+    perPersonAmount: totalPartySize > 0 ? Math.round(totalAmount / totalPartySize) : 0,
+    totalPartySize: totalPartySize,
+    visitCount: visitCount,
+    turnoverRate: activeSeatCount > 0 ? Math.round((visitCount / activeSeatCount) * 100) / 100 : 0,
+    salesIdSet: salesIdSet
   };
 }
 
+function dashboardPctDiff_(current, base) {
+  if (!base) {
+    return null;
+  }
+  return Math.round(((current - base) / base) * 1000) / 10;
+}
+
+function buildDashboardKpiDiffs_(current, compare) {
+  var kpis = {};
+  Object.keys(DASHBOARD_KPI_LABELS_).forEach(function (key) {
+    kpis[key] = { value: current[key], diffPercent: dashboardPctDiff_(current[key], compare[key]) };
+  });
+  kpis.foodAmount = { value: current.foodAmount, diffPercent: dashboardPctDiff_(current.foodAmount, compare.foodAmount) };
+  kpis.drinkAmount = { value: current.drinkAmount, diffPercent: dashboardPctDiff_(current.drinkAmount, compare.drinkAmount) };
+  return kpis;
+}
+
+function buildDashboardGraphData_(allSales, graphRange) {
+  var amountByDate = {};
+  allSales.forEach(function (s) {
+    var d = new Date(s.SalesDate);
+    if (d < graphRange.start || d > graphRange.end) {
+      return;
+    }
+    var key = DateUtil.formatYmd(d);
+    amountByDate[key] = (amountByDate[key] || 0) + (Number(s.TotalAmount) || 0);
+  });
+
+  var days = [];
+  var cursor = new Date(graphRange.start.getFullYear(), graphRange.start.getMonth(), graphRange.start.getDate());
+  var endDateOnly = new Date(graphRange.end.getFullYear(), graphRange.end.getMonth(), graphRange.end.getDate());
+  while (cursor <= endDateOnly) {
+    var key = DateUtil.formatYmd(cursor);
+    days.push({ date: key, day: cursor.getDate(), amount: amountByDate[key] || 0 });
+    cursor.setDate(cursor.getDate() + 1);
+  }
+  return days;
+}
+
+function buildDashboardTop10_(allDetails, salesIdSet) {
+  var totals = {};
+  var order = [];
+  allDetails.forEach(function (d) {
+    if (!salesIdSet[d.SalesId] || !d.MenuName) {
+      return;
+    }
+    if (totals[d.MenuName] === undefined) {
+      totals[d.MenuName] = 0;
+      order.push(d.MenuName);
+    }
+    totals[d.MenuName] += Number(d.Quantity) || 0;
+  });
+
+  return order
+    .map(function (name) { return { MenuName: name, quantity: totals[name] }; })
+    .sort(function (a, b) { return b.quantity - a.quantity; })
+    .slice(0, 10)
+    .map(function (item, i) { return { rank: i + 1, MenuName: item.MenuName, quantity: item.quantity }; });
+}
+
+// 上位5件＋「その他」（6件を超える場合）に畳む。CategoryMediumが空欄の明細は元々「その他」に集計される
+function dashboardFoldToOther_(map) {
+  var list = Object.keys(map).map(function (name) { return { name: name, amount: map[name] }; });
+  list.sort(function (a, b) { return b.amount - a.amount; });
+
+  var explicitOtherAmount = 0;
+  var named = list.filter(function (it) {
+    if (it.name === 'その他') {
+      explicitOtherAmount += it.amount;
+      return false;
+    }
+    return true;
+  });
+
+  var visible = named.slice(0, 5);
+  var overflowAmount = named.slice(5).reduce(function (sum, it) { return sum + it.amount; }, 0) + explicitOtherAmount;
+  if (overflowAmount > 0) {
+    visible = visible.concat([{ name: 'その他', amount: overflowAmount }]);
+  }
+  return visible;
+}
+
+function buildDashboardCategoryBreakdown_(allDetails, salesIdSet) {
+  var large = { 'フード': 0, 'ドリンク': 0 };
+  var mediumByLarge = { 'フード': {}, 'ドリンク': {} };
+
+  allDetails.forEach(function (d) {
+    if (!salesIdSet[d.SalesId]) {
+      return;
+    }
+    var cat = d.CategoryLarge;
+    if (cat !== 'フード' && cat !== 'ドリンク') {
+      return;
+    }
+    var subtotal = Number(d.Subtotal) || 0;
+    large[cat] += subtotal;
+    var medium = d.CategoryMedium || 'その他';
+    mediumByLarge[cat][medium] = (mediumByLarge[cat][medium] || 0) + subtotal;
+  });
+
+  return {
+    large: [
+      { name: 'ドリンク', amount: large['ドリンク'] },
+      { name: 'フード', amount: large['フード'] }
+    ],
+    drink: dashboardFoldToOther_(mediumByLarge['ドリンク']),
+    food: dashboardFoldToOther_(mediumByLarge['フード'])
+  };
+}
+
+// 差分の絶対値が最大のKPIと、TOP10の1位商品を組み合わせた一言アドバイス（初版。実機確認後に調整前提）
+function buildDashboardAdvice_(kpis, ranking) {
+  var maxKey = null;
+  var maxAbs = -1;
+  Object.keys(DASHBOARD_KPI_LABELS_).forEach(function (key) {
+    var diff = kpis[key].diffPercent;
+    if (diff !== null && Math.abs(diff) > maxAbs) {
+      maxAbs = Math.abs(diff);
+      maxKey = key;
+    }
+  });
+
+  var text;
+  var sentiment = 'neutral';
+  if (maxKey) {
+    var diff = kpis[maxKey].diffPercent;
+    sentiment = diff >= 0 ? 'up' : 'down';
+    text = DASHBOARD_KPI_LABELS_[maxKey] + 'は比較期間比 ' + (diff >= 0 ? '+' : '') + diff + '% でした。';
+  } else {
+    text = '';
+  }
+  if (ranking.length > 0) {
+    text += '人気商品は「' + ranking[0].MenuName + '」でした。';
+  } else if (!text) {
+    text = 'この期間の会計データがまだありません。';
+  }
+
+  return { text: text, sentiment: sentiment };
+}
+
 // 週次は月曜始まり（日本の業務慣行に合わせる）。月次は暦月（1日〜末日）
+// 他画面（商品分析・顧客分析・曜日天候座席分析）と共用する日次／週次／月次の期間算出
 function calcPeriodRange_(periodType, refDate) {
   var start;
   var end;

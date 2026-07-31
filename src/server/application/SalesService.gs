@@ -163,7 +163,8 @@ function buildDetailRows_(rawDetails) {
       UnitCost: hasCost ? Number(d.UnitCost) : '',
       Quantity: quantity,
       Subtotal: SalesCalculator.calcSubtotal(unitPrice, quantity),
-      CategoryLarge: d.CategoryLarge || ''
+      CategoryLarge: d.CategoryLarge || '',
+      CategoryMedium: d.CategoryMedium || ''
     };
   });
 }

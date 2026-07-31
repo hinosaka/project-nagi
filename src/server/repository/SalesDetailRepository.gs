@@ -1,6 +1,6 @@
 // データアクセス層：SalesDetailシートの読み書き
 var SalesDetailRepository = {
-  HEADERS: ['SalesDetailId', 'SalesId', 'MenuId', 'MenuName', 'UnitPrice', 'UnitCost', 'Quantity', 'Subtotal', 'CustomerId', 'CategoryLarge'],
+  HEADERS: ['SalesDetailId', 'SalesId', 'MenuId', 'MenuName', 'UnitPrice', 'UnitCost', 'Quantity', 'Subtotal', 'CustomerId', 'CategoryLarge', 'CategoryMedium'],
 
   findAll: function () {
     var sheet = SpreadsheetConfig.getSheet('SalesDetail');

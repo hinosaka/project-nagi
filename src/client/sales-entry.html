@@ -141,8 +141,6 @@
     <div class="app-shell">
       <?!= include('client/shared/sidebar', {baseUrl: baseUrl}) ?>
       <main class="main-content">
-        <h1>伝票入力</h1>
-
         <div class="form-row">
           <label for="sales-date">会計日</label>
           <input type="date" id="sales-date">
@@ -406,7 +404,8 @@
           UnitPrice: menu.Price,
           UnitCost: menu.Cost,
           Quantity: 1,
-          CategoryLarge: menu.CategoryLarge
+          CategoryLarge: menu.CategoryLarge,
+          CategoryMedium: menu.CategoryMedium
         });
       }
 
@@ -502,6 +501,7 @@
           option.dataset.price = menu.Price;
           option.dataset.cost = menu.Cost;
           option.dataset.category = menu.CategoryLarge || '';
+          option.dataset.categoryMedium = menu.CategoryMedium || '';
           menuSelect.appendChild(option);
         });
 
@@ -523,6 +523,10 @@
         var categoryHidden = document.createElement('input');
         categoryHidden.type = 'hidden';
         categoryHidden.className = 'detail-category';
+
+        var categoryMediumHidden = document.createElement('input');
+        categoryMediumHidden.type = 'hidden';
+        categoryMediumHidden.className = 'detail-category-medium';
 
         var qtyInput = document.createElement('input');
         qtyInput.type = 'number';
@@ -587,6 +591,7 @@
               costHidden.value = '';
             }
             categoryHidden.value = selected.dataset.category || '';
+            categoryMediumHidden.value = '';
             nameInput.readOnly = false;
             priceInput.readOnly = false;
           } else {
@@ -594,6 +599,7 @@
             priceInput.value = selected.dataset.price;
             costHidden.value = selected.dataset.cost;
             categoryHidden.value = selected.dataset.category || '';
+            categoryMediumHidden.value = selected.dataset.categoryMedium || '';
             nameInput.readOnly = true;
             priceInput.readOnly = true;
           }
@@ -616,6 +622,7 @@
         priceTd.appendChild(priceInput);
         priceTd.appendChild(costHidden);
         priceTd.appendChild(categoryHidden);
+        priceTd.appendChild(categoryMediumHidden);
         var qtyTd = document.createElement('td');
         var qtyControl = document.createElement('span');
         qtyControl.className = 'qty-control';
@@ -651,6 +658,7 @@
           priceInput.value = prefill.UnitPrice;
           costHidden.value = prefill.UnitCost || '';
           categoryHidden.value = prefill.CategoryLarge || '';
+          categoryMediumHidden.value = prefill.CategoryMedium || '';
           qtyInput.value = prefill.Quantity;
           subtotalSpan.textContent = Number(prefill.UnitPrice) * Number(prefill.Quantity);
         }
@@ -695,7 +703,8 @@
             UnitPrice: tr.querySelector('.detail-price').value,
             UnitCost: tr.querySelector('.detail-cost').value,
             Quantity: tr.querySelector('.detail-qty').value,
-            CategoryLarge: tr.querySelector('.detail-category').value
+            CategoryLarge: tr.querySelector('.detail-category').value,
+            CategoryMedium: tr.querySelector('.detail-category-medium').value
           };
         });
       }

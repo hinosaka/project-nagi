@@ -8,6 +8,7 @@ function setupDatabase() {
   ensureCustomerSheet_(spreadsheet);
   ensureSalesSheet_(spreadsheet);
   ensureSalesDetailSheet_(spreadsheet);
+  ensureSalesDetailCategoryMediumColumn_(spreadsheet);
   ensureBusinessDaySheet_(spreadsheet);
   ensureSalesTargetSheet_(spreadsheet);
   removeUnusedDefaultSheet_(spreadsheet);
@@ -66,7 +67,24 @@ function ensureSalesDetailSheet_(spreadsheet) {
     return;
   }
   var sheet = spreadsheet.insertSheet('SalesDetail');
-  sheet.appendRow(['SalesDetailId', 'SalesId', 'MenuId', 'MenuName', 'UnitPrice', 'UnitCost', 'Quantity', 'Subtotal', 'CustomerId', 'CategoryLarge']);
+  sheet.appendRow(['SalesDetailId', 'SalesId', 'MenuId', 'MenuName', 'UnitPrice', 'UnitCost', 'Quantity', 'Subtotal', 'CustomerId', 'CategoryLarge', 'CategoryMedium']);
+}
+
+// 既存のSalesDetailシートに後から追加した列（CategoryMedium）のヘッダーが無ければ追記する。
+// ensureXxxSheet_はシート新規作成時のみ実行されるため、既存シートへの列追加は別途ここで行う。
+// 列位置はSalesDetailRepository.HEADERS（スキーマ定義の正）の末尾位置を直接使う。
+// getLastColumn()（実データの有無）から判定すると、ヘッダー行の更新前に新列へのデータ書き込みが
+// 先行した場合に「最終列」の認識がずれ、ヘッダーが1列右にずれて付与されるバグがあったため
+function ensureSalesDetailCategoryMediumColumn_(spreadsheet) {
+  var sheet = spreadsheet.getSheetByName('SalesDetail');
+  if (!sheet) {
+    return;
+  }
+  var targetColumn = SalesDetailRepository.HEADERS.length;
+  var currentValue = sheet.getRange(1, targetColumn).getValue();
+  if (currentValue !== 'CategoryMedium') {
+    sheet.getRange(1, targetColumn).setValue('CategoryMedium');
+  }
 }
 
 function ensureBusinessDaySheet_(spreadsheet) {

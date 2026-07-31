@@ -25,7 +25,7 @@
 
 | 次の空きID | 更新日 |
 |---|---|
-| REQ-038 | 2026-07-30 |
+| REQ-039 | 2026-07-31 |
 
 ## 3. 機能要件
 
@@ -91,6 +91,7 @@
 | REQ-032 | 顧客の常連率（期間内の来店のうちリピート来店が占める割合）を確認できる | Should | Sales.CustomerId, Sales.SalesDate。[DATABASE.md](./DATABASE.md#5-データ管理方針)の算出上の注意点を参照（`Customer.VisitCount`をそのまま使わない） |
 | REQ-033 | 月次売上の推移、前年・前月・季節ごとの比較を確認できる | Should | Sales |
 | REQ-034 | 平均注文点数（商品数量÷客数）を確認できる | Should | SalesDetail.Quantity, Sales.PartySize |
+| REQ-038 | 期間内の客席回転率（来店組数÷有効座席数）を確認できる | Should | Sales, Seat。滞在時間データがないため件数ベースの簡易指標とする |
 
 ### 3.6 予算管理
 

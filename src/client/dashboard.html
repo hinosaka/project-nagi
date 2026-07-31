@@ -5,74 +5,108 @@
     <base target="_top">
     <?!= include('client/shared/stylesheet') ?>
     <style>
-      .period-row {
-        display: flex;
-        align-items: center;
-        gap: var(--space-sm);
-        margin-bottom: var(--space-md);
-        flex-wrap: wrap;
+      /* ===== 一言アドバイス（最上位）。内容の良し悪しで配色を変える ===== */
+      .advice-card { display: flex; align-items: flex-start; gap: var(--space-sm); }
+      .advice-card svg { width: 1.3em; height: 1.3em; flex-shrink: 0; margin-top: 2px; }
+      .advice-card p { margin: 0; color: var(--ink); }
+      .advice-card.up { background: var(--good-soft); border-color: var(--good-soft); }
+      .advice-card.up svg { color: var(--good); }
+      .advice-card.down { background: var(--bad-soft); border-color: var(--bad-soft); }
+      .advice-card.down svg { color: var(--bad); }
+      .advice-card.neutral { background: var(--ai-soft); border-color: var(--ai-soft); }
+      .advice-card.neutral svg { color: var(--ai); }
+
+      /* ===== 期間ボタン（シンプルな色替えボタン） ===== */
+      .period-btns { display: flex; gap: var(--space-sm); flex-wrap: wrap; margin-bottom: var(--space-md); }
+      .period-btn {
+        padding: 7px 14px; border-radius: var(--radius-sm); border: 1px solid var(--border);
+        background: var(--surface); color: var(--ink-muted); font-size: 0.9em; font-weight: 600;
       }
-      #reference-date {
-        width: 32px;
-        height: 32px;
-        color: transparent;
-        background: var(--ai-soft);
-        border: 1px solid var(--ai-soft);
-        border-radius: var(--radius-sm);
-        padding: 4px;
-        cursor: pointer;
+      .period-btn:hover { border-color: var(--ai); color: var(--ink); }
+      .period-btn.active { background: var(--ai); border-color: var(--ai); color: #fff; }
+      .period-btn:disabled { opacity: 0.6; cursor: default; }
+      .dashboard-body.loading { opacity: 0.5; pointer-events: none; transition: opacity 0.15s; }
+
+      .custom-range-row { display: none; align-items: center; gap: var(--space-sm); margin-bottom: var(--space-md); font-size: 0.9em; color: var(--ink-muted); }
+      .custom-range-row.show { display: flex; }
+
+      /* ===== 集計対象日 ＋ 差分基準（単日選択時のみ表示、右寄せ・同じ行） ===== */
+      .period-info-row { display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: var(--space-sm); margin-bottom: var(--space-md); }
+      .period-basis-wrap { margin-left: auto; }
+      .basis-row { display: flex; align-items: center; gap: var(--space-md); font-size: 0.88em; color: var(--ink-muted); flex-wrap: wrap; justify-content: flex-end; }
+      .basis-row.hidden { display: none; }
+      .basis-row label { display: flex; align-items: center; gap: 4px; cursor: pointer; }
+      .basis-row input[type="radio"] { accent-color: var(--ai); }
+      .basis-note { display: none; font-size: 0.85em; color: var(--ink-muted); text-align: right; margin: 0; }
+      .basis-note.show { display: block; }
+
+      /* ===== KPI（2カード構成） ===== */
+      .kpi-main-row { display: grid; grid-template-columns: minmax(180px, 1fr) 2fr; gap: var(--space-sm); margin-bottom: var(--space-md); align-items: stretch; }
+      @media (max-width: 640px) { .kpi-main-row { grid-template-columns: 1fr; } }
+
+      .kpi-card-sales { background: var(--ai-soft); border-color: var(--ai-soft); }
+      .kpi-card-sales .kpi-label, .kpi-card-sales .kpi-value { color: var(--ai); }
+      .kpi-sub-lines { margin-top: var(--space-sm); padding-top: var(--space-sm); border-top: 1px solid rgba(255,255,255,0.4); }
+      .kpi-sub-line { display: flex; justify-content: space-between; font-size: 0.8em; color: var(--ai); opacity: 0.85; padding: 2px 0; }
+      .kpi-sub-line .val { font-variant-numeric: tabular-nums; }
+
+      .kpi-detail-cols { display: grid; grid-template-columns: repeat(3, 1fr); }
+      .kpi-detail-col { padding: 0 var(--space-md); text-align: center; }
+      .kpi-detail-col:not(:first-child) { border-left: 1px solid var(--border); }
+      .kpi-turnover-row {
+        margin-top: var(--space-sm); padding-top: var(--space-sm); border-top: 1px solid var(--border);
+        display: flex; align-items: baseline; gap: var(--space-sm);
       }
-      #reference-date::-webkit-calendar-picker-indicator {
-        opacity: 1;
-        cursor: pointer;
-      }
-      .period-nav {
-        display: flex;
-        align-items: center;
-        gap: 4px;
-      }
-      #period-label {
-        color: var(--ink-muted);
-        font-weight: bold;
-      }
-      .ranking-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-        gap: var(--space-md);
-      }
-      .ranking-list {
-        margin: var(--space-xs) 0 0;
-        padding-left: 1.4em;
-      }
-      .ranking-list li {
-        padding: 3px 0;
-        display: flex;
-        justify-content: space-between;
-      }
-      .ranking-list .rank-amount {
-        font-variant-numeric: tabular-nums;
-        color: var(--ink-muted);
-      }
-      .detail-links {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-        gap: var(--space-sm);
-      }
-      .detail-link {
-        display: flex;
-        align-items: center;
-        gap: var(--space-sm);
-        padding: var(--space-sm) var(--space-md);
-        border: 1px solid var(--border);
-        border-radius: var(--radius-sm);
-        color: var(--ink);
-        text-decoration: none;
-      }
-      .detail-link:hover {
-        border-color: var(--ai);
-        background: var(--ai-soft);
-        color: var(--ai);
-      }
+      .kpi-turnover-row .kpi-label { margin: 0; }
+      .kpi-turnover-row .kpi-value { font-size: 1.1em; margin: 0; }
+
+      .kpi-value-row { display: flex; align-items: baseline; gap: var(--space-sm); flex-wrap: wrap; margin-top: 2px; }
+      .kpi-detail-col .kpi-value-row { justify-content: center; }
+      .kpi-label { font-weight: 700; }
+      .period-label-row { font-size: 0.92em; color: var(--ink-muted); font-weight: 600; }
+      .kpi-sub { font-size: 0.6em; font-weight: 400; color: inherit; opacity: 0.8; }
+      .kpi-delta { font-size: 0.8em; font-variant-numeric: tabular-nums; display: inline-flex; align-items: center; gap: 2px; }
+      .kpi-delta.up { color: var(--good); }
+      .kpi-delta.down { color: var(--bad); }
+      .kpi-delta.flat { color: var(--ink-muted); }
+      .kpi-delta svg { width: 1.05em; height: 1.05em; }
+
+      /* ===== 売上推移グラフ ===== */
+      .bar-chart-wrap { position: relative; padding-top: var(--space-md); padding-left: 44px; }
+      .bar-gridlines { position: absolute; left: 44px; right: 0; top: var(--space-md); height: 160px; }
+      .bar-gridline { position: absolute; left: 0; right: 0; border-top: 1px dashed var(--border); }
+      .bar-gridline-label { position: absolute; left: -44px; width: 38px; text-align: right; transform: translateY(-0.6em); font-size: 0.68em; color: var(--ink-muted); font-variant-numeric: tabular-nums; }
+      .bar-chart { position: relative; display: flex; align-items: flex-end; gap: 4px; height: 160px; overflow-x: auto; }
+      .bar-col { flex: 1; min-width: 8px; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; }
+      .bar { width: 70%; min-height: 2px; border-radius: 3px 3px 0 0; background: var(--ai); }
+      .bar-axis-labels { display: flex; gap: 4px; padding-left: 44px; margin-top: var(--space-xs); }
+      .bar-axis-labels .bar-label { flex: 1; min-width: 8px; text-align: center; font-size: 0.62em; color: var(--ink-muted); white-space: nowrap; }
+
+      /* ===== TOP10（2段組み・交互配色なし） ===== */
+      .rank-badge { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 50%; background: var(--surface-2); color: var(--ink-muted); font-size: 0.8em; font-weight: 700; flex-shrink: 0; }
+      .rank-badge.top3 { background: var(--warn-soft); color: var(--warn); }
+      .ranking-grid { display: grid; grid-template-columns: 1fr 1fr; grid-auto-flow: column; grid-template-rows: repeat(5, auto); column-gap: var(--space-lg); margin-top: var(--space-sm); }
+      @media (max-width: 480px) { .ranking-grid { grid-template-columns: 1fr; grid-template-rows: repeat(10, auto); } }
+      .ranking-row { display: flex; align-items: center; gap: var(--space-sm); padding: 7px 0; border-bottom: 1px solid var(--border); }
+      .ranking-row .name { flex: 1; }
+      .ranking-row .qty { font-variant-numeric: tabular-nums; color: var(--ink-muted); font-size: 0.9em; }
+
+      /* ===== カテゴリ別売上分布 ===== */
+      .donut-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: var(--space-md); }
+      .donut-card h3 { font-size: 0.95em; margin: 0 0 var(--space-sm); }
+      .donut-body { display: flex; align-items: center; gap: var(--space-md); flex-wrap: wrap; }
+      .donut-svg { width: 130px; height: 130px; flex-shrink: 0; }
+      .donut-legend { flex: 1; min-width: 140px; font-size: 0.82em; }
+      .donut-legend-row { display: flex; align-items: center; gap: 6px; padding: 3px 0; justify-content: space-between; }
+      .donut-legend-row .name { display: flex; align-items: center; gap: 6px; color: var(--ink); }
+      .donut-legend-row .value { color: var(--ink-muted); font-variant-numeric: tabular-nums; }
+      .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+
+      .detail-links { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: var(--space-sm); }
+      .detail-link { display: flex; align-items: center; gap: var(--space-sm); padding: var(--space-sm) var(--space-md); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--ink); text-decoration: none; }
+      .detail-link:hover { border-color: var(--ai); background: var(--ai-soft); color: var(--ai); }
+
+      .design-note { font-size: 0.78em; color: var(--ink-muted); margin-top: 2px; }
     </style>
   </head>
   <body data-page="<?= currentPage ?>">
@@ -80,68 +114,66 @@
     <div class="app-shell">
       <?!= include('client/shared/sidebar', {baseUrl: baseUrl}) ?>
       <main class="main-content">
-        <h1>ダッシュボード</h1>
+        <!-- 一言アドバイス -->
+        <div class="card advice-card" id="advice-card">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.7V17h8v-2.3A7 7 0 0 0 12 2Z"/></svg>
+          <p id="advice-text"></p>
+        </div>
 
-        <div class="period-row">
-          <div class="tabs" id="period-tabs"></div>
-          <input type="date" id="reference-date" title="基準日を選択">
-          <span class="period-nav">
-            <button type="button" class="icon-btn" id="period-prev" title="前へ"><svg class="icon"><use href="#icon-chevron-left"></use></svg></button>
-            <span>期間：<span id="period-label"></span></span>
-            <button type="button" class="icon-btn" id="period-next" title="次へ"><svg class="icon"><use href="#icon-chevron-right"></use></svg></button>
-          </span>
+        <!-- 期間ボタン + 期間指定 -->
+        <div class="period-btns" id="period-tabs">
+          <button type="button" class="period-btn active" data-period="today">本日</button>
+          <button type="button" class="period-btn" data-period="yesterday">昨日</button>
+          <button type="button" class="period-btn" data-period="last7">過去7日間</button>
+          <button type="button" class="period-btn" data-period="month">当月</button>
+          <button type="button" class="period-btn" data-period="custom">期間指定</button>
+        </div>
+        <div class="custom-range-row" id="custom-range-row">
+          <input type="date" id="custom-start"> 〜 <input type="date" id="custom-end">
         </div>
 
         <p id="load-error" class="error"></p>
 
-        <div class="kpi-row">
-          <div class="kpi-tile primary">
-            <div class="kpi-label">売上高</div>
-            <div class="kpi-value">¥<span id="kpi-total">0</span></div>
-          </div>
-          <div class="kpi-tile">
-            <div class="kpi-label">客単価</div>
-            <div class="kpi-value">¥<span id="kpi-per-person">0</span></div>
-          </div>
-          <div class="kpi-tile">
-            <div class="kpi-label">来店組数</div>
-            <div class="kpi-value"><span id="kpi-visit-count">0</span>組</div>
-          </div>
-          <div class="kpi-tile">
-            <div class="kpi-label">来店人数</div>
-            <div class="kpi-value"><span id="kpi-party-size">0</span>人</div>
-          </div>
-          <div class="kpi-tile tile-food">
-            <div class="kpi-label">フード売上</div>
-            <div class="kpi-value">¥<span id="kpi-food-amount">0</span></div>
-          </div>
-          <div class="kpi-tile tile-drink">
-            <div class="kpi-label">ドリンク売上</div>
-            <div class="kpi-value">¥<span id="kpi-drink-amount">0</span></div>
+        <!-- 集計対象日 ＋ 差分基準／複数日選択時の注記（右寄せ、同じ行） -->
+        <div class="period-info-row">
+          <span class="period-label-row" id="period-label-row"></span>
+          <div class="period-basis-wrap">
+            <div class="basis-row" id="basis-row">
+              <label><input type="radio" name="basis" value="prevDay" checked>前日比</label>
+              <label><input type="radio" name="basis" value="prevWeek">前週同曜日比</label>
+              <label><input type="radio" name="basis" value="prevMonth">前月同日比</label>
+            </div>
+            <p class="basis-note" id="basis-note">※直前の同じ長さの期間と比較しています</p>
           </div>
         </div>
 
-        <div class="card">
-          <h2>フード / ドリンク構成比</h2>
-          <div class="split-bar">
-            <div class="segment-drink" id="split-drink"></div>
-            <div class="segment-food" id="split-food"></div>
+        <div class="dashboard-body" id="dashboard-body">
+          <!-- KPI -->
+          <div class="kpi-main-row">
+            <div class="card kpi-card-sales" id="kpi-sales-card"></div>
+            <div class="card kpi-card-detail" id="kpi-detail-card"></div>
           </div>
-          <div class="legend">
-            <span><span class="dot dot-drink"></span>ドリンク　<span id="drink-ratio">0</span>%</span>
-            <span><span class="dot dot-food"></span>フード　<span id="food-ratio">0</span>%</span>
-          </div>
-        </div>
 
-        <div class="ranking-grid">
+          <!-- 売上推移グラフ -->
+          <h2>売上推移</h2>
           <div class="card">
-            <h2>フードランキング TOP5</h2>
-            <ol id="food-ranking-list" class="ranking-list"></ol>
+            <div class="bar-chart-wrap">
+              <div class="bar-gridlines" id="bar-gridlines"></div>
+              <div class="bar-chart" id="bar-chart"></div>
+            </div>
+            <div class="bar-axis-labels" id="bar-axis-labels"></div>
           </div>
+
+          <!-- TOP10 -->
+          <h2>商品別売上ランキング TOP10</h2>
           <div class="card">
-            <h2>ドリンクランキング TOP5</h2>
-            <ol id="drink-ranking-list" class="ranking-list"></ol>
+            <p class="design-note">並び順は注文数（数量）ベース</p>
+            <div class="ranking-grid" id="ranking-grid"></div>
           </div>
+
+          <!-- カテゴリ別売上分布 -->
+          <h2>カテゴリ別売上分布</h2>
+          <div class="donut-grid" id="donut-grid"></div>
         </div>
 
         <div class="card">
@@ -157,68 +189,235 @@
 
     <?!= include('client/shared/javascript') ?>
     <script>
-      var periodController = createPeriodController({
-        tabsEl: document.getElementById('period-tabs'),
-        dateEl: document.getElementById('reference-date'),
-        prevBtn: document.getElementById('period-prev'),
-        nextBtn: document.getElementById('period-next'),
-        periodLabels: { day: '日次', week: '週次', month: '月次' },
-        initialPeriod: 'day',
-        onChange: loadDashboard
+      var UP_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.75" stroke-linecap="round" stroke-linejoin="round"><line x1="7" y1="17" x2="17" y2="7"/><polyline points="7 7 17 7 17 17"/></svg>';
+      var DOWN_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.75" stroke-linecap="round" stroke-linejoin="round"><line x1="7" y1="7" x2="17" y2="17"/><polyline points="17 7 17 17 7 17"/></svg>';
+
+      var LARGE_CATEGORY_COLOR = { 'フード': 'var(--warn)', 'ドリンク': 'var(--ai)' };
+      var MEDIUM_CATEGORY_COLORS = ['var(--cat-1)', 'var(--cat-2)', 'var(--cat-3)', 'var(--cat-4)', 'var(--cat-5)', 'var(--cat-6)'];
+      var OTHER_COLOR = 'var(--surface-2)';
+
+      var currentPeriod = 'today';
+
+      function formatDateForInput(d) {
+        var mm = ('0' + (d.getMonth() + 1)).slice(-2);
+        var dd = ('0' + d.getDate()).slice(-2);
+        return d.getFullYear() + '-' + mm + '-' + dd;
+      }
+
+      var today = new Date();
+      document.getElementById('custom-start').value = formatDateForInput(today);
+      document.getElementById('custom-end').value = formatDateForInput(today);
+
+      document.querySelectorAll('#period-tabs .period-btn').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          document.querySelectorAll('#period-tabs .period-btn').forEach(function (t) { t.classList.remove('active'); });
+          btn.classList.add('active');
+          currentPeriod = btn.dataset.period;
+          document.getElementById('custom-range-row').classList.toggle('show', currentPeriod === 'custom');
+          loadDashboard();
+        });
       });
+      document.getElementById('custom-start').addEventListener('change', function () {
+        if (currentPeriod === 'custom') { loadDashboard(); }
+      });
+      document.getElementById('custom-end').addEventListener('change', function () {
+        if (currentPeriod === 'custom') { loadDashboard(); }
+      });
+      document.querySelectorAll('input[name="basis"]').forEach(function (radio) {
+        radio.addEventListener('change', loadDashboard);
+      });
+
+      function currentCompareBasis() {
+        var checked = document.querySelector('input[name="basis"]:checked');
+        return checked ? checked.value : 'prevDay';
+      }
+
+      var loadRequestId = 0;
+
+      function setLoading(isLoading) {
+        document.getElementById('dashboard-body').classList.toggle('loading', isLoading);
+        document.querySelectorAll('#period-tabs .period-btn').forEach(function (btn) { btn.disabled = isLoading; });
+      }
 
       function loadDashboard() {
         document.getElementById('load-error').textContent = '';
+        setLoading(true);
+        var requestId = ++loadRequestId;
+        var startDateStr = document.getElementById('custom-start').value;
+        var endDateStr = document.getElementById('custom-end').value;
         google.script.run
-          .withSuccessHandler(renderDashboard)
+          .withSuccessHandler(function (data) {
+            if (requestId !== loadRequestId) { return; }
+            setLoading(false);
+            renderDashboard(data);
+          })
           .withFailureHandler(function (error) {
+            if (requestId !== loadRequestId) { return; }
+            setLoading(false);
             document.getElementById('load-error').textContent = 'データの取得に失敗しました：' + error.message;
           })
-          .getDashboardData(periodController.getPeriod(), periodController.getDate());
+          .getDashboardData(currentPeriod, startDateStr, endDateStr, currentCompareBasis());
+      }
+
+      function deltaHtml(diff) {
+        if (diff === null || diff === undefined) {
+          return '<span class="kpi-delta flat">-</span>';
+        }
+        var up = diff >= 0;
+        return '<span class="kpi-delta ' + (up ? 'up' : 'down') + '">' + (up ? UP_ICON : DOWN_ICON) + (up ? '+' : '') + diff + '%</span>';
+      }
+
+      function renderKpis(data) {
+        var k = data.kpis;
+        var salesCard = document.getElementById('kpi-sales-card');
+        salesCard.innerHTML =
+          '<div class="kpi-label">売上高</div>' +
+          '<div class="kpi-value-row"><span class="kpi-value">¥' + k.totalAmount.value.toLocaleString() + '</span>' + deltaHtml(k.totalAmount.diffPercent) + '</div>' +
+          '<div class="kpi-sub-lines">' +
+          '<div class="kpi-sub-line"><span>ドリンク</span><span class="val">¥' + k.drinkAmount.value.toLocaleString() + '</span></div>' +
+          '<div class="kpi-sub-line"><span>フード</span><span class="val">¥' + k.foodAmount.value.toLocaleString() + '</span></div>' +
+          '</div>';
+
+        var detail = [
+          { label: '客単価', value: '¥' + k.perPersonAmount.value.toLocaleString(), sub: '/ 人', diff: k.perPersonAmount.diffPercent },
+          { label: '合計客数', value: k.totalPartySize.value + '人', diff: k.totalPartySize.diffPercent },
+          { label: '合計組数', value: k.visitCount.value + '組', diff: k.visitCount.diffPercent }
+        ];
+        var colsHtml = detail.map(function (item) {
+          return '<div class="kpi-detail-col">' +
+            '<div class="kpi-label">' + item.label + '</div>' +
+            '<div class="kpi-value-row"><span class="kpi-value">' + item.value + (item.sub ? '<span class="kpi-sub">' + item.sub + '</span>' : '') + '</span>' + deltaHtml(item.diff) + '</div>' +
+            '</div>';
+        }).join('');
+        document.getElementById('kpi-detail-card').innerHTML =
+          '<div class="kpi-detail-cols">' + colsHtml + '</div>' +
+          '<div class="kpi-turnover-row"><span class="kpi-label">客席回転率</span><span class="kpi-value">' + k.turnoverRate.value + '回転</span>' + deltaHtml(k.turnoverRate.diffPercent) + '</div>';
+      }
+
+      function renderRanking(ranking) {
+        var grid = document.getElementById('ranking-grid');
+        grid.innerHTML = '';
+        for (var i = 0; i < 10; i++) {
+          var item = ranking[i];
+          var row = document.createElement('div');
+          row.className = 'ranking-row';
+          var badge = document.createElement('span');
+          badge.className = 'rank-badge' + (i < 3 && item ? ' top3' : '');
+          badge.textContent = i + 1;
+          var name = document.createElement('span');
+          name.className = 'name';
+          name.textContent = item ? item.MenuName : '-';
+          var qty = document.createElement('span');
+          qty.className = 'qty';
+          qty.textContent = item ? item.quantity + '点' : '-';
+          row.appendChild(badge);
+          row.appendChild(name);
+          row.appendChild(qty);
+          grid.appendChild(row);
+        }
+      }
+
+      function renderBarChart(graph) {
+        var chart = document.getElementById('bar-chart');
+        var gridlines = document.getElementById('bar-gridlines');
+        var axisLabels = document.getElementById('bar-axis-labels');
+        chart.innerHTML = '';
+        gridlines.innerHTML = '';
+        axisLabels.innerHTML = '';
+
+        var max = graph.reduce(function (m, d) { return Math.max(m, d.amount); }, 0);
+        var niceMax = max > 0 ? Math.ceil(max / 20000) * 20000 : 1;
+
+        [0, 0.25, 0.5, 0.75, 1].forEach(function (frac) {
+          var line = document.createElement('div');
+          line.className = 'bar-gridline';
+          line.style.bottom = (frac * 100) + '%';
+          var label = document.createElement('span');
+          label.className = 'bar-gridline-label';
+          label.textContent = '¥' + Math.round(niceMax * frac).toLocaleString();
+          line.appendChild(label);
+          gridlines.appendChild(line);
+        });
+
+        graph.forEach(function (d) {
+          var col = document.createElement('div');
+          col.className = 'bar-col';
+          var bar = document.createElement('div');
+          bar.className = 'bar';
+          bar.style.height = Math.max((d.amount / niceMax) * 100, d.amount > 0 ? 2 : 0) + '%';
+          col.appendChild(bar);
+          chart.appendChild(col);
+
+          var dayLabel = document.createElement('div');
+          dayLabel.className = 'bar-label';
+          dayLabel.textContent = d.day;
+          axisLabels.appendChild(dayLabel);
+        });
+      }
+
+      function buildDonut(items) {
+        var total = items.reduce(function (s, it) { return s + it.amount; }, 0);
+        var circumference = 100;
+        var offset = 25;
+        var circles = '<circle class="donut-track" cx="21" cy="21" r="15.9155" fill="transparent" stroke="var(--surface-2)" stroke-width="4"></circle>';
+        items.forEach(function (it) {
+          var pct = total > 0 ? (it.amount / total) * 100 : 0;
+          circles += '<circle cx="21" cy="21" r="15.9155" fill="transparent" stroke="' + it.color + '" stroke-width="4" ' +
+            'stroke-dasharray="' + pct.toFixed(2) + ' ' + (circumference - pct).toFixed(2) + '" ' +
+            'stroke-dashoffset="' + offset.toFixed(2) + '"></circle>';
+          offset -= pct;
+        });
+        return '<svg class="donut-svg" viewBox="0 0 42 42">' + circles + '</svg>';
+      }
+
+      function renderDonutCard(title, items) {
+        var total = items.reduce(function (s, it) { return s + it.amount; }, 0);
+        var wrap = document.createElement('div');
+        wrap.className = 'card donut-card';
+        var legendRows = items.map(function (it) {
+          var pct = total > 0 ? Math.round((it.amount / total) * 100) : 0;
+          return '<div class="donut-legend-row"><span class="name"><span class="dot" style="background:' + it.color + '"></span>' + it.name + '</span>' +
+            '<span class="value">¥' + it.amount.toLocaleString() + '（' + pct + '%）</span></div>';
+        }).join('');
+        wrap.innerHTML = '<h3>' + title + '</h3><div class="donut-body">' + buildDonut(items) + '<div class="donut-legend">' + legendRows + '</div></div>';
+        return wrap;
+      }
+
+      function colorizeMedium(items) {
+        var colorIndex = 0;
+        return items.map(function (it) {
+          if (it.name === 'その他') {
+            return { name: it.name, amount: it.amount, color: OTHER_COLOR };
+          }
+          var color = MEDIUM_CATEGORY_COLORS[colorIndex % MEDIUM_CATEGORY_COLORS.length];
+          colorIndex++;
+          return { name: it.name, amount: it.amount, color: color };
+        });
+      }
+
+      function renderDonuts(category) {
+        var grid = document.getElementById('donut-grid');
+        grid.innerHTML = '';
+        var large = category.large.map(function (it) { return { name: it.name, amount: it.amount, color: LARGE_CATEGORY_COLOR[it.name] }; });
+        grid.appendChild(renderDonutCard('全体比率', large));
+        grid.appendChild(renderDonutCard('ドリンク内訳', colorizeMedium(category.drink)));
+        grid.appendChild(renderDonutCard('フード内訳', colorizeMedium(category.food)));
       }
 
       function renderDashboard(data) {
-        document.getElementById('period-label').textContent = data.periodLabel;
-        document.getElementById('kpi-total').textContent = data.totalAmount;
-        document.getElementById('kpi-per-person').textContent = data.perPersonAmount;
-        document.getElementById('kpi-visit-count').textContent = data.visitCount;
-        document.getElementById('kpi-party-size').textContent = data.partySize;
-        document.getElementById('kpi-food-amount').textContent = data.foodAmount;
-        document.getElementById('kpi-drink-amount').textContent = data.drinkAmount;
+        document.getElementById('period-label-row').textContent = data.periodLabel;
+        document.getElementById('basis-row').classList.toggle('hidden', !data.isSingleDay);
+        document.getElementById('basis-note').classList.toggle('show', !data.isSingleDay);
 
-        var beverageTotal = data.drinkAmount + data.foodAmount;
-        var drinkRatio = beverageTotal > 0 ? Math.round((data.drinkAmount / beverageTotal) * 100) : 0;
-        var foodRatio = beverageTotal > 0 ? 100 - drinkRatio : 0;
-        document.getElementById('drink-ratio').textContent = drinkRatio;
-        document.getElementById('food-ratio').textContent = foodRatio;
-        document.getElementById('split-drink').style.width = drinkRatio + '%';
-        document.getElementById('split-food').style.width = foodRatio + '%';
+        var adviceCard = document.getElementById('advice-card');
+        adviceCard.classList.remove('up', 'down', 'neutral');
+        adviceCard.classList.add(data.advice.sentiment || 'neutral');
+        document.getElementById('advice-text').textContent = data.advice.text;
 
-        renderRankingList('food-ranking-list', data.foodRanking);
-        renderRankingList('drink-ranking-list', data.drinkRanking);
-      }
-
-      function renderRankingList(listId, items) {
-        var list = document.getElementById(listId);
-        list.innerHTML = '';
-        if (items.length === 0) {
-          var empty = document.createElement('li');
-          empty.className = 'ranking-empty';
-          empty.textContent = 'この期間の会計データがまだありません。';
-          list.appendChild(empty);
-          return;
-        }
-        items.forEach(function (item) {
-          var li = document.createElement('li');
-          var nameSpan = document.createElement('span');
-          nameSpan.textContent = item.MenuName + '（' + item.Quantity + '点）';
-          var amountSpan = document.createElement('span');
-          amountSpan.className = 'rank-amount';
-          amountSpan.textContent = '¥' + item.Amount;
-          li.appendChild(nameSpan);
-          li.appendChild(amountSpan);
-          list.appendChild(li);
-        });
+        renderKpis(data);
+        renderBarChart(data.graph);
+        renderRanking(data.ranking);
+        renderDonuts(data.category);
       }
 
       loadDashboard();
