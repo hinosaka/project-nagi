@@ -47,6 +47,16 @@
     return d.getFullYear() + '-' + mm + '-' + dd;
   }
 
+  // 日付表示欄の見出し用（例：2026年07月31日(金)）。dateStrは"yyyy-MM-dd"形式。
+  // new Date("yyyy-MM-dd")はUTC0時として解釈されるため、getUTC系で取り出してローカルの日付ズレを防ぐ
+  function formatFullDateWithWeekday(dateStr) {
+    var d = new Date(dateStr);
+    var days = ['日', '月', '火', '水', '木', '金', '土'];
+    var mm = ('0' + (d.getUTCMonth() + 1)).slice(-2);
+    var dd = ('0' + d.getUTCDate()).slice(-2);
+    return d.getUTCFullYear() + '年' + mm + '月' + dd + '日(' + days[d.getUTCDay()] + ')';
+  }
+
   // 日次／週次／月次の期間切り替えUI（タブ・前後ボタン・基準日入力）を束ねる共通コントローラー。
   // ダッシュボード・各種分析画面（期間切り替えを持つSCR-006/008/009/010）で共用する
   function createPeriodController(config) {

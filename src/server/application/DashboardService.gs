@@ -13,20 +13,39 @@ var DASHBOARD_KPI_LABELS_ = {
   turnoverRate: '客席回転率'
 };
 
-function getDashboardData(periodType, startDateStr, endDateStr, compareBasis) {
+function getDashboardData(periodType, referenceDateStr, startDateStr, endDateStr, compareBasis) {
   var allSales = SalesRepository.findAll();
   var allDetails = SalesDetailRepository.findAll();
   var activeSeatCount = SeatRepository.findAll().filter(function (s) { return s.IsActive; }).length;
 
-  var range = calcDashboardPeriodRange_(periodType, startDateStr, endDateStr);
+  var range = calcDashboardPeriodRange_(periodType, referenceDateStr, startDateStr, endDateStr);
   var compareRange = calcDashboardComparePeriodRange_(range, compareBasis);
 
   var current = summarizeDashboardPeriod_(allSales, allDetails, range, activeSeatCount);
   var compare = summarizeDashboardPeriod_(allSales, allDetails, compareRange, activeSeatCount);
   var kpis = buildDashboardKpiDiffs_(current, compare);
+  kpis.visitCount.breakdown = calcDashboardNewRepeatCounts_(allSales, range);
 
   var graphRange = buildDashboardGraphRange_(periodType, range);
   var ranking = buildDashboardTop10_(allDetails, current.salesIdSet);
+
+  var historicalTip = current.visitCount === 0 && range.dayCount === 1
+    ? buildDashboardHistoricalTip_(allSales, allDetails, range)
+    : null;
+
+  // 一言アドバイス：事実の抽出（集計・比較）はここで行い、文章化はDashboardAdviceEngine（ドメイン層）に委ねる
+  var productTrend = ranking.length > 0 ? calcDashboardProductTrend_(allDetails, current.salesIdSet, compare.salesIdSet) : null;
+  var weekdayPattern = (range.dayCount === 1 && ranking.length > 0)
+    ? calcDashboardWeekdayPattern_(allSales, DayOfWeekRule.fromDate(range.start))
+    : null;
+  var advice = DashboardAdviceEngine.generate({
+    kpis: kpis,
+    ranking: ranking,
+    newRepeat: kpis.visitCount.breakdown,
+    productTrend: productTrend,
+    weekdayPattern: weekdayPattern,
+    historicalTip: historicalTip
+  });
 
   return {
     periodLabel: buildDashboardPeriodLabel_(periodType, range),
@@ -35,35 +54,178 @@ function getDashboardData(periodType, startDateStr, endDateStr, compareBasis) {
     graph: buildDashboardGraphData_(allSales, graphRange),
     ranking: ranking,
     category: buildDashboardCategoryBreakdown_(allDetails, current.salesIdSet),
-    advice: buildDashboardAdvice_(kpis, ranking)
+    advice: advice
   };
+}
+
+// ----- 一言アドバイス用の事実抽出 -----
+
+// 商品ごとの現在期間／比較期間の販売数量を比べ、最も変化率の大きい商品を1件返す（閾値未満はnull）
+function calcDashboardProductTrend_(allDetails, currentSalesIdSet, compareSalesIdSet) {
+  var currentQty = {};
+  var compareQty = {};
+  allDetails.forEach(function (d) {
+    if (!d.MenuName) {
+      return;
+    }
+    if (currentSalesIdSet[d.SalesId]) {
+      currentQty[d.MenuName] = (currentQty[d.MenuName] || 0) + (Number(d.Quantity) || 0);
+    }
+    if (compareSalesIdSet[d.SalesId]) {
+      compareQty[d.MenuName] = (compareQty[d.MenuName] || 0) + (Number(d.Quantity) || 0);
+    }
+  });
+
+  var candidates = Object.keys(currentQty).map(function (name) {
+    var current = currentQty[name];
+    var base = compareQty[name] || 0;
+    var diffPercent = base > 0 ? Math.round(((current - base) / base) * 100) : null;
+    return { name: name, current: current, diffPercent: diffPercent };
+  }).filter(function (c) {
+    return c.diffPercent !== null &&
+      c.current >= DASHBOARD_ADVICE_THRESHOLDS_.productMinQuantity &&
+      Math.abs(c.diffPercent) >= DASHBOARD_ADVICE_THRESHOLDS_.productDiffPercent;
+  });
+
+  candidates.sort(function (a, b) { return Math.abs(b.diffPercent) - Math.abs(a.diffPercent); });
+  return candidates[0] || null;
+}
+
+// 対象曜日の客単価が、全曜日平均と比べて際立って高い／低いかを判定する（単日選択時のみ使用）
+function calcDashboardWeekdayPattern_(allSales, targetWeekday) {
+  var targetAmount = 0;
+  var targetPartySize = 0;
+  var overallAmount = 0;
+  var overallPartySize = 0;
+
+  allSales.forEach(function (s) {
+    var amount = Number(s.TotalAmount) || 0;
+    var partySize = Number(s.PartySize) || 0;
+    overallAmount += amount;
+    overallPartySize += partySize;
+    if (DayOfWeekRule.fromDate(s.SalesDate) === targetWeekday) {
+      targetAmount += amount;
+      targetPartySize += partySize;
+    }
+  });
+
+  if (targetPartySize <= 0 || overallPartySize <= 0) {
+    return null;
+  }
+  var targetPerPerson = targetAmount / targetPartySize;
+  var overallPerPerson = overallAmount / overallPartySize;
+  var diffPercent = Math.round(((targetPerPerson - overallPerPerson) / overallPerPerson) * 100);
+  if (Math.abs(diffPercent) < DASHBOARD_ADVICE_THRESHOLDS_.weekdayDiffPercent) {
+    return null;
+  }
+  return { weekday: targetWeekday, diffPercent: diffPercent };
+}
+
+// 会計組数のうち新規／リピートの内訳。新規／リピートの判定はCustomerAnalysisService.gsの
+// buildVisitRankBySalesId_（全期間の来店順を都度算出する方式）を共用する
+function calcDashboardNewRepeatCounts_(allSales, range) {
+  var visitRankBySalesId = buildVisitRankBySalesId_(allSales);
+  var newCount = 0;
+  var repeatCount = 0;
+  allSales.forEach(function (s) {
+    var d = new Date(s.SalesDate);
+    if (d < range.start || d > range.end || !s.CustomerId) {
+      return;
+    }
+    if (visitRankBySalesId[s.SalesId] === 1) {
+      newCount++;
+    } else {
+      repeatCount++;
+    }
+  });
+  return { newCount: newCount, repeatCount: repeatCount };
+}
+
+// 当該期間に会計データが無い場合（単日選択時のみ）、直近の同じ曜日（最大8回分）の実績から
+// 一言アドバイスを組み立てる。本日の来店・仕込みの見込みを立てる参考情報として提示する
+function buildDashboardHistoricalTip_(allSales, allDetails, range) {
+  var targetDayOfWeek = DayOfWeekRule.fromDate(range.start);
+
+  var dateKeySet = {};
+  allSales.forEach(function (s) {
+    var d = new Date(s.SalesDate);
+    if (d >= range.start) {
+      return;
+    }
+    if (DayOfWeekRule.fromDate(d) === targetDayOfWeek) {
+      dateKeySet[DateUtil.formatYmd(d)] = true;
+    }
+  });
+  var recentDateKeys = Object.keys(dateKeySet).sort().reverse().slice(0, 8);
+  if (recentDateKeys.length === 0) {
+    return null;
+  }
+  var recentDateKeySet = {};
+  recentDateKeys.forEach(function (k) { recentDateKeySet[k] = true; });
+
+  var relevantSales = allSales.filter(function (s) {
+    return recentDateKeySet[DateUtil.formatYmd(s.SalesDate)];
+  });
+  var relevantSalesIdSet = {};
+  var totalAmount = 0;
+  var totalPartySize = 0;
+  relevantSales.forEach(function (s) {
+    relevantSalesIdSet[s.SalesId] = true;
+    totalAmount += Number(s.TotalAmount) || 0;
+    totalPartySize += Number(s.PartySize) || 0;
+  });
+
+  var dayCount = recentDateKeys.length;
+  var avgAmount = Math.round(totalAmount / dayCount);
+  var avgPartySize = Math.round(totalPartySize / dayCount);
+  var avgVisitCount = Math.round((relevantSales.length / dayCount) * 10) / 10;
+
+  var qtyByMenu = {};
+  allDetails.forEach(function (d) {
+    if (!relevantSalesIdSet[d.SalesId] || !d.MenuName) {
+      return;
+    }
+    qtyByMenu[d.MenuName] = (qtyByMenu[d.MenuName] || 0) + (Number(d.Quantity) || 0);
+  });
+  var topMenuName = null;
+  var topQty = 0;
+  Object.keys(qtyByMenu).forEach(function (name) {
+    if (qtyByMenu[name] > topQty) {
+      topQty = qtyByMenu[name];
+      topMenuName = name;
+    }
+  });
+
+  var text = '過去' + dayCount + '回の' + targetDayOfWeek + '曜日は、平均' + avgVisitCount + '組・' + avgPartySize + '人の来店で、売上は平均¥' + avgAmount.toLocaleString() + 'でした。';
+  if (topMenuName) {
+    text += '人気商品は「' + topMenuName + '」でした。仕込みの参考にしてください。';
+  }
+  return { text: text, sentiment: 'neutral' };
 }
 
 // ----- 期間の算出 -----
 
-function calcDashboardPeriodRange_(periodType, startDateStr, endDateStr) {
-  var today = new Date();
-  today.setHours(0, 0, 0, 0);
+// referenceDateStrはクライアント側で各タブの粒度に応じてすでに実際の対象日へシフト済みの値を渡す
+// （本日／昨日：対象日そのもの、過去7日間：対象日を末日とする7日間、当月：対象日が属する月）
+function calcDashboardPeriodRange_(periodType, referenceDateStr, startDateStr, endDateStr) {
+  var refDate = referenceDateStr ? new Date(referenceDateStr) : new Date();
+  refDate.setHours(0, 0, 0, 0);
   var start;
   var end;
 
-  if (periodType === 'yesterday') {
-    start = new Date(today);
-    start.setDate(start.getDate() - 1);
-    end = new Date(start);
-  } else if (periodType === 'last7') {
-    end = new Date(today);
-    start = new Date(today);
+  if (periodType === 'last7') {
+    end = new Date(refDate);
+    start = new Date(refDate);
     start.setDate(start.getDate() - 6);
   } else if (periodType === 'month') {
-    start = new Date(today.getFullYear(), today.getMonth(), 1);
-    end = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+    start = new Date(refDate.getFullYear(), refDate.getMonth(), 1);
+    end = new Date(refDate.getFullYear(), refDate.getMonth() + 1, 0);
   } else if (periodType === 'custom') {
     start = new Date(startDateStr);
     end = new Date(endDateStr);
   } else {
-    start = new Date(today);
-    end = new Date(today);
+    start = new Date(refDate);
+    end = new Date(refDate);
   }
 
   start.setHours(0, 0, 0, 0);
@@ -300,35 +462,6 @@ function buildDashboardCategoryBreakdown_(allDetails, salesIdSet) {
 }
 
 // 差分の絶対値が最大のKPIと、TOP10の1位商品を組み合わせた一言アドバイス（初版。実機確認後に調整前提）
-function buildDashboardAdvice_(kpis, ranking) {
-  var maxKey = null;
-  var maxAbs = -1;
-  Object.keys(DASHBOARD_KPI_LABELS_).forEach(function (key) {
-    var diff = kpis[key].diffPercent;
-    if (diff !== null && Math.abs(diff) > maxAbs) {
-      maxAbs = Math.abs(diff);
-      maxKey = key;
-    }
-  });
-
-  var text;
-  var sentiment = 'neutral';
-  if (maxKey) {
-    var diff = kpis[maxKey].diffPercent;
-    sentiment = diff >= 0 ? 'up' : 'down';
-    text = DASHBOARD_KPI_LABELS_[maxKey] + 'は比較期間比 ' + (diff >= 0 ? '+' : '') + diff + '% でした。';
-  } else {
-    text = '';
-  }
-  if (ranking.length > 0) {
-    text += '人気商品は「' + ranking[0].MenuName + '」でした。';
-  } else if (!text) {
-    text = 'この期間の会計データがまだありません。';
-  }
-
-  return { text: text, sentiment: sentiment };
-}
-
 // 週次は月曜始まり（日本の業務慣行に合わせる）。月次は暦月（1日〜末日）
 // 他画面（商品分析・顧客分析・曜日天候座席分析）と共用する日次／週次／月次の期間算出
 function calcPeriodRange_(periodType, refDate) {

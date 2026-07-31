@@ -16,22 +16,27 @@
       .advice-card.neutral { background: var(--ai-soft); border-color: var(--ai-soft); }
       .advice-card.neutral svg { color: var(--ai); }
 
-      /* ===== 期間ボタン（シンプルな色替えボタン） ===== */
-      .period-btns { display: flex; gap: var(--space-sm); flex-wrap: wrap; margin-bottom: var(--space-md); }
-      .period-btn {
-        padding: 7px 14px; border-radius: var(--radius-sm); border: 1px solid var(--border);
-        background: var(--surface); color: var(--ink-muted); font-size: 0.9em; font-weight: 600;
-      }
-      .period-btn:hover { border-color: var(--ai); color: var(--ink); }
-      .period-btn.active { background: var(--ai); border-color: var(--ai); color: #fff; }
-      .period-btn:disabled { opacity: 0.6; cursor: default; }
+      /* ===== 期間タブ（会計処理と同じトグルデザイン） ===== */
+      .toggle-tabs { display: inline-flex; background: var(--surface-2); border-radius: 999px; padding: 3px; margin-bottom: var(--space-md); flex-wrap: wrap; }
+      .toggle-tab { border: none; background: none; border-radius: 999px; padding: 7px 14px; font-weight: 700; font-size: 0.9em; color: var(--ink-muted); }
+      .toggle-tab.active { background: var(--ai); color: #fff; }
+      .toggle-tab:disabled { opacity: 0.6; cursor: default; }
       .dashboard-body.loading { opacity: 0.5; pointer-events: none; transition: opacity 0.15s; }
 
       .custom-range-row { display: none; align-items: center; gap: var(--space-sm); margin-bottom: var(--space-md); font-size: 0.9em; color: var(--ink-muted); }
       .custom-range-row.show { display: flex; }
 
+      /* ===== 日付ナビ（会計処理と同じ表記：前後移動＋タップでカレンダー） ===== */
+      .date-nav-row { display: flex; align-items: center; gap: 2px; }
+      .date-display-wrap { position: relative; display: inline-flex; align-items: center; gap: 6px; font-weight: 700; font-size: 1.05em; padding: 6px 10px; border-radius: var(--radius-sm); cursor: pointer; white-space: nowrap; }
+      .date-display-wrap:hover { background: var(--ai-soft); color: var(--ai); }
+      .date-display-wrap input[type="date"] {
+        position: absolute; inset: 0; color: transparent; background: transparent; border: none; cursor: pointer;
+      }
+      .date-display-wrap input[type="date"]::-webkit-calendar-picker-indicator { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
+
       /* ===== 集計対象日 ＋ 差分基準（単日選択時のみ表示、右寄せ・同じ行） ===== */
-      .period-info-row { display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: var(--space-sm); margin-bottom: var(--space-md); }
+      .period-info-row { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: var(--space-sm); margin-bottom: var(--space-md); }
       .period-basis-wrap { margin-left: auto; }
       .basis-row { display: flex; align-items: center; gap: var(--space-md); font-size: 0.88em; color: var(--ink-muted); flex-wrap: wrap; justify-content: flex-end; }
       .basis-row.hidden { display: none; }
@@ -52,6 +57,7 @@
 
       .kpi-detail-cols { display: grid; grid-template-columns: repeat(3, 1fr); }
       .kpi-detail-col { padding: 0 var(--space-md); text-align: center; }
+      .kpi-detail-col .kpi-extra { font-size: 0.72em; color: var(--ink-muted); margin-top: 2px; }
       .kpi-detail-col:not(:first-child) { border-left: 1px solid var(--border); }
       .kpi-turnover-row {
         margin-top: var(--space-sm); padding-top: var(--space-sm); border-top: 1px solid var(--border);
@@ -63,7 +69,6 @@
       .kpi-value-row { display: flex; align-items: baseline; gap: var(--space-sm); flex-wrap: wrap; margin-top: 2px; }
       .kpi-detail-col .kpi-value-row { justify-content: center; }
       .kpi-label { font-weight: 700; }
-      .period-label-row { font-size: 0.92em; color: var(--ink-muted); font-weight: 600; }
       .kpi-sub { font-size: 0.6em; font-weight: 400; color: inherit; opacity: 0.8; }
       .kpi-delta { font-size: 0.8em; font-variant-numeric: tabular-nums; display: inline-flex; align-items: center; gap: 2px; }
       .kpi-delta.up { color: var(--good); }
@@ -79,7 +84,7 @@
       .bar-chart { position: relative; display: flex; align-items: flex-end; gap: 4px; height: 160px; overflow-x: auto; }
       .bar-col { flex: 1; min-width: 8px; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; }
       .bar { width: 70%; min-height: 2px; border-radius: 3px 3px 0 0; background: var(--ai); }
-      .bar-axis-labels { display: flex; gap: 4px; padding-left: 44px; margin-top: var(--space-xs); }
+      .bar-axis-labels { display: flex; gap: 4px; padding-left: 44px; margin-top: var(--space-xs); overflow-x: hidden; }
       .bar-axis-labels .bar-label { flex: 1; min-width: 8px; text-align: center; font-size: 0.62em; color: var(--ink-muted); white-space: nowrap; }
 
       /* ===== TOP10（2段組み・交互配色なし） ===== */
@@ -120,13 +125,13 @@
           <p id="advice-text"></p>
         </div>
 
-        <!-- 期間ボタン + 期間指定 -->
-        <div class="period-btns" id="period-tabs">
-          <button type="button" class="period-btn active" data-period="today">本日</button>
-          <button type="button" class="period-btn" data-period="yesterday">昨日</button>
-          <button type="button" class="period-btn" data-period="last7">過去7日間</button>
-          <button type="button" class="period-btn" data-period="month">当月</button>
-          <button type="button" class="period-btn" data-period="custom">期間指定</button>
+        <!-- 期間タブ + 期間指定 -->
+        <div class="toggle-tabs" id="period-tabs">
+          <button type="button" class="toggle-tab active" data-period="today">本日</button>
+          <button type="button" class="toggle-tab" data-period="yesterday">昨日</button>
+          <button type="button" class="toggle-tab" data-period="last7">過去7日間</button>
+          <button type="button" class="toggle-tab" data-period="month">当月</button>
+          <button type="button" class="toggle-tab" data-period="custom">期間指定</button>
         </div>
         <div class="custom-range-row" id="custom-range-row">
           <input type="date" id="custom-start"> 〜 <input type="date" id="custom-end">
@@ -134,9 +139,16 @@
 
         <p id="load-error" class="error"></p>
 
-        <!-- 集計対象日 ＋ 差分基準／複数日選択時の注記（右寄せ、同じ行） -->
-        <div class="period-info-row">
-          <span class="period-label-row" id="period-label-row"></span>
+        <!-- 集計対象日（前後移動＋タップでカレンダー） ＋ 差分基準／複数日選択時の注記（右寄せ、同じ行） -->
+        <div class="period-info-row" id="period-nav-row">
+          <div class="date-nav-row" id="ref-date-nav">
+            <button type="button" class="icon-btn" id="ref-date-prev"><svg class="icon"><use href="#icon-chevron-left"></use></svg></button>
+            <span class="date-display-wrap" id="ref-date-wrap">
+              <span id="ref-date-label"></span>
+              <input type="date" id="ref-date-input" title="基準日を選択">
+            </span>
+            <button type="button" class="icon-btn" id="ref-date-next"><svg class="icon"><use href="#icon-chevron-right"></use></svg></button>
+          </div>
           <div class="period-basis-wrap">
             <div class="basis-row" id="basis-row">
               <label><input type="radio" name="basis" value="prevDay" checked>前日比</label>
@@ -176,8 +188,8 @@
           <div class="donut-grid" id="donut-grid"></div>
         </div>
 
+        <h2>詳細分析</h2>
         <div class="card">
-          <h2>詳細分析</h2>
           <div class="detail-links">
             <a class="detail-link" href="<?= baseUrl ?>?page=sales-stats"><svg class="icon"><use href="#icon-trending-up"></use></svg>売上統計</a>
             <a class="detail-link" href="<?= baseUrl ?>?page=analysis-product"><svg class="icon"><use href="#icon-tag"></use></svg>商品統計</a>
@@ -197,23 +209,63 @@
       var OTHER_COLOR = 'var(--surface-2)';
 
       var currentPeriod = 'today';
+      var referenceDate = formatDateForInput(new Date());
 
-      function formatDateForInput(d) {
+      function shiftDateStr(value, days) {
+        var d = new Date(value);
+        d.setDate(d.getDate() + days);
+        return formatDateForInput(d);
+      }
+      function shiftMonthStr(value, direction) {
+        var parts = value.split('-');
+        var d = new Date(Number(parts[0]), Number(parts[1]) - 1 + direction, 1);
         var mm = ('0' + (d.getMonth() + 1)).slice(-2);
-        var dd = ('0' + d.getDate()).slice(-2);
-        return d.getFullYear() + '-' + mm + '-' + dd;
+        return d.getFullYear() + '-' + mm + '-01';
       }
 
-      var today = new Date();
-      document.getElementById('custom-start').value = formatDateForInput(today);
-      document.getElementById('custom-end').value = formatDateForInput(today);
+      document.getElementById('custom-start').value = referenceDate;
+      document.getElementById('custom-end').value = referenceDate;
 
-      document.querySelectorAll('#period-tabs .period-btn').forEach(function (btn) {
+      // 期間タブごとの基準日の既定値・移動量（今日/過去7日間/当月は今日、昨日は昨日を初期値にする）
+      function defaultReferenceDateFor(period) {
+        var t = formatDateForInput(new Date());
+        return period === 'yesterday' ? shiftDateStr(t, -1) : t;
+      }
+
+      // 読み込み完了前の暫定ラベル。実際の表示はrenderDashboard()でサーバーのperiodLabelに置き換わる
+      function renderRefDateNav() {
+        document.getElementById('ref-date-input').value = referenceDate;
+        var parts = referenceDate.split('-');
+        document.getElementById('ref-date-label').textContent = currentPeriod === 'month'
+          ? parts[0] + '年' + parts[1] + '月'
+          : formatFullDateWithWeekday(referenceDate);
+      }
+
+      document.getElementById('ref-date-prev').addEventListener('click', function () {
+        referenceDate = currentPeriod === 'month' ? shiftMonthStr(referenceDate, -1) : shiftDateStr(referenceDate, currentPeriod === 'last7' ? -7 : -1);
+        renderRefDateNav();
+        loadDashboard();
+      });
+      document.getElementById('ref-date-next').addEventListener('click', function () {
+        referenceDate = currentPeriod === 'month' ? shiftMonthStr(referenceDate, 1) : shiftDateStr(referenceDate, currentPeriod === 'last7' ? 7 : 1);
+        renderRefDateNav();
+        loadDashboard();
+      });
+      document.getElementById('ref-date-input').addEventListener('change', function () {
+        referenceDate = this.value;
+        renderRefDateNav();
+        loadDashboard();
+      });
+
+      document.querySelectorAll('#period-tabs .toggle-tab').forEach(function (btn) {
         btn.addEventListener('click', function () {
-          document.querySelectorAll('#period-tabs .period-btn').forEach(function (t) { t.classList.remove('active'); });
+          document.querySelectorAll('#period-tabs .toggle-tab').forEach(function (t) { t.classList.remove('active'); });
           btn.classList.add('active');
           currentPeriod = btn.dataset.period;
+          referenceDate = defaultReferenceDateFor(currentPeriod);
           document.getElementById('custom-range-row').classList.toggle('show', currentPeriod === 'custom');
+          document.getElementById('ref-date-nav').style.display = currentPeriod === 'custom' ? 'none' : '';
+          renderRefDateNav();
           loadDashboard();
         });
       });
@@ -236,7 +288,7 @@
 
       function setLoading(isLoading) {
         document.getElementById('dashboard-body').classList.toggle('loading', isLoading);
-        document.querySelectorAll('#period-tabs .period-btn').forEach(function (btn) { btn.disabled = isLoading; });
+        document.querySelectorAll('#period-tabs .toggle-tab').forEach(function (btn) { btn.disabled = isLoading; });
       }
 
       function loadDashboard() {
@@ -256,7 +308,7 @@
             setLoading(false);
             document.getElementById('load-error').textContent = 'データの取得に失敗しました：' + error.message;
           })
-          .getDashboardData(currentPeriod, startDateStr, endDateStr, currentCompareBasis());
+          .getDashboardData(currentPeriod, referenceDate, startDateStr, endDateStr, currentCompareBasis());
       }
 
       // 矢印＋実数（符号付き）｜%（符号付き）の形式で差分を表示する
@@ -293,12 +345,16 @@
         var detail = [
           { label: '客単価', value: '¥' + k.perPersonAmount.value.toLocaleString(), sub: '/ 人', kpi: k.perPersonAmount, format: yenAmountFormat },
           { label: '合計客数', value: k.totalPartySize.value + '人', kpi: k.totalPartySize, format: function (n) { return signedAmount(n, '人'); } },
-          { label: '合計組数', value: k.visitCount.value + '組', kpi: k.visitCount, format: function (n) { return signedAmount(n, '組'); } }
+          {
+            label: '合計組数', value: k.visitCount.value + '組', kpi: k.visitCount, format: function (n) { return signedAmount(n, '組'); },
+            extra: '新規' + k.visitCount.breakdown.newCount + ' / リピート' + k.visitCount.breakdown.repeatCount
+          }
         ];
         var colsHtml = detail.map(function (item) {
           return '<div class="kpi-detail-col">' +
             '<div class="kpi-label">' + item.label + '</div>' +
             '<div class="kpi-value-row"><span class="kpi-value">' + item.value + (item.sub ? '<span class="kpi-sub">' + item.sub + '</span>' : '') + '</span>' + deltaHtml(item.kpi, item.format) + '</div>' +
+            (item.extra ? '<div class="kpi-extra">' + item.extra + '</div>' : '') +
             '</div>';
         }).join('');
         document.getElementById('kpi-detail-card').innerHTML =
@@ -328,6 +384,11 @@
           grid.appendChild(row);
         }
       }
+
+      // 横スクロール時、日付ラベル行は独立スクロールさせず棒グラフ側に追従させる（軸ラベルがはみ出す不具合対策）
+      document.getElementById('bar-chart').addEventListener('scroll', function () {
+        document.getElementById('bar-axis-labels').scrollLeft = this.scrollLeft;
+      });
 
       function renderBarChart(graph) {
         var chart = document.getElementById('bar-chart');
@@ -417,7 +478,7 @@
       }
 
       function renderDashboard(data) {
-        document.getElementById('period-label-row').textContent = data.periodLabel;
+        document.getElementById('ref-date-label').textContent = data.periodLabel;
         document.getElementById('basis-row').classList.toggle('hidden', !data.isSingleDay);
         document.getElementById('basis-note').classList.toggle('show', !data.isSingleDay);
 
@@ -432,6 +493,7 @@
         renderDonuts(data.category);
       }
 
+      renderRefDateNav();
       loadDashboard();
     </script>
   </body>
