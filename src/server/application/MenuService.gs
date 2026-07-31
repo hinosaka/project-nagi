@@ -6,6 +6,15 @@ function getMenuList() {
   return MenuRepository.findAll();
 }
 
+// 商品管理画面（SCR-003）の初期表示に必要なデータを1回の呼び出しでまとめて返す
+function getMenuManagementData() {
+  return {
+    menus: MenuRepository.findAll(),
+    categories: CategoryRepository.findAll(),
+    subCategories: SubCategoryRepository.findAll()
+  };
+}
+
 function saveMenu(menuInput) {
   validateMenuInput_(menuInput);
 
@@ -39,6 +48,15 @@ function deactivateMenu(menuId) {
     throw new Error('対象の商品が見つかりません：' + menuId);
   }
   existing.IsActive = false;
+  MenuRepository.save(existing);
+}
+
+function reactivateMenu(menuId) {
+  var existing = findMenuById_(menuId);
+  if (!existing) {
+    throw new Error('対象の商品が見つかりません：' + menuId);
+  }
+  existing.IsActive = true;
   MenuRepository.save(existing);
 }
 

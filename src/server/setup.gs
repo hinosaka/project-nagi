@@ -13,6 +13,9 @@ function setupDatabase() {
   ensureBusinessDayStartingCashColumn_(spreadsheet);
   ensureSalesTargetSheet_(spreadsheet);
   ensureRegisterCloseLogSheet_(spreadsheet);
+  ensureCategorySheet_(spreadsheet);
+  ensureSubCategorySheet_(spreadsheet);
+  ensureCategoryMasterSeeded_(spreadsheet);
   removeUnusedDefaultSheet_(spreadsheet);
   Logger.log('セットアップ完了。URL=' + spreadsheet.getUrl());
 }
@@ -125,6 +128,86 @@ function ensureRegisterCloseLogSheet_(spreadsheet) {
   }
   var sheet = spreadsheet.insertSheet('RegisterCloseLog');
   sheet.appendRow(['RegisterCloseLogId', 'SalesDate', 'StartingCash', 'CashSalesAmount', 'ExpectedCashBalance', 'ClosedAt']);
+}
+
+function ensureCategorySheet_(spreadsheet) {
+  if (spreadsheet.getSheetByName('Category')) {
+    return;
+  }
+  var sheet = spreadsheet.insertSheet('Category');
+  sheet.appendRow(['CategoryId', 'CategoryName']);
+}
+
+function ensureSubCategorySheet_(spreadsheet) {
+  if (spreadsheet.getSheetByName('SubCategory')) {
+    return;
+  }
+  var sheet = spreadsheet.insertSheet('SubCategory');
+  sheet.appendRow(['SubCategoryId', 'CategoryId', 'SubCategoryName', 'SortOrder']);
+}
+
+// Category/SubCategoryシートを新設した際、既存のMenuシートに入力済みの大分類・中分類の値から
+// カテゴリー・サブカテゴリーマスタを一度だけ生成する（Categoryシートが空の場合のみ実行する一回限りの移行処理）。
+// 商品管理画面（SCR-003）はカテゴリー・サブカテゴリーをこのマスタから選択する方式に変更したため、
+// 既存商品が引き続き同じ分類のまま表示・管理できるようにする
+function ensureCategoryMasterSeeded_(spreadsheet) {
+  var categorySheet = spreadsheet.getSheetByName('Category');
+  var subCategorySheet = spreadsheet.getSheetByName('SubCategory');
+  var menuSheet = spreadsheet.getSheetByName('Menu');
+  if (!categorySheet || !subCategorySheet || !menuSheet) {
+    return;
+  }
+  if (categorySheet.getLastRow() > 1) {
+    return;
+  }
+
+  var menus = SheetUtil.rowsToObjects(menuSheet.getDataRange().getValues());
+  if (menus.length === 0) {
+    return;
+  }
+
+  var categoryIdByName = {};
+  var categoryIds = [];
+  var categoryRows = [];
+  var subCategoryIds = [];
+  var subCategoryRows = [];
+  var sortOrderByCategoryId = {};
+
+  menus.forEach(function (menu) {
+    var largeName = menu.CategoryLarge;
+    var mediumName = menu.CategoryMedium;
+    if (!largeName) {
+      return;
+    }
+    if (!categoryIdByName[largeName]) {
+      var categoryId = SequentialIdRule.generateNext('CAT', categoryIds);
+      categoryIds.push(categoryId);
+      categoryIdByName[largeName] = categoryId;
+      categoryRows.push([categoryId, largeName]);
+      sortOrderByCategoryId[categoryId] = 0;
+    }
+    if (!mediumName) {
+      return;
+    }
+    var categoryId = categoryIdByName[largeName];
+    var alreadyExists = subCategoryRows.some(function (row) {
+      return row[1] === categoryId && row[2] === mediumName;
+    });
+    if (alreadyExists) {
+      return;
+    }
+    sortOrderByCategoryId[categoryId] += 1;
+    var subCategoryId = SequentialIdRule.generateNext('SCT', subCategoryIds);
+    subCategoryIds.push(subCategoryId);
+    subCategoryRows.push([subCategoryId, categoryId, mediumName, sortOrderByCategoryId[categoryId]]);
+  });
+
+  if (categoryRows.length > 0) {
+    categorySheet.getRange(2, 1, categoryRows.length, 2).setValues(categoryRows);
+  }
+  if (subCategoryRows.length > 0) {
+    subCategorySheet.getRange(2, 1, subCategoryRows.length, 4).setValues(subCategoryRows);
+  }
 }
 
 function removeUnusedDefaultSheet_(spreadsheet) {
