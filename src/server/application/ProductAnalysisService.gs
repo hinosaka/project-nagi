@@ -1,24 +1,28 @@
-// アプリケーション層：商品分析（SCR-008）のユースケース。
+// アプリケーション層：商品統計（SCR-008）のユースケース。
 // google.script.runの制約により、クライアント公開分はトップレベル関数として定義する
-// 期間の算出（日次／週次／月次）はDashboardService.gsのcalcPeriodRange_を共用する
+//
+// 期間別（日次／週次／期間指定）・月別・年別の3種類の粒度に対応する。
+// 日次／週次／月次の範囲算出はDashboardService.gsのcalcPeriodRange_を共用し、
+// 期間指定（custom）・年別はこのファイル内で算出する
+//
+// 円グラフ・詳細表は必ず同じ「上位5件＋その他」データから作るため、
+// 一度だけ畳み込んだ配列（productAnalysisFoldTop5_の戻り値）を両方の元にする
 
-function getProductAnalysisData(periodType, referenceDateStr, sortBy) {
-  var range = calcPeriodRange_(periodType, new Date(referenceDateStr));
+function getProductAnalysisData(periodType, referenceDateStr, startDateStr, endDateStr) {
+  var range = resolveProductAnalysisRange_(periodType, referenceDateStr, startDateStr, endDateStr);
 
   var salesInRange = SalesRepository.findAll().filter(function (s) {
     var d = new Date(s.SalesDate);
     return d >= range.start && d <= range.end;
   });
-  var totalPartySize = salesInRange.reduce(function (sum, s) { return sum + (Number(s.PartySize) || 0); }, 0);
-
   var salesIdSet = {};
   salesInRange.forEach(function (s) { salesIdSet[s.SalesId] = true; });
 
-  var menuTotals = {};
-  var menuOrder = [];
-  var categoryTotals = { 'フード': { amount: 0, quantity: 0 }, 'ドリンク': { amount: 0, quantity: 0 } };
+  var productTotals = {};
+  var productOrder = [];
+  var categoryTotals = {};
+  var categoryOrder = [];
   var totalAmount = 0;
-  var totalQuantity = 0;
 
   SalesDetailRepository.findAll().forEach(function (d) {
     if (!salesIdSet[d.SalesId] || !d.MenuName) {
@@ -26,73 +30,142 @@ function getProductAnalysisData(periodType, referenceDateStr, sortBy) {
     }
     var subtotal = Number(d.Subtotal) || 0;
     var quantity = Number(d.Quantity) || 0;
-    var category = d.CategoryLarge || '';
+    var category = d.CategoryMedium || 'その他';
     var hasCost = d.UnitCost !== '' && d.UnitCost !== null && d.UnitCost !== undefined;
     var cost = hasCost ? (Number(d.UnitCost) || 0) * quantity : 0;
 
-    if (menuTotals[d.MenuName] === undefined) {
-      menuTotals[d.MenuName] = { amount: 0, quantity: 0, category: category, cost: 0, hasCost: false };
-      menuOrder.push(d.MenuName);
+    if (!productTotals[d.MenuName]) {
+      productTotals[d.MenuName] = { amount: 0, quantity: 0, category: category, unitPrice: 0, cost: 0, hasCost: false };
+      productOrder.push(d.MenuName);
     }
-    var entry = menuTotals[d.MenuName];
-    entry.amount += subtotal;
-    entry.quantity += quantity;
+    var p = productTotals[d.MenuName];
+    p.amount += subtotal;
+    p.quantity += quantity;
+    p.unitPrice = Number(d.UnitPrice) || 0;
     if (hasCost) {
-      entry.cost += cost;
-      entry.hasCost = true;
+      p.cost += cost;
+      p.hasCost = true;
     }
 
-    if (categoryTotals[category]) {
-      categoryTotals[category].amount += subtotal;
-      categoryTotals[category].quantity += quantity;
+    if (!categoryTotals[category]) {
+      categoryTotals[category] = { amount: 0, quantity: 0, cost: 0, hasCost: false };
+      categoryOrder.push(category);
     }
+    var c = categoryTotals[category];
+    c.amount += subtotal;
+    c.quantity += quantity;
+    if (hasCost) {
+      c.cost += cost;
+      c.hasCost = true;
+    }
+
     totalAmount += subtotal;
-    totalQuantity += quantity;
   });
 
-  // ABC分析は売上金額の降順に基づいて分類する（表示順はsortByに従うため別途並び替える）
-  var itemsByAmountDesc = menuOrder
-    .map(function (name) { return { name: name, entry: menuTotals[name] }; })
-    .sort(function (a, b) { return b.entry.amount - a.entry.amount; });
-
-  var cumulative = 0;
-  var abcClassByName = {};
-  itemsByAmountDesc.forEach(function (item) {
-    cumulative += item.entry.amount;
-    var cumulativeRatio = totalAmount > 0 ? cumulative / totalAmount : 0;
-    var abcClass = cumulativeRatio <= 0.7 ? 'A' : (cumulativeRatio <= 0.9 ? 'B' : 'C');
-    abcClassByName[item.name] = abcClass;
-  });
-
-  var items = itemsByAmountDesc.map(function (item) {
-    var entry = item.entry;
+  var products = productOrder.map(function (name) {
+    var p = productTotals[name];
     return {
-      MenuName: item.name,
-      category: entry.category,
-      amount: entry.amount,
-      quantity: entry.quantity,
-      sharePercent: totalAmount > 0 ? Math.round((entry.amount / totalAmount) * 1000) / 10 : 0,
-      grossProfit: entry.hasCost ? entry.amount - entry.cost : null,
-      costRate: entry.hasCost && entry.amount > 0 ? Math.round((entry.cost / entry.amount) * 1000) / 10 : null,
-      abcClass: abcClassByName[item.name]
+      name: name,
+      category: p.category,
+      unitPrice: p.unitPrice,
+      quantity: p.quantity,
+      amount: p.amount,
+      grossProfit: p.hasCost ? p.amount - p.cost : null
     };
-  });
+  }).sort(function (a, b) { return b.amount - a.amount; });
 
-  if (sortBy === 'quantity') {
-    items.sort(function (a, b) { return b.quantity - a.quantity; });
-  } else if (sortBy === 'grossProfit') {
-    items.sort(function (a, b) { return (b.grossProfit || 0) - (a.grossProfit || 0); });
-  }
+  var categories = categoryOrder.map(function (name) {
+    var c = categoryTotals[name];
+    return {
+      name: name,
+      category: null,
+      unitPrice: null,
+      quantity: c.quantity,
+      amount: c.amount,
+      grossProfit: c.hasCost ? c.amount - c.cost : null
+    };
+  }).sort(function (a, b) { return b.amount - a.amount; });
+
+  var foldedProducts = productAnalysisFoldTop5_(products, null, '品');
+  var foldedCategories = productAnalysisFoldTop5_(categories, 'その他', '分類');
 
   return {
     periodLabel: range.label,
-    totalAmount: totalAmount,
-    totalQuantity: totalQuantity,
-    avgOrderQuantity: totalPartySize > 0 ? Math.round((totalQuantity / totalPartySize) * 10) / 10 : null,
-    categoryTotals: [
-      { category: 'フード', amount: categoryTotals['フード'].amount, quantity: categoryTotals['フード'].quantity },
-      { category: 'ドリンク', amount: categoryTotals['ドリンク'].amount, quantity: categoryTotals['ドリンク'].quantity }
-    ],
-    items: items
+    productPie: foldedProducts.map(function (r) { return { name: r.name, amount: r.amount }; }),
+    categoryPie: foldedCategories.map(function (r) { return { name: r.name, amount: r.amount }; }),
+    // 表は円グラフ（上位5件＋その他）とは独立させ、1件でも注文があった全商品／全カテゴリを表示する
+    productTable: productAnalysisToTableRows_(products, totalAmount),
+    categoryTable: productAnalysisToTableRows_(categories, totalAmount)
   };
+}
+
+// ----- 期間の算出 -----
+
+function resolveProductAnalysisRange_(periodType, referenceDateStr, startDateStr, endDateStr) {
+  if (periodType === 'custom') {
+    var start = new Date(startDateStr);
+    var end = new Date(endDateStr);
+    start.setHours(0, 0, 0, 0);
+    end.setHours(23, 59, 59, 999);
+    return { start: start, end: end, label: DateUtil.formatDisplay(start) + ' 〜 ' + DateUtil.formatDisplay(end) };
+  }
+  if (periodType === 'year') {
+    var refDate = new Date(referenceDateStr);
+    var yearStart = new Date(refDate.getFullYear(), 0, 1);
+    var yearEnd = new Date(refDate.getFullYear(), 11, 31);
+    yearEnd.setHours(23, 59, 59, 999);
+    return { start: yearStart, end: yearEnd, label: refDate.getFullYear() + '年' };
+  }
+  // day／week／month はDashboardService.gsのcalcPeriodRange_を共用
+  return calcPeriodRange_(periodType, new Date(referenceDateStr));
+}
+
+// ----- 上位5件＋その他への畳み込み（円グラフ・詳細表で共通） -----
+
+// rows: {name, category, unitPrice, quantity, amount, grossProfit}の配列（amount降順ソート済み）
+// explicitOtherName: 集計時点で既に「その他」バケットを持つ場合はその名前（カテゴリ別の'その他'）を渡して合算する
+function productAnalysisFoldTop5_(rows, explicitOtherName, otherLabelSuffix) {
+  var explicitOther = null;
+  var named = rows.filter(function (r) {
+    if (explicitOtherName && r.name === explicitOtherName) {
+      explicitOther = r;
+      return false;
+    }
+    return true;
+  });
+
+  var top = named.slice(0, 5);
+  var rest = named.slice(5);
+  var overflow = rest.concat(explicitOther ? [explicitOther] : []);
+
+  if (overflow.length > 0) {
+    var restAmount = overflow.reduce(function (sum, r) { return sum + r.amount; }, 0);
+    var restQuantity = overflow.reduce(function (sum, r) { return sum + r.quantity; }, 0);
+    var anyHasCost = overflow.some(function (r) { return r.grossProfit !== null; });
+    var restGrossProfit = overflow.reduce(function (sum, r) { return sum + (r.grossProfit || 0); }, 0);
+    var label = rest.length > 0 ? 'その他' + rest.length + otherLabelSuffix : 'その他';
+    top = top.concat([{
+      name: label,
+      category: '-',
+      unitPrice: null,
+      quantity: restQuantity,
+      amount: restAmount,
+      grossProfit: anyHasCost ? restGrossProfit : null
+    }]);
+  }
+  return top;
+}
+
+function productAnalysisToTableRows_(rows, totalAmount) {
+  return rows.map(function (r) {
+    return {
+      name: r.name,
+      category: r.category,
+      unitPrice: r.unitPrice,
+      quantity: r.quantity,
+      amount: r.amount,
+      sharePercent: totalAmount > 0 ? Math.round((r.amount / totalAmount) * 1000) / 10 : 0,
+      grossProfit: r.grossProfit
+    };
+  });
 }
