@@ -169,11 +169,17 @@ function buildDetailRows_(rawDetails) {
   });
 }
 
+// 新規顧客名が既存顧客と同じニックネームの場合は、重複作成せず既存顧客にそのまま紐付ける
+// （オートコンプリートの候補をタップし忘れた場合の取りこぼし対策。1ニックネーム1人のみの原則を守る）
 function resolveCustomerId_(input) {
   if (input.CustomerId) {
     return input.CustomerId;
   }
   if (input.NewCustomerName) {
+    var existing = findCustomerByName_(input.NewCustomerName.trim());
+    if (existing) {
+      return existing.CustomerId;
+    }
     return createCustomer_(input.NewCustomerName).CustomerId;
   }
   return '';
@@ -189,6 +195,7 @@ function recalcCustomerVisitStats_(customerId) {
   }
   var stats = VisitStatsCalculator.calc(SalesRepository.findByCustomerId(customerId));
   customer.VisitCount = stats.VisitCount;
+  customer.FirstVisitDate = stats.FirstVisitDate || customer.FirstVisitDate;
   customer.LastVisitDate = stats.LastVisitDate || customer.FirstVisitDate;
   CustomerRepository.save(customer);
 }

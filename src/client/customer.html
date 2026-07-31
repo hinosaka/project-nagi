@@ -24,22 +24,39 @@
         width: 90%;
         max-height: 85vh;
         overflow-y: auto;
+        position: relative;
+      }
+      .modal-close {
+        position: absolute;
+        top: var(--space-sm);
+        right: var(--space-sm);
       }
       .detail-header {
         display: flex;
         align-items: center;
         gap: var(--space-sm);
         margin-bottom: 2px;
+        padding-right: 1.6em;
       }
       .detail-person-icon {
         width: 1.6em;
         height: 1.6em;
         color: var(--ai);
+        flex-shrink: 0;
       }
-      .detail-header h2 {
-        margin: 0;
-        border-bottom: none;
-        padding-bottom: 0;
+      #detail-name {
+        flex: 1;
+        min-width: 0;
+        font-size: 1.3em;
+        font-weight: 700;
+        border: none;
+        background: transparent;
+        padding: 2px;
+        color: var(--ink);
+      }
+      #detail-name:focus {
+        outline: none;
+        border-bottom: 1px solid var(--ai);
       }
       .detail-visit-info {
         margin: 0 0 var(--space-md);
@@ -113,6 +130,16 @@
       .register-row .form-row {
         margin-bottom: 0;
       }
+      #customer-table tbody tr:nth-child(even) {
+        background: none;
+      }
+
+      /* ===== 注文履歴ランキング（ダッシュボードの商品別売上ランキングと同じ配色・表示方式） ===== */
+      .rank-badge { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 50%; background: var(--surface-2); color: var(--ink-muted); font-size: 0.8em; font-weight: 700; flex-shrink: 0; }
+      .rank-badge.top3 { background: var(--warn-soft); color: var(--warn); }
+      .ranking-row { display: flex; align-items: center; gap: var(--space-sm); padding: 7px 0; border-bottom: 1px solid var(--border); }
+      .ranking-row .name { flex: 1; }
+      .ranking-row .qty { font-variant-numeric: tabular-nums; color: var(--ink-muted); font-size: 0.9em; }
     </style>
   </head>
   <body data-page="<?= currentPage ?>">
@@ -159,9 +186,10 @@
 
     <div class="modal-overlay" id="detail-modal" style="display:none;">
       <div class="modal-box">
+        <button type="button" class="icon-btn modal-close" id="detail-close" title="閉じる">✕</button>
         <div class="detail-header">
           <svg class="icon detail-person-icon"><use href="#icon-user"></use></svg>
-          <h2 id="detail-title"></h2>
+          <input type="text" id="detail-name">
         </div>
         <p id="detail-visit-info" class="detail-visit-info">
           <span class="visit-badge visit-count" id="detail-visit-count"></span>
@@ -171,26 +199,21 @@
         <div class="detail-phone-row">
           <span class="detail-field-icon" title="電話番号"><svg class="icon"><use href="#icon-phone"></use></svg></span>
           <input type="text" id="detail-phone" placeholder="電話番号（任意）">
-          <button type="button" class="icon-btn" id="detail-phone-edit" title="編集"><svg class="icon"><use href="#icon-edit"></use></svg></button>
         </div>
 
         <div class="form-row">
           <label for="detail-memo"><svg class="icon"><use href="#icon-tag"></use></svg>メモ</label>
           <div class="memo-row">
             <textarea id="detail-memo"></textarea>
-            <button type="button" class="icon-btn" id="detail-save" title="保存"><svg class="icon"><use href="#icon-check"></use></svg></button>
           </div>
         </div>
 
         <h3>よく注文する商品 TOP3</h3>
-        <ol id="detail-top-ranking" class="ranking-list"></ol>
+        <div id="detail-top-ranking"></div>
 
         <h3>その他の注文</h3>
-        <ol id="detail-other-ranking" class="ranking-list"></ol>
+        <div id="detail-other-ranking"></div>
 
-        <div class="form-row form-actions">
-          <button type="button" id="detail-close">顧客一覧に戻る</button>
-        </div>
         <p id="detail-error" class="error"></p>
       </div>
     </div>
@@ -244,7 +267,7 @@
 
       function openDetail(customerId) {
         var customer = currentCustomers[customerId];
-        document.getElementById('detail-title').textContent = customer.CustomerName;
+        document.getElementById('detail-name').value = customer.CustomerName;
 
         document.getElementById('detail-visit-count').textContent = (customer.VisitCount || 0) + '回目来店';
         document.getElementById('detail-last-visit').textContent = customer.LastVisitDate ? ('前回 ' + customer.LastVisitDate) : '来店履歴なし';
@@ -266,32 +289,39 @@
       }
 
       function renderRanking(listId, items, startRank) {
-        var list = document.getElementById(listId);
-        list.setAttribute('start', startRank);
-        list.innerHTML = '';
+        var container = document.getElementById(listId);
+        container.innerHTML = '';
         if (items.length === 0) {
-          var empty = document.createElement('li');
+          var empty = document.createElement('p');
           empty.className = 'ranking-empty';
           empty.textContent = '該当する注文はまだありません。';
-          list.appendChild(empty);
+          container.appendChild(empty);
           return;
         }
-        items.forEach(function (item) {
-          var li = document.createElement('li');
-          li.textContent = item.MenuName + '（' + item.Quantity + '点）';
-          list.appendChild(li);
+        items.forEach(function (item, i) {
+          var rank = startRank + i;
+          var row = document.createElement('div');
+          row.className = 'ranking-row';
+          var badge = document.createElement('span');
+          badge.className = 'rank-badge' + (rank <= 3 ? ' top3' : '');
+          badge.textContent = rank;
+          var name = document.createElement('span');
+          name.className = 'name';
+          name.textContent = item.MenuName;
+          var qty = document.createElement('span');
+          qty.className = 'qty';
+          qty.textContent = item.Quantity + '点';
+          row.appendChild(badge);
+          row.appendChild(name);
+          row.appendChild(qty);
+          container.appendChild(row);
         });
       }
 
       function closeDetailModal() {
         document.getElementById('detail-modal').style.display = 'none';
+        loadCustomerList();
       }
-
-      document.getElementById('detail-phone-edit').addEventListener('click', function () {
-        var input = document.getElementById('detail-phone');
-        input.focus();
-        input.select();
-      });
 
       document.getElementById('detail-close').addEventListener('click', closeDetailModal);
 
@@ -301,25 +331,45 @@
         }
       });
 
-      document.getElementById('detail-save').addEventListener('click', function () {
+      // ニックネーム・電話番号・メモは編集ボタン・保存ボタンを介さず、フォーカスを外した時点で自動保存する
+      function saveDetailFields() {
+        var customerId = document.getElementById('detail-modal').dataset.customerId;
+        var customer = currentCustomers[customerId];
+        if (!customer) {
+          return;
+        }
+
+        var newName = document.getElementById('detail-name').value.trim();
+        var newPhone = document.getElementById('detail-phone').value;
+        var newMemo = document.getElementById('detail-memo').value;
+        if (newName === customer.CustomerName && newPhone === (customer.PhoneNumber || '') && newMemo === (customer.Memo || '')) {
+          return;
+        }
+
         document.getElementById('detail-error').textContent = '';
-
-        var detailInput = {
-          CustomerId: document.getElementById('detail-modal').dataset.customerId,
-          PhoneNumber: document.getElementById('detail-phone').value,
-          Memo: document.getElementById('detail-memo').value
-        };
-
         google.script.run
           .withSuccessHandler(function () {
-            closeDetailModal();
-            loadCustomerList();
+            customer.CustomerName = newName;
+            customer.PhoneNumber = newPhone;
+            customer.Memo = newMemo;
           })
           .withFailureHandler(function (error) {
             document.getElementById('detail-error').textContent = error.message;
+            document.getElementById('detail-name').value = customer.CustomerName;
+            document.getElementById('detail-phone').value = customer.PhoneNumber || '';
+            document.getElementById('detail-memo').value = customer.Memo || '';
           })
-          .saveCustomerDetail(detailInput);
-      });
+          .saveCustomerDetail({
+            CustomerId: customerId,
+            CustomerName: newName,
+            PhoneNumber: newPhone,
+            Memo: newMemo
+          });
+      }
+
+      document.getElementById('detail-name').addEventListener('blur', saveDetailFields);
+      document.getElementById('detail-phone').addEventListener('blur', saveDetailFields);
+      document.getElementById('detail-memo').addEventListener('blur', saveDetailFields);
 
       document.getElementById('register-form').addEventListener('submit', function (event) {
         event.preventDefault();

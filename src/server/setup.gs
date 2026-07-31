@@ -16,6 +16,7 @@ function setupDatabase() {
   ensureCategorySheet_(spreadsheet);
   ensureSubCategorySheet_(spreadsheet);
   ensureCategoryMasterSeeded_(spreadsheet);
+  repairCustomerFirstVisitDates_(spreadsheet);
   removeUnusedDefaultSheet_(spreadsheet);
   Logger.log('セットアップ完了。URL=' + spreadsheet.getUrl());
 }
@@ -208,6 +209,28 @@ function ensureCategoryMasterSeeded_(spreadsheet) {
   if (subCategoryRows.length > 0) {
     subCategorySheet.getRange(2, 1, subCategoryRows.length, 4).setValues(subCategoryRows);
   }
+}
+
+// 過去の実装ではFirstVisitDateに顧客登録時点の日時をそのまま使っており、Sales実データ（初回の
+// 実際の来店日）と一致しない場合があった。Sales実データから都度算出し直すだけの処理のため、
+// 何度実行しても安全（setupDatabase()を再実行するたびに補正される）
+function repairCustomerFirstVisitDates_(spreadsheet) {
+  var customerSheet = spreadsheet.getSheetByName('Customer');
+  var salesSheet = spreadsheet.getSheetByName('Sales');
+  if (!customerSheet || !salesSheet) {
+    return;
+  }
+
+  CustomerRepository.findAll().forEach(function (customer) {
+    var stats = VisitStatsCalculator.calc(SalesRepository.findByCustomerId(customer.CustomerId));
+    if (!stats.FirstVisitDate) {
+      return;
+    }
+    if (new Date(customer.FirstVisitDate).getTime() !== stats.FirstVisitDate.getTime()) {
+      customer.FirstVisitDate = stats.FirstVisitDate;
+      CustomerRepository.save(customer);
+    }
+  });
 }
 
 function removeUnusedDefaultSheet_(spreadsheet) {

@@ -103,10 +103,10 @@ Googleスプレッドシート（唯一のデータベース）の構造を定�
 | カラム名 | 型 | 必須 | 説明 |
 |---|---|---|---|
 | CustomerId | 文字列 | ○ | 主キー。形式：`C-0001` |
-| CustomerName | 文字列 | ○ | 店主が識別のために付けるニックネーム（本名でなくてよい）。新規／リピートの判別は、同じニックネームが再度入力されたかどうかで店主が判断する |
+| CustomerName | 文字列 | ○ | 店主が識別のために付けるニックネーム（本名でなくてよい）。1ニックネーム1人のみ（重複登録不可）。顧客管理画面で登録後も変更できる |
 | PhoneNumber | 文字列 | - | 電話番号（任意）。顧客の識別・新規/リピート判定には使用しない。将来、予約の電話対応をする際の連絡先として保持する |
-| FirstVisitDate | 日付 | ○ | 初回来店日。レコード作成時に登録し、以後変更しない |
-| LastVisitDate | 日付 | ○ | 最終来店日。この顧客の会計が登録されるたびに更新する |
+| FirstVisitDate | 日付 | ○ | 初回来店日。`Sales.SalesDate`の実績から算出する（レコード作成時点の日時ではない）。会計データがまだ無い顧客は、登録した日時を暫定値として持つ |
+| LastVisitDate | 日付 | ○ | 最終来店日。`Sales.SalesDate`の実績から算出する。この顧客の会計が登録・修正・削除されるたびに再計算する |
 | VisitCount | 数値 | ○ | 来店回数。会計登録時にアプリケーションが加算する。`1`＝新規、`2以上`＝リピートとして判別する |
 | IsActive | 真偽値 | ○ | 論理削除フラグ |
 | Memo | 文字列 | - | 店主が自由に記録するメモ（好み・注意事項など）。任意項目 |
@@ -216,8 +216,9 @@ Googleスプレッドシート（唯一のデータベース）の構造を定�
 - Single Source of Truthとしての運用ルール
 - 店主が直接編集しないという方針（実現方法はARCHITECTURE.md参照）
 - トランザクションデータ（Sales/SalesDetail）は登録時点の情報をスナップショットとして保持し、マスタ（Menu）の現在値の変更による影響を受けない
-- 集計値（`Sales.TotalAmount`、`SalesDetail.Subtotal`、`Customer.VisitCount`/`LastVisitDate`）は登録時にアプリケーションが計算して保存し、スプレッドシートの数式には依存しない
-- `Sales`の修正・削除により`CustomerId`の紐付けが変わる場合（修正・削除・顧客の変更）、影響を受ける`Customer.VisitCount`/`LastVisitDate`は再計算して整合させる
+- 集計値（`Sales.TotalAmount`、`SalesDetail.Subtotal`、`Customer.VisitCount`/`FirstVisitDate`/`LastVisitDate`）は登録時にアプリケーションが計算して保存し、スプレッドシートの数式には依存しない
+- `Sales`の修正・削除により`CustomerId`の紐付けが変わる場合（修正・削除・顧客の変更）、影響を受ける`Customer.VisitCount`/`FirstVisitDate`/`LastVisitDate`は再計算して整合させる（`VisitStatsCalculator.gs`）
+- `Customer.CustomerName`は重複登録できない（1ニックネーム1人）。会計処理画面でのその場新規登録時に既存顧客と同名を入力した場合は、新規作成せず既存顧客にそのまま紐付ける（`resolveCustomerId_`、SalesService.gs）
 - `SalesDetail.MenuId`が空欄の行（登録外メニュー）は、入力時に店主が選択した`SalesDetail.CategoryLarge`により大分類の集計には反映される（伝票入力画面で「その他ドリンク」「その他フード」等から選ぶ）。ただし`CategoryMedium`（中分類）は持たないため、中分類別の集計では「その他」として扱う
 - 分析の利便性のため、一部の関連キー（`SalesDetail.CustomerId`）はシート結合を省くために非正規化して重複保持する。正の値は常に`Sales.CustomerId`側とする
 - `BusinessDay.DayOfWeek`は`SalesDate`から一意に定まる値であり、登録時にアプリケーションが計算して保存する（分析時に数式なしで参照できるようにするため）
