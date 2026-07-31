@@ -1,97 +1,96 @@
-<!-- SCR-009, SCR-010 データ分析（顧客分析・曜日/天候/座席分析を統合） -->
+<!-- SCR-009, SCR-010 データ分析（ABC分析・曜日別分析・天候別分析・客層分析） -->
 <!DOCTYPE html>
 <html>
   <head>
     <base target="_top">
     <?!= include('client/shared/stylesheet') ?>
     <style>
-      .period-row {
-        display: flex;
-        align-items: center;
-        gap: var(--space-sm);
-        margin-bottom: var(--space-md);
-        flex-wrap: wrap;
-      }
-      #reference-date {
-        width: 32px;
-        height: 32px;
-        color: transparent;
-        background: var(--ai-soft);
-        border: 1px solid var(--ai-soft);
-        border-radius: var(--radius-sm);
-        padding: 4px;
-        cursor: pointer;
-      }
-      #reference-date::-webkit-calendar-picker-indicator {
-        opacity: 1;
-        cursor: pointer;
-      }
-      .period-nav {
-        display: flex;
-        align-items: center;
-        gap: 4px;
-      }
-      #period-label {
-        color: var(--ink-muted);
-        font-weight: bold;
-      }
-      .tab-panel {
-        display: none;
-      }
-      .tab-panel.active {
-        display: block;
-      }
-      .split-bar .segment-new {
-        background: var(--ai);
-      }
-      .split-bar .segment-repeat {
-        background: var(--good);
-      }
-      .dot-new { background: var(--ai); }
-      .dot-repeat { background: var(--good); }
-      .note-text {
-        color: var(--ink-muted);
-        font-size: 0.85em;
-      }
-      .bar-chart {
-        display: flex;
-        align-items: flex-end;
-        gap: var(--space-sm);
-        height: 140px;
-        padding-top: var(--space-md);
-      }
-      .bar-col {
-        flex: 1;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: flex-end;
-        height: 100%;
-        gap: 4px;
-      }
-      .bar-amount {
-        font-size: 0.75em;
-        color: var(--ink-muted);
-        font-variant-numeric: tabular-nums;
-      }
-      .bar {
-        width: 60%;
-        min-height: 2px;
-        background: var(--ai);
-        border-radius: 4px 4px 0 0;
-      }
-      .bar-label {
-        font-size: 0.85em;
-        color: var(--ink-muted);
-      }
-      td.num, th.num {
-        text-align: right;
-        font-variant-numeric: tabular-nums;
-      }
-      .back-link {
-        display: inline-block;
-        margin-top: var(--space-md);
-      }
+      #analysis-body.loading { opacity: 0.5; pointer-events: none; transition: opacity 0.15s; }
+
+      /* ===== トグルタブ（会計処理・ダッシュボードと同じデザイン） ===== */
+      .toggle-tabs { display: inline-flex; background: var(--surface-2); border-radius: 999px; padding: 3px; flex-wrap: wrap; }
+      .toggle-tab { border: none; background: none; border-radius: 999px; padding: 7px 14px; font-weight: 700; font-size: 0.9em; color: var(--ink-muted); }
+      .toggle-tab.active { background: var(--ai); color: #fff; }
+      .toggle-tab.small { padding: 5px 11px; font-size: 0.85em; }
+      .toggle-tab:disabled { opacity: 0.6; cursor: default; }
+
+      /* ===== 単独ボタン切替（ABC分析の商品別/カテゴリー別） ===== */
+      .choice-btns { display: flex; gap: var(--space-sm); }
+      .choice-btn { border: 1px solid var(--border); background: var(--surface); color: var(--ink); border-radius: var(--radius-sm); padding: 7px 14px; font-weight: 700; font-size: 0.9em; }
+      .choice-btn.active { background: var(--ai); border-color: var(--ai); color: #fff; }
+
+      .content-tabs-row { margin-bottom: var(--space-md); }
+      .period-row { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--space-sm); margin-bottom: var(--space-lg); }
+
+      /* ===== 日付ナビ（ダッシュボード・会計処理と同じ表記：前後移動＋タップでカレンダー） ===== */
+      .date-nav-row { display: flex; align-items: center; gap: 2px; }
+      .date-display-wrap { position: relative; display: inline-flex; align-items: center; gap: 6px; font-weight: 700; font-size: 0.95em; padding: 6px 10px; border-radius: var(--radius-sm); cursor: pointer; white-space: nowrap; }
+      .date-display-wrap:hover { background: var(--ai-soft); color: var(--ai); }
+      .date-display-wrap input[type="date"] { position: absolute; inset: 0; color: transparent; background: transparent; border: none; cursor: pointer; }
+      .date-display-wrap input[type="date"]::-webkit-calendar-picker-indicator { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
+      .custom-range-row { display: none; align-items: center; gap: var(--space-sm); font-size: 0.9em; color: var(--ink-muted); }
+      .custom-range-row.show { display: flex; }
+
+      .view { display: none; }
+      .view.active { display: block; }
+
+      .sub-toggle-row { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--space-sm); margin-bottom: var(--space-md); }
+
+      /* ===== ABC分析の解説（展開式） ===== */
+      .abc-explain { background: var(--ai-soft); border-radius: var(--radius-md); margin-bottom: var(--space-md); overflow: hidden; }
+      .abc-explain-toggle { width: 100%; display: flex; align-items: center; gap: 6px; border: none; background: none; color: var(--ai); font-weight: 700; font-size: 0.9em; padding: var(--space-sm) var(--space-md); cursor: pointer; text-align: left; }
+      .abc-explain-toggle .chevron { margin-left: auto; transition: transform 0.15s; }
+      .abc-explain-toggle.open .chevron { transform: rotate(180deg); }
+      .abc-explain-body { display: none; padding: 0 var(--space-md) var(--space-md); font-size: 0.88em; }
+      .abc-explain-body.open { display: block; }
+      .abc-tier-row { display: flex; align-items: flex-start; gap: var(--space-sm); padding: 4px 0; }
+      .abc-tier-row .abc-badge { flex-shrink: 0; margin-top: 1px; }
+      .abc-tier-row .tier-range { font-weight: 700; margin-right: 4px; }
+
+      /* ===== 棒グラフ（単軸） ===== */
+      .bar-chart-wrap { position: relative; overflow-x: auto; }
+      .bar-chart { display: flex; align-items: flex-end; gap: 6px; height: 150px; padding-top: var(--space-md); min-width: 100%; }
+      .bar-col { flex: 1; min-width: 26px; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; gap: 4px; }
+      .bar-amount { font-size: 0.68em; color: var(--ink-muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+      .bar { width: 65%; min-height: 2px; border-radius: 3px 3px 0 0; background: var(--ai); }
+      .bar-label { font-size: 0.75em; color: var(--ink-muted); white-space: nowrap; }
+
+      .bar.tier-a { background: var(--good); }
+      .bar.tier-b { background: var(--warn); }
+      .bar.tier-c { background: var(--surface-2); }
+
+      /* ===== 積み上げ棒グラフ（曜日別・天候別のドリンク/フード内訳） ===== */
+      .bar-stack { width: 65%; border-radius: 3px 3px 0 0; overflow: hidden; display: flex; flex-direction: column; }
+      .bar-seg.food { background: var(--warn); border-bottom: 2px solid var(--surface); }
+      .bar-seg.drink { background: var(--ai); }
+      .stack-legend { display: flex; gap: var(--space-md); font-size: 0.85em; color: var(--ink-muted); margin-top: var(--space-sm); }
+      .stack-legend .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 4px; }
+
+      /* ===== 表 ===== */
+      .table-scroll { overflow-x: auto; }
+      td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+      #analysis-body table tbody tr:nth-child(even) { background: none; }
+
+      /* ===== ABC区分バッジ（複数色で視認性優先） ===== */
+      .abc-badge { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 50%; font-size: 0.78em; font-weight: 700; }
+      .abc-badge.a { background: var(--good-soft); color: var(--good); }
+      .abc-badge.b { background: var(--warn-soft); color: var(--warn); }
+      .abc-badge.c { background: var(--surface-2); color: var(--ink-muted); }
+      .profit-cell.na { color: var(--ink-muted); }
+
+      /* ===== 天候ごとのTOP5（ダッシュボード・顧客管理と同じ順位バッジ表示） ===== */
+      .weather-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: var(--space-md); }
+      .weather-card h4 { margin: 0 0 4px; display: flex; align-items: center; gap: 6px; font-size: 0.95em; }
+      .weather-card .w-icon { width: 1.2em; height: 1.2em; color: var(--ai); }
+      .rank-badge { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; border-radius: 50%; background: var(--surface-2); color: var(--ink-muted); font-size: 0.75em; font-weight: 700; flex-shrink: 0; }
+      .rank-badge.top3 { background: var(--warn-soft); color: var(--warn); }
+      .ranking-row { display: flex; align-items: center; gap: var(--space-sm); padding: 5px 0; border-bottom: 1px solid var(--border); font-size: 0.88em; }
+      .ranking-row:last-child { border-bottom: none; }
+      .ranking-row .name { flex: 1; }
+      .ranking-row .qty { font-variant-numeric: tabular-nums; color: var(--ink-muted); font-size: 0.92em; }
+
+      .segment-label { display: flex; align-items: center; gap: 6px; }
+      .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
     </style>
   </head>
   <body data-page="<?= currentPage ?>">
@@ -99,257 +98,569 @@
     <div class="app-shell">
       <?!= include('client/shared/sidebar', {baseUrl: baseUrl}) ?>
       <main class="main-content">
-        <div class="period-row">
-          <div class="tabs" id="period-tabs"></div>
-          <input type="date" id="reference-date" title="基準日を選択">
-          <span class="period-nav">
-            <button type="button" class="icon-btn" id="period-prev" title="前へ"><svg class="icon"><use href="#icon-chevron-left"></use></svg></button>
-            <span>期間：<span id="period-label"></span></span>
-            <button type="button" class="icon-btn" id="period-next" title="次へ"><svg class="icon"><use href="#icon-chevron-right"></use></svg></button>
-          </span>
-        </div>
-
-        <div class="tabs" id="content-tabs"></div>
-
         <p id="load-error" class="error"></p>
 
-        <div class="tab-panel" id="panel-customer">
-          <div class="kpi-row">
-            <div class="kpi-tile primary">
-              <div class="kpi-label">常連率</div>
-              <div class="kpi-value"><span id="kpi-rate">-</span></div>
-            </div>
-            <div class="kpi-tile">
-              <div class="kpi-label">新規来店</div>
-              <div class="kpi-value"><span id="kpi-new">0</span>組</div>
-            </div>
-            <div class="kpi-tile">
-              <div class="kpi-label">リピート来店</div>
-              <div class="kpi-value"><span id="kpi-repeat">0</span>組</div>
-            </div>
-          </div>
-
-          <div class="card">
-            <h2>新規 / リピート内訳</h2>
-            <div class="split-bar">
-              <div class="segment-new" id="split-new"></div>
-              <div class="segment-repeat" id="split-repeat"></div>
-            </div>
-            <div class="legend">
-              <span><span class="dot dot-new"></span>新規　<span id="new-count">0</span>組（<span id="new-ratio">0</span>%）・¥<span id="new-amount">0</span></span>
-              <span><span class="dot dot-repeat"></span>リピート　<span id="repeat-count">0</span>組（<span id="repeat-ratio">0</span>%）・¥<span id="repeat-amount">0</span></span>
-            </div>
-            <p class="note-text">顧客が紐づいていない会計：<span id="no-customer-count">0</span>組（常連率の算出対象外）</p>
+        <div class="content-tabs-row">
+          <div class="toggle-tabs" id="content-tabs">
+            <button type="button" class="toggle-tab active" data-tab="abc">ABC分析</button>
+            <button type="button" class="toggle-tab" data-tab="day">曜日別分析</button>
+            <button type="button" class="toggle-tab" data-tab="weather">天候別分析</button>
+            <button type="button" class="toggle-tab" data-tab="segment">客層分析</button>
           </div>
         </div>
 
-        <div class="tab-panel" id="panel-day-weather-seat">
-          <div class="card">
-            <h2>曜日別の売上・来店</h2>
-            <div class="bar-chart" id="day-bar-chart"></div>
-            <div class="table-scroll">
-              <table>
-                <thead>
-                  <tr><th>曜日</th><th class="num">売上</th><th class="num">来店組数</th><th class="num">来店人数</th><th class="num">客単価</th></tr>
-                </thead>
-                <tbody id="day-table-body"></tbody>
-              </table>
-            </div>
+        <div class="period-row" id="period-nav-row">
+          <div class="toggle-tabs" id="period-tabs">
+            <button type="button" class="toggle-tab small active" data-period="day">日次</button>
+            <button type="button" class="toggle-tab small" data-period="week">週次</button>
+            <button type="button" class="toggle-tab small" data-period="month">月次</button>
+            <button type="button" class="toggle-tab small" data-period="custom">期間指定</button>
           </div>
-
-          <div class="card">
-            <h2>天候別の傾向</h2>
-            <div class="table-scroll">
-              <table>
-                <thead>
-                  <tr><th>天候</th><th class="num">売上</th><th class="num">来店組数</th></tr>
-                </thead>
-                <tbody id="weather-table-body"></tbody>
-              </table>
-            </div>
+          <div class="date-nav-row" id="ref-date-nav">
+            <button type="button" class="icon-btn" id="ref-date-prev"><svg class="icon"><use href="#icon-chevron-left"></use></svg></button>
+            <span class="date-display-wrap" id="ref-date-wrap">
+              <span id="ref-date-label"></span>
+              <input type="date" id="ref-date-input" title="基準日を選択">
+            </span>
+            <button type="button" class="icon-btn" id="ref-date-next"><svg class="icon"><use href="#icon-chevron-right"></use></svg></button>
           </div>
-
-          <div class="card">
-            <h2>座席種別ごとの利用状況</h2>
-            <div class="table-scroll">
-              <table>
-                <thead>
-                  <tr><th>座席種別</th><th class="num">利用件数</th><th class="num">稼働率</th></tr>
-                </thead>
-                <tbody id="seat-table-body"></tbody>
-              </table>
-            </div>
+          <div class="custom-range-row" id="custom-range-row">
+            <input type="date" id="custom-start"> 〜 <input type="date" id="custom-end">
           </div>
         </div>
 
-        <a class="back-link" href="<?= baseUrl ?>?page=dashboard">← ダッシュボードに戻る</a>
+        <div id="analysis-body">
+          <!-- ABC分析 -->
+          <div class="view active" id="view-abc">
+            <div class="sub-toggle-row">
+              <div class="choice-btns" id="abc-axis-buttons">
+                <button type="button" class="choice-btn active" data-axis="product">商品別</button>
+                <button type="button" class="choice-btn" data-axis="category">カテゴリー別</button>
+              </div>
+              <select id="category-filter">
+                <option value="all">全カテゴリ</option>
+              </select>
+            </div>
+
+            <div class="abc-explain">
+              <button type="button" class="abc-explain-toggle" id="abc-explain-toggle">
+                <svg class="icon" style="width:1.1em;height:1.1em;"><use href="#icon-info"></use></svg>
+                <span>ABC分析とは？</span>
+                <svg class="icon chevron" style="width:1.1em;height:1.1em;"><use href="#icon-chevron-down"></use></svg>
+              </button>
+              <div class="abc-explain-body" id="abc-explain-body">
+                <div class="abc-tier-row"><span class="abc-badge a">A</span><span><span class="tier-range">0%〜70%</span>：売上の柱となる主力商品。品切れを防ぎ、仕入れの優先度を上げる</span></div>
+                <div class="abc-tier-row"><span class="abc-badge b">B</span><span><span class="tier-range">70%〜90%</span>：中堅商品。現状維持でよい</span></div>
+                <div class="abc-tier-row"><span class="abc-badge c">C</span><span><span class="tier-range">90%〜100%</span>：売上への貢献が小さい商品。原価・粗利を見てメニュー整理を検討する</span></div>
+              </div>
+            </div>
+
+            <h2>売上ランキング</h2>
+            <div class="card">
+              <div class="bar-chart-wrap">
+                <div class="bar-chart" id="abc-bar-chart"></div>
+              </div>
+            </div>
+
+            <h2>ABC分析表</h2>
+            <div class="card">
+              <div class="table-scroll">
+                <table>
+                  <thead>
+                    <tr><th>順位</th><th id="abc-name-header">商品名</th><th class="num">売上</th><th class="num">構成比</th><th class="num">累積構成比</th><th class="num">注文数</th><th class="num">原価</th><th class="num">粗利</th><th class="num">粗利率</th><th>ランク</th></tr>
+                  </thead>
+                  <tbody id="abc-table-body"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <!-- 曜日別分析 -->
+          <div class="view" id="view-day">
+            <h2>曜日別の売上推移（ドリンク／フード内訳）</h2>
+            <div class="card">
+              <div class="bar-chart-wrap">
+                <div class="bar-chart" id="day-bar-chart"></div>
+              </div>
+              <div class="stack-legend">
+                <span><span class="dot" style="background:var(--ai)"></span>ドリンク</span>
+                <span><span class="dot" style="background:var(--warn)"></span>フード</span>
+              </div>
+            </div>
+            <h2>曜日別データ</h2>
+            <div class="card">
+              <div class="table-scroll">
+                <table>
+                  <thead>
+                    <tr><th>曜日</th><th class="num">売上</th><th class="num">構成比</th><th class="num">注文数</th><th class="num">平均注文数</th><th class="num">来店人数</th><th class="num">来店組数</th><th class="num">客単価</th></tr>
+                  </thead>
+                  <tbody id="day-table-body"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <!-- 天候別分析 -->
+          <div class="view" id="view-weather">
+            <h2>天候別の売上（ドリンク／フード内訳）</h2>
+            <div class="card">
+              <div class="bar-chart-wrap">
+                <div class="bar-chart" id="weather-bar-chart"></div>
+              </div>
+              <div class="stack-legend">
+                <span><span class="dot" style="background:var(--ai)"></span>ドリンク</span>
+                <span><span class="dot" style="background:var(--warn)"></span>フード</span>
+              </div>
+            </div>
+            <h2>天候別データ</h2>
+            <div class="card">
+              <div class="table-scroll">
+                <table>
+                  <thead>
+                    <tr><th>天候</th><th class="num">売上</th><th class="num">構成比</th><th class="num">注文数</th><th class="num">平均注文数</th><th class="num">来店人数</th><th class="num">来店組数</th><th class="num">客単価</th></tr>
+                  </thead>
+                  <tbody id="weather-table-body"></tbody>
+                </table>
+              </div>
+            </div>
+            <h2>天候ごとの注文傾向（TOP5）</h2>
+            <div class="weather-grid" id="weather-cards"></div>
+          </div>
+
+          <!-- 客層分析 -->
+          <div class="view" id="view-segment">
+            <h2>新規・リピート別</h2>
+            <div class="card">
+              <div class="table-scroll">
+                <table>
+                  <thead>
+                    <tr><th>区分</th><th class="num">売上</th><th class="num">売上構成比</th><th class="num">注文数</th><th class="num">注文数構成比</th><th class="num">平均注文数</th><th class="num">客数</th><th class="num">組数構成比</th><th class="num">客単価</th></tr>
+                  </thead>
+                  <tbody id="newrepeat-table-body"></tbody>
+                </table>
+              </div>
+            </div>
+            <h2>座席タイプ別</h2>
+            <div class="card">
+              <div class="table-scroll">
+                <table>
+                  <thead>
+                    <tr><th>座席種別</th><th class="num">売上</th><th class="num">売上構成比</th><th class="num">注文数</th><th class="num">注文数構成比</th><th class="num">平均注文数</th><th class="num">客数</th><th class="num">組数構成比</th><th class="num">客単価</th><th class="num">稼働率</th></tr>
+                  </thead>
+                  <tbody id="seat-table-body"></tbody>
+                </table>
+              </div>
+            </div>
+            <h2>人数別（一人客／グループ客）</h2>
+            <div class="card">
+              <div class="table-scroll">
+                <table>
+                  <thead>
+                    <tr><th>区分</th><th class="num">売上</th><th class="num">売上構成比</th><th class="num">注文数</th><th class="num">注文数構成比</th><th class="num">平均注文数</th><th class="num">客数</th><th class="num">組数構成比</th><th class="num">客単価</th></tr>
+                  </thead>
+                  <tbody id="partysize-table-body"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
       </main>
     </div>
 
     <?!= include('client/shared/javascript') ?>
     <script>
-      var currentTab = 'customer';
-      var CONTENT_TAB_LABELS = { customer: '顧客', 'day-weather-seat': '曜日・天候・座席' };
+      var currentTab = 'abc';
+      var currentPeriod = 'day';
+      var referenceDate = formatDateForInput(new Date());
+      var abcAxis = 'product';
+      var loadRequestId = 0;
 
-      var periodController = createPeriodController({
-        tabsEl: document.getElementById('period-tabs'),
-        dateEl: document.getElementById('reference-date'),
-        prevBtn: document.getElementById('period-prev'),
-        nextBtn: document.getElementById('period-next'),
-        periodLabels: { day: '日次', week: '週次', month: '月次' },
-        initialPeriod: 'day',
-        onChange: loadActiveTab
-      });
+      var WEATHER_ICON_ = { '晴れ': 'sun', '曇り': 'cloud', '雨': 'cloud-rain', '雪': 'cloud-snow' };
+      var SEGMENT_DOTS_ = { new: 'var(--cat-1)', repeat: 'var(--cat-3)', solo: 'var(--cat-1)', group: 'var(--cat-3)' };
 
-      function renderContentTabs() {
-        var container = document.getElementById('content-tabs');
-        container.innerHTML = '';
-        Object.keys(CONTENT_TAB_LABELS).forEach(function (key) {
-          var tab = document.createElement('button');
-          tab.type = 'button';
-          tab.className = 'tab' + (key === currentTab ? ' active' : '');
-          tab.textContent = CONTENT_TAB_LABELS[key];
-          tab.addEventListener('click', function () {
-            currentTab = key;
-            renderContentTabs();
-            renderPanels();
-            loadActiveTab();
-          });
-          container.appendChild(tab);
+      document.getElementById('custom-start').value = referenceDate;
+      document.getElementById('custom-end').value = referenceDate;
+
+      function shiftDateStr(value, days) {
+        var d = new Date(value);
+        d.setDate(d.getDate() + days);
+        return formatDateForInput(d);
+      }
+      function shiftMonthStr(value, direction) {
+        var parts = value.split('-');
+        var d = new Date(Number(parts[0]), Number(parts[1]) - 1 + direction, 1);
+        var mm = ('0' + (d.getMonth() + 1)).slice(-2);
+        return d.getFullYear() + '-' + mm + '-01';
+      }
+
+      // 読み込み完了前の暫定ラベル。実際の表示はrenderXxx()でサーバーのperiodLabelに置き換わる
+      function renderRefDateNav() {
+        document.getElementById('ref-date-input').value = referenceDate;
+        var parts = referenceDate.split('-');
+        document.getElementById('ref-date-label').textContent = currentPeriod === 'month'
+          ? parts[0] + '年' + parts[1] + '月'
+          : formatFullDateWithWeekday(referenceDate);
+      }
+
+      function activatePeriodTab(period) {
+        document.querySelectorAll('#period-tabs .toggle-tab').forEach(function (t) {
+          t.classList.toggle('active', t.dataset.period === period);
         });
       }
 
-      function renderPanels() {
-        document.getElementById('panel-customer').classList.toggle('active', currentTab === 'customer');
-        document.getElementById('panel-day-weather-seat').classList.toggle('active', currentTab === 'day-weather-seat');
+      document.getElementById('ref-date-prev').addEventListener('click', function () {
+        referenceDate = currentPeriod === 'month' ? shiftMonthStr(referenceDate, -1) : shiftDateStr(referenceDate, currentPeriod === 'week' ? -7 : -1);
+        renderRefDateNav();
+        loadActiveTab();
+      });
+      document.getElementById('ref-date-next').addEventListener('click', function () {
+        referenceDate = currentPeriod === 'month' ? shiftMonthStr(referenceDate, 1) : shiftDateStr(referenceDate, currentPeriod === 'week' ? 7 : 1);
+        renderRefDateNav();
+        loadActiveTab();
+      });
+      document.getElementById('ref-date-input').addEventListener('change', function () {
+        referenceDate = this.value;
+        renderRefDateNav();
+        loadActiveTab();
+      });
+
+      document.querySelectorAll('#period-tabs .toggle-tab').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          currentPeriod = btn.dataset.period;
+          activatePeriodTab(currentPeriod);
+          referenceDate = formatDateForInput(new Date());
+          document.getElementById('custom-range-row').classList.toggle('show', currentPeriod === 'custom');
+          document.getElementById('ref-date-nav').style.display = currentPeriod === 'custom' ? 'none' : '';
+          renderRefDateNav();
+          loadActiveTab();
+        });
+      });
+      document.getElementById('custom-start').addEventListener('change', function () {
+        if (currentPeriod === 'custom') { loadActiveTab(); }
+      });
+      document.getElementById('custom-end').addEventListener('change', function () {
+        if (currentPeriod === 'custom') { loadActiveTab(); }
+      });
+
+      document.querySelectorAll('#content-tabs .toggle-tab').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          document.querySelectorAll('#content-tabs .toggle-tab').forEach(function (b) { b.classList.remove('active'); });
+          btn.classList.add('active');
+          currentTab = btn.dataset.tab;
+          showView(currentTab);
+          loadActiveTab();
+        });
+      });
+
+      function showView(tab) {
+        ['abc', 'day', 'weather', 'segment'].forEach(function (t) {
+          document.getElementById('view-' + t).classList.toggle('active', t === tab);
+        });
+      }
+
+      document.querySelectorAll('#abc-axis-buttons .choice-btn').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          document.querySelectorAll('#abc-axis-buttons .choice-btn').forEach(function (b) { b.classList.remove('active'); });
+          btn.classList.add('active');
+          abcAxis = btn.dataset.axis;
+          document.getElementById('category-filter').style.display = abcAxis === 'category' ? 'none' : '';
+          document.getElementById('abc-name-header').textContent = abcAxis === 'category' ? 'サブカテゴリー名' : '商品名';
+          loadAbc();
+        });
+      });
+      document.getElementById('category-filter').addEventListener('change', loadAbc);
+
+      document.getElementById('abc-explain-toggle').addEventListener('click', function () {
+        this.classList.toggle('open');
+        document.getElementById('abc-explain-body').classList.toggle('open');
+      });
+
+      function setLoading(isLoading) {
+        document.getElementById('analysis-body').classList.toggle('loading', isLoading);
+      }
+
+      function currentRangeParams() {
+        return [currentPeriod, referenceDate, document.getElementById('custom-start').value, document.getElementById('custom-end').value];
       }
 
       function loadActiveTab() {
-        if (currentTab === 'customer') {
-          loadCustomerAnalysis();
-        } else {
-          loadDayWeatherSeatAnalysis();
+        document.getElementById('load-error').textContent = '';
+        if (currentTab === 'abc') { loadAbc(); }
+        else if (currentTab === 'day') { loadDay(); }
+        else if (currentTab === 'weather') { loadWeather(); }
+        else { loadSegment(); }
+      }
+
+      function withLoad() {
+        setLoading(true);
+        var requestId = ++loadRequestId;
+        return {
+          success: function (renderFn) {
+            return function (data) {
+              if (requestId !== loadRequestId) { return; }
+              setLoading(false);
+              try {
+                renderFn(data);
+              } catch (e) {
+                document.getElementById('load-error').textContent = '表示処理でエラーが発生しました：' + e.message;
+              }
+            };
+          },
+          failure: function () {
+            return function (error) {
+              if (requestId !== loadRequestId) { return; }
+              setLoading(false);
+              document.getElementById('load-error').textContent = 'データの取得に失敗しました：' + error.message;
+            };
+          }
+        };
+      }
+
+      // ==== ABC分析 ====
+      function loadAbc() {
+        var h = withLoad();
+        var params = currentRangeParams();
+        google.script.run
+          .withSuccessHandler(h.success(renderAbc))
+          .withFailureHandler(h.failure())
+          .getAbcAnalysisData(params[0], params[1], params[2], params[3], abcAxis, document.getElementById('category-filter').value);
+      }
+
+      function populateCategoryFilter(categories) {
+        var sel = document.getElementById('category-filter');
+        var current = sel.value;
+        sel.innerHTML = '<option value="all">全カテゴリ</option>';
+        categories.forEach(function (name) {
+          var opt = document.createElement('option');
+          opt.value = name;
+          opt.textContent = name;
+          sel.appendChild(opt);
+        });
+        if ([].slice.call(sel.options).some(function (o) { return o.value === current; })) {
+          sel.value = current;
         }
       }
 
-      function loadCustomerAnalysis() {
-        document.getElementById('load-error').textContent = '';
-        google.script.run
-          .withSuccessHandler(renderCustomerAnalysis)
-          .withFailureHandler(function (error) {
-            document.getElementById('load-error').textContent = 'データの取得に失敗しました：' + error.message;
-          })
-          .getCustomerAnalysisData(periodController.getPeriod(), periodController.getDate());
-      }
+      function renderAbc(data) {
+        populateCategoryFilter(data.categories);
 
-      function renderCustomerAnalysis(data) {
-        document.getElementById('period-label').textContent = data.periodLabel;
-        document.getElementById('kpi-rate').textContent = data.regularRate === null ? '対象なし' : data.regularRate + '%';
-        document.getElementById('kpi-new').textContent = data.newCount;
-        document.getElementById('kpi-repeat').textContent = data.repeatCount;
-
-        var total = data.linkedTotal;
-        var newRatio = total > 0 ? Math.round((data.newCount / total) * 100) : 0;
-        var repeatRatio = total > 0 ? 100 - newRatio : 0;
-
-        document.getElementById('new-count').textContent = data.newCount;
-        document.getElementById('new-ratio').textContent = newRatio;
-        document.getElementById('new-amount').textContent = data.newAmount;
-        document.getElementById('repeat-count').textContent = data.repeatCount;
-        document.getElementById('repeat-ratio').textContent = repeatRatio;
-        document.getElementById('repeat-amount').textContent = data.repeatAmount;
-        document.getElementById('no-customer-count').textContent = data.noCustomerCount;
-        document.getElementById('split-new').style.width = newRatio + '%';
-        document.getElementById('split-repeat').style.width = repeatRatio + '%';
-      }
-
-      function loadDayWeatherSeatAnalysis() {
-        document.getElementById('load-error').textContent = '';
-        google.script.run
-          .withSuccessHandler(renderDayWeatherSeatAnalysis)
-          .withFailureHandler(function (error) {
-            document.getElementById('load-error').textContent = 'データの取得に失敗しました：' + error.message;
-          })
-          .getDayWeatherSeatAnalysisData(periodController.getPeriod(), periodController.getDate());
-      }
-
-      function makeCell(text, className) {
-        var td = document.createElement('td');
-        if (className) {
-          td.className = className;
-        }
-        td.textContent = text;
-        return td;
-      }
-
-      function renderDayWeatherSeatAnalysis(data) {
-        document.getElementById('period-label').textContent = data.periodLabel;
-
-        var maxAmount = data.dayStats.reduce(function (max, d) { return Math.max(max, d.amount); }, 0);
-        var chart = document.getElementById('day-bar-chart');
+        var chart = document.getElementById('abc-bar-chart');
         chart.innerHTML = '';
-        data.dayStats.forEach(function (d) {
+        var top = data.rows.slice(0, 10);
+        var maxAmount = top.reduce(function (m, r) { return Math.max(m, r.amount); }, 0);
+        top.forEach(function (r) {
           var col = document.createElement('div');
           col.className = 'bar-col';
-          var amountLabel = document.createElement('div');
-          amountLabel.className = 'bar-amount';
-          amountLabel.textContent = d.amount > 0 ? '¥' + d.amount : '';
+          var amt = document.createElement('div');
+          amt.className = 'bar-amount';
+          amt.textContent = '¥' + (r.amount || 0).toLocaleString();
           var bar = document.createElement('div');
-          bar.className = 'bar';
-          bar.style.height = (maxAmount > 0 ? Math.max((d.amount / maxAmount) * 100, d.amount > 0 ? 4 : 0) : 0) + '%';
+          bar.className = 'bar tier-' + (r.grade || 'c').toLowerCase();
+          bar.style.height = (maxAmount > 0 ? (r.amount / maxAmount) * 100 : 0) + '%';
           var label = document.createElement('div');
           label.className = 'bar-label';
-          label.textContent = d.day;
-          col.appendChild(amountLabel);
+          label.textContent = r.name.length > 5 ? r.name.slice(0, 5) + '…' : r.name;
+          col.appendChild(amt);
           col.appendChild(bar);
           col.appendChild(label);
           chart.appendChild(col);
         });
 
-        var dayBody = document.getElementById('day-table-body');
-        dayBody.innerHTML = '';
-        data.dayStats.forEach(function (d) {
+        var tbody = document.getElementById('abc-table-body');
+        tbody.innerHTML = '';
+        data.rows.forEach(function (r) {
+          var hasCost = r.cost !== null && r.cost !== undefined;
+          var hasProfit = r.profit !== null && r.profit !== undefined;
+          var hasProfitRate = r.profitRatePercent !== null && r.profitRatePercent !== undefined;
+          var costText = hasCost ? '¥' + (r.cost || 0).toLocaleString() : '-';
+          var profitText = hasProfit ? '¥' + (r.profit || 0).toLocaleString() : '-';
+          var profitRateText = hasProfitRate ? (r.profitRatePercent || 0) + '%' : '-';
+          var naClass = hasProfit ? '' : ' na';
           var tr = document.createElement('tr');
-          tr.appendChild(makeCell(d.day));
-          tr.appendChild(makeCell('¥' + d.amount, 'num'));
-          tr.appendChild(makeCell(d.visitCount + '組', 'num'));
-          tr.appendChild(makeCell(d.partySize + '人', 'num'));
-          tr.appendChild(makeCell('¥' + d.perPersonAmount, 'num'));
-          dayBody.appendChild(tr);
+          tr.innerHTML =
+            '<td>' + r.rank + '</td>' +
+            '<td>' + r.name + '</td>' +
+            '<td class="num">¥' + (r.amount || 0).toLocaleString() + '</td>' +
+            '<td class="num">' + (r.sharePercent || 0) + '%</td>' +
+            '<td class="num">' + (r.cumSharePercent || 0) + '%</td>' +
+            '<td class="num">' + (r.quantity || 0) + '</td>' +
+            '<td class="num profit-cell' + naClass + '">' + costText + '</td>' +
+            '<td class="num profit-cell' + naClass + '">' + profitText + '</td>' +
+            '<td class="num profit-cell' + naClass + '">' + profitRateText + '</td>' +
+            '<td><span class="abc-badge ' + (r.grade || 'c').toLowerCase() + '">' + (r.grade || '-') + '</span></td>';
+          tbody.appendChild(tr);
         });
 
-        var weatherBody = document.getElementById('weather-table-body');
-        weatherBody.innerHTML = '';
-        if (data.weatherStats.length === 0) {
-          var emptyRow = document.createElement('tr');
-          var emptyCell = makeCell('この期間の会計データがまだありません。');
-          emptyCell.colSpan = 3;
-          emptyCell.className = 'ranking-empty';
-          emptyRow.appendChild(emptyCell);
-          weatherBody.appendChild(emptyRow);
-        } else {
-          data.weatherStats.forEach(function (w) {
-            var tr = document.createElement('tr');
-            tr.appendChild(makeCell(w.weather));
-            tr.appendChild(makeCell('¥' + w.amount, 'num'));
-            tr.appendChild(makeCell(w.visitCount + '組', 'num'));
-            weatherBody.appendChild(tr);
-          });
+        if (currentTab === 'abc') {
+          document.getElementById('ref-date-label').textContent = data.periodLabel;
         }
+      }
 
-        var seatBody = document.getElementById('seat-table-body');
-        seatBody.innerHTML = '';
-        data.seatStats.forEach(function (s) {
-          var tr = document.createElement('tr');
-          tr.appendChild(makeCell(s.seatType));
-          tr.appendChild(makeCell(s.visitCount + '件', 'num'));
-          tr.appendChild(makeCell(s.utilizationRate + '%', 'num'));
-          seatBody.appendChild(tr);
+      // ==== 積み上げ棒グラフ（曜日別・天候別で共用） ====
+      function renderStackedBarChart(chartEl, rows, labelKey) {
+        chartEl.innerHTML = '';
+        var totals = rows.map(function (r) { return r.drinkAmount + r.foodAmount; });
+        var maxAmount = Math.max.apply(null, totals.concat([0]));
+        rows.forEach(function (r) {
+          var total = r.drinkAmount + r.foodAmount;
+          var col = document.createElement('div');
+          col.className = 'bar-col';
+          var amt = document.createElement('div');
+          amt.className = 'bar-amount';
+          amt.textContent = '¥' + total.toLocaleString();
+          var stack = document.createElement('div');
+          stack.className = 'bar-stack';
+          stack.style.height = (maxAmount > 0 ? (total / maxAmount) * 100 : 0) + '%';
+          var foodSeg = document.createElement('div');
+          foodSeg.className = 'bar-seg food';
+          foodSeg.style.height = (total > 0 ? (r.foodAmount / total) * 100 : 0) + '%';
+          var drinkSeg = document.createElement('div');
+          drinkSeg.className = 'bar-seg drink';
+          drinkSeg.style.height = (total > 0 ? (r.drinkAmount / total) * 100 : 0) + '%';
+          stack.appendChild(foodSeg);
+          stack.appendChild(drinkSeg);
+          var label = document.createElement('div');
+          label.className = 'bar-label';
+          label.textContent = r[labelKey];
+          col.appendChild(amt); col.appendChild(stack); col.appendChild(label);
+          chartEl.appendChild(col);
         });
       }
 
-      renderContentTabs();
-      renderPanels();
+      // ==== 曜日別分析 ====
+      function loadDay() {
+        var h = withLoad();
+        var params = currentRangeParams();
+        google.script.run
+          .withSuccessHandler(h.success(renderDay))
+          .withFailureHandler(h.failure())
+          .getDayAnalysisData(params[0], params[1], params[2], params[3]);
+      }
+
+      function renderDay(data) {
+        renderStackedBarChart(document.getElementById('day-bar-chart'), data.dayStats, 'day');
+
+        var tbody = document.getElementById('day-table-body');
+        tbody.innerHTML = '';
+        data.dayStats.forEach(function (d) {
+          var amount = d.drinkAmount + d.foodAmount;
+          var perPerson = d.partySize > 0 ? Math.round(amount / d.partySize) : 0;
+          var tr = document.createElement('tr');
+          tr.innerHTML =
+            '<td>' + d.day + '</td>' +
+            '<td class="num">¥' + amount.toLocaleString() + '</td>' +
+            '<td class="num">' + d.sharePercent + '%</td>' +
+            '<td class="num">' + d.orderQty + '</td>' +
+            '<td class="num">' + d.avgOrderQty + '</td>' +
+            '<td class="num">' + d.partySize + '人</td>' +
+            '<td class="num">' + d.visitCount + '組</td>' +
+            '<td class="num">¥' + perPerson.toLocaleString() + '</td>';
+          tbody.appendChild(tr);
+        });
+
+        if (currentTab === 'day') {
+          document.getElementById('ref-date-label').textContent = data.periodLabel;
+        }
+      }
+
+      // ==== 天候別分析 ====
+      function loadWeather() {
+        var h = withLoad();
+        var params = currentRangeParams();
+        google.script.run
+          .withSuccessHandler(h.success(renderWeather))
+          .withFailureHandler(h.failure())
+          .getWeatherAnalysisData(params[0], params[1], params[2], params[3]);
+      }
+
+      function renderWeather(data) {
+        renderStackedBarChart(document.getElementById('weather-bar-chart'), data.weatherStats, 'weather');
+
+        var tbody = document.getElementById('weather-table-body');
+        tbody.innerHTML = '';
+        if (data.weatherStats.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="8" class="ranking-empty">この期間の会計データがまだありません。</td></tr>';
+        }
+        data.weatherStats.forEach(function (w) {
+          var amount = w.drinkAmount + w.foodAmount;
+          var perPerson = w.partySize > 0 ? Math.round(amount / w.partySize) : 0;
+          var tr = document.createElement('tr');
+          tr.innerHTML =
+            '<td>' + w.weather + '</td>' +
+            '<td class="num">¥' + amount.toLocaleString() + '</td>' +
+            '<td class="num">' + w.sharePercent + '%</td>' +
+            '<td class="num">' + w.orderQty + '</td>' +
+            '<td class="num">' + w.avgOrderQty + '</td>' +
+            '<td class="num">' + w.partySize + '人</td>' +
+            '<td class="num">' + w.visitCount + '組</td>' +
+            '<td class="num">¥' + perPerson.toLocaleString() + '</td>';
+          tbody.appendChild(tr);
+        });
+
+        var cards = document.getElementById('weather-cards');
+        cards.innerHTML = '';
+        data.weatherStats.forEach(function (w) {
+          var card = document.createElement('div');
+          card.className = 'card weather-card';
+          var iconName = WEATHER_ICON_[w.weather];
+          var iconHtml = iconName ? '<svg class="w-icon"><use href="#icon-' + iconName + '"></use></svg>' : '';
+          var rowsHtml = w.top.length === 0
+            ? '<p class="ranking-empty">該当する注文はまだありません。</p>'
+            : w.top.map(function (t, i) {
+              return '<div class="ranking-row"><span class="rank-badge' + (i < 3 ? ' top3' : '') + '">' + (i + 1) + '</span>' +
+                '<span class="name">' + t.name + '</span><span class="qty">' + t.qty + '点</span></div>';
+            }).join('');
+          card.innerHTML = '<h4>' + iconHtml + w.weather + '</h4>' + rowsHtml;
+          cards.appendChild(card);
+        });
+
+        if (currentTab === 'weather') {
+          document.getElementById('ref-date-label').textContent = data.periodLabel;
+        }
+      }
+
+      // ==== 客層分析 ====
+      function loadSegment() {
+        var h = withLoad();
+        var params = currentRangeParams();
+        google.script.run
+          .withSuccessHandler(h.success(renderSegment))
+          .withFailureHandler(h.failure())
+          .getSegmentAnalysisData(params[0], params[1], params[2], params[3]);
+      }
+
+      function renderSegmentTable(tbodyId, rows) {
+        var tbody = document.getElementById(tbodyId);
+        tbody.innerHTML = '';
+        rows.forEach(function (r) {
+          var dotColor = SEGMENT_DOTS_[r.key] || 'var(--ink-muted)';
+          var tr = document.createElement('tr');
+          tr.innerHTML =
+            '<td><span class="segment-label"><span class="dot" style="background:' + dotColor + '"></span>' + r.label + '</span></td>' +
+            '<td class="num">¥' + r.amount.toLocaleString() + '</td>' +
+            '<td class="num">' + r.amountSharePercent + '%</td>' +
+            '<td class="num">' + r.orderQty + '</td>' +
+            '<td class="num">' + r.orderQtySharePercent + '%</td>' +
+            '<td class="num">' + r.avgOrderQty + '</td>' +
+            '<td class="num">' + r.partySize + '人</td>' +
+            '<td class="num">' + r.visitCountSharePercent + '%</td>' +
+            '<td class="num">¥' + r.perPersonAmount.toLocaleString() + '</td>' +
+            (r.utilizationRate !== undefined ? '<td class="num">' + r.utilizationRate + '%</td>' : '');
+          tbody.appendChild(tr);
+        });
+      }
+
+      function renderSegment(data) {
+        renderSegmentTable('newrepeat-table-body', data.newRepeat);
+        renderSegmentTable('seat-table-body', data.seatType);
+        renderSegmentTable('partysize-table-body', data.partySize);
+
+        if (currentTab === 'segment') {
+          document.getElementById('ref-date-label').textContent = data.periodLabel;
+        }
+      }
+
+      renderRefDateNav();
       loadActiveTab();
     </script>
   </body>

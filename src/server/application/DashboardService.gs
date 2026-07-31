@@ -491,3 +491,16 @@ function calcPeriodRange_(periodType, refDate) {
   end.setHours(23, 59, 59, 999);
   return { start: start, end: end, label: label };
 }
+
+// 日次／週次／月次はcalcPeriodRange_を共用し、期間指定（custom）のみここで算出する
+// （商品統計・データ分析で共通。年別など画面固有の粒度は各画面側で個別に算出する）
+function resolvePeriodRange_(periodType, referenceDateStr, startDateStr, endDateStr) {
+  if (periodType === 'custom') {
+    var start = new Date(startDateStr);
+    var end = new Date(endDateStr);
+    start.setHours(0, 0, 0, 0);
+    end.setHours(23, 59, 59, 999);
+    return { start: start, end: end, label: DateUtil.formatDisplay(start) + ' 〜 ' + DateUtil.formatDisplay(end) };
+  }
+  return calcPeriodRange_(periodType, new Date(referenceDateStr));
+}

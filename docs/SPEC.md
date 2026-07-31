@@ -85,17 +85,18 @@
 | REQ-017 | 期間（日次／週次／月次）を指定して売上（合計金額・客単価）を確認できる | Must | Sales |
 | REQ-024 | 期間を指定して、来店人数（合計人数）・来店組数（会計件数）を確認できる | Must | Sales.PartySizeの合計（人数）、Sales件数（組数） |
 | REQ-018 | 商品別・カテゴリ別の売上・販売数量、および売上構成比（フード比率／ドリンク比率等）を確認できる | Should | SalesDetail, Menu |
-| REQ-019 | 曜日・天候別の売上・来店人数の傾向を確認できる | Should | BusinessDay |
-| REQ-020 | 顧客の新規／リピート傾向を確認できる | Should | Customer |
-| REQ-021 | 座席（種別）ごとの日次利用件数を確認できる | Should | Seat |
+| REQ-019 | 曜日・天候別の売上・注文傾向（ドリンク/フード内訳、注文数、来店人数・組数、客単価）を確認できる。天候別は天候ごとの注文商品TOP5も確認できる | Should | BusinessDay, Sales, SalesDetail |
+| REQ-020 | 顧客の新規／リピート傾向（売上・注文数・客数・客単価）を確認できる | Should | Customer, Sales, SalesDetail |
+| REQ-021 | 座席（種別）ごとの売上・注文傾向と日次利用件数（稼働率）を確認できる | Should | Seat, Sales, SalesDetail |
 | REQ-036 | ダッシュボード画面で、直近の営業日の売上サマリー（売上高・客単価・来店組数など）をすぐに確認できる | Must | Sales, SalesDetail |
 | REQ-037 | ダッシュボード画面で、過去データとの比較に基づく一言アドバイスを確認できる（例：先週同曜日比の増減、直近の売れ筋商品） | Should | Sales, SalesDetail。天候に基づく事前予測（例：天候による売れ筋予測）は対象外。当日の予報天気を持つ手段が現状ないため（[DATABASE.md](./DATABASE.md#5-データ管理方針)のTODO参照） |
 | REQ-029 | 商品別・期間別の粗利益・原価率を確認できる | Should | Menu.Cost, SalesDetail.UnitCost（原価未登録の商品は集計対象外） |
 | REQ-030 | 商品を売上順にランキング表示できる | Should | SalesDetail, Menu |
-| REQ-031 | 売上構成比に基づくABC分析（重点管理商品の抽出）を確認できる | Should | SalesDetail, Menu |
-| REQ-032 | 顧客の常連率（期間内の来店のうちリピート来店が占める割合）を確認できる | Should | Sales.CustomerId, Sales.SalesDate。[DATABASE.md](./DATABASE.md#5-データ管理方針)の算出上の注意点を参照（`Customer.VisitCount`をそのまま使わない） |
+| REQ-031 | 売上構成比に基づくABC分析（重点管理商品の抽出）を、商品別・サブカテゴリー別の軸で確認できる | Should | SalesDetail, Menu, Category |
+| REQ-032 | 顧客の常連率（期間内の来店のうちリピート来店が占める割合）を確認できる | Should | Sales.CustomerId, Sales.SalesDate。データ分析（客層分析タブ）の新規・リピート表の「組数構成比」列として表示する（単独のKPIタイルにはしない。地域密着型で常連率が高止まりしやすい店舗特性上、単発の数値より期間切り替えでの推移比較の方が実用的なため）。[DATABASE.md](./DATABASE.md#5-データ管理方針)の算出上の注意点を参照（`Customer.VisitCount`をそのまま使わない） |
 | REQ-033 | 月次売上の推移、前年・前月・季節ごとの比較を確認できる | Should | Sales |
 | REQ-034 | 平均注文点数（商品数量÷客数）を確認できる | Should | SalesDetail.Quantity, Sales.PartySize |
+| REQ-044 | 会計を人数（一人客／グループ客）で分類し、それぞれの売上・注文傾向を比較できる | Should | Sales.PartySize, SalesDetail |
 | REQ-038 | 期間内の客席回転率（来店組数÷有効座席数）を確認できる | Should | Sales, Seat。滞在時間データがないため件数ベースの簡易指標とする |
 
 ### 3.6 予算管理

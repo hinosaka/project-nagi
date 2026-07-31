@@ -2,8 +2,8 @@
 // google.script.runの制約により、クライアント公開分はトップレベル関数として定義する
 //
 // 期間別（日次／週次／期間指定）・月別・年別の3種類の粒度に対応する。
-// 日次／週次／月次の範囲算出はDashboardService.gsのcalcPeriodRange_を共用し、
-// 期間指定（custom）・年別はこのファイル内で算出する
+// 日次／週次／月次／期間指定の範囲算出はDashboardService.gsのresolvePeriodRange_を共用し、
+// 年別のみこのファイル内で算出する
 //
 // 円グラフ・詳細表は必ず同じ「上位5件＋その他」データから作るため、
 // 一度だけ畳み込んだ配列（productAnalysisFoldTop5_の戻り値）を両方の元にする
@@ -102,13 +102,6 @@ function getProductAnalysisData(periodType, referenceDateStr, startDateStr, endD
 // ----- 期間の算出 -----
 
 function resolveProductAnalysisRange_(periodType, referenceDateStr, startDateStr, endDateStr) {
-  if (periodType === 'custom') {
-    var start = new Date(startDateStr);
-    var end = new Date(endDateStr);
-    start.setHours(0, 0, 0, 0);
-    end.setHours(23, 59, 59, 999);
-    return { start: start, end: end, label: DateUtil.formatDisplay(start) + ' 〜 ' + DateUtil.formatDisplay(end) };
-  }
   if (periodType === 'year') {
     var refDate = new Date(referenceDateStr);
     var yearStart = new Date(refDate.getFullYear(), 0, 1);
@@ -116,8 +109,8 @@ function resolveProductAnalysisRange_(periodType, referenceDateStr, startDateStr
     yearEnd.setHours(23, 59, 59, 999);
     return { start: yearStart, end: yearEnd, label: refDate.getFullYear() + '年' };
   }
-  // day／week／month はDashboardService.gsのcalcPeriodRange_を共用
-  return calcPeriodRange_(periodType, new Date(referenceDateStr));
+  // day／week／month／customはDashboardService.gsのresolvePeriodRange_を共用
+  return resolvePeriodRange_(periodType, referenceDateStr, startDateStr, endDateStr);
 }
 
 // ----- 上位5件＋その他への畳み込み（円グラフ・詳細表で共通） -----
