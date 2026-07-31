@@ -33,7 +33,7 @@ GASのWebアプリは「クライアント（ブラウザ側）」と「サー�
 ```
 src/
 ├── client/                          # UI層（HTML Service）
-│   ├── sales-entry.html             # 伝票入力（SCR-002）
+│   ├── sales-entry.html             # 会計処理（SCR-002、会計管理／清算タブ）
 │   ├── menu.html                    # 商品管理（SCR-003）
 │   ├── customer.html
 │   ├── seat.html

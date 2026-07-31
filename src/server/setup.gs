@@ -10,7 +10,9 @@ function setupDatabase() {
   ensureSalesDetailSheet_(spreadsheet);
   ensureSalesDetailCategoryMediumColumn_(spreadsheet);
   ensureBusinessDaySheet_(spreadsheet);
+  ensureBusinessDayStartingCashColumn_(spreadsheet);
   ensureSalesTargetSheet_(spreadsheet);
+  ensureRegisterCloseLogSheet_(spreadsheet);
   removeUnusedDefaultSheet_(spreadsheet);
   Logger.log('セットアップ完了。URL=' + spreadsheet.getUrl());
 }
@@ -92,7 +94,21 @@ function ensureBusinessDaySheet_(spreadsheet) {
     return;
   }
   var sheet = spreadsheet.insertSheet('BusinessDay');
-  sheet.appendRow(['BusinessDayId', 'SalesDate', 'DayOfWeek', 'Weather']);
+  sheet.appendRow(['BusinessDayId', 'SalesDate', 'DayOfWeek', 'Weather', 'StartingCash']);
+}
+
+// 既存のBusinessDayシートに後から追加した列（StartingCash）のヘッダーが無ければ追記する。
+// ensureSalesDetailCategoryMediumColumn_と同じく、固定位置（HEADERSの末尾）で判定する
+function ensureBusinessDayStartingCashColumn_(spreadsheet) {
+  var sheet = spreadsheet.getSheetByName('BusinessDay');
+  if (!sheet) {
+    return;
+  }
+  var targetColumn = BusinessDayRepository.HEADERS.length;
+  var currentValue = sheet.getRange(1, targetColumn).getValue();
+  if (currentValue !== 'StartingCash') {
+    sheet.getRange(1, targetColumn).setValue('StartingCash');
+  }
 }
 
 function ensureSalesTargetSheet_(spreadsheet) {
@@ -101,6 +117,14 @@ function ensureSalesTargetSheet_(spreadsheet) {
   }
   var sheet = spreadsheet.insertSheet('SalesTarget');
   sheet.appendRow(['SalesTargetId', 'TargetMonth', 'TargetAmount', 'Note']);
+}
+
+function ensureRegisterCloseLogSheet_(spreadsheet) {
+  if (spreadsheet.getSheetByName('RegisterCloseLog')) {
+    return;
+  }
+  var sheet = spreadsheet.insertSheet('RegisterCloseLog');
+  sheet.appendRow(['RegisterCloseLogId', 'SalesDate', 'StartingCash', 'CashSalesAmount', 'ExpectedCashBalance', 'ClosedAt']);
 }
 
 function removeUnusedDefaultSheet_(spreadsheet) {

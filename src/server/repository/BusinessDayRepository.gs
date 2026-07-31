@@ -1,6 +1,6 @@
 // データアクセス層：BusinessDayシートの読み書き
 var BusinessDayRepository = {
-  HEADERS: ['BusinessDayId', 'SalesDate', 'DayOfWeek', 'Weather'],
+  HEADERS: ['BusinessDayId', 'SalesDate', 'DayOfWeek', 'Weather', 'StartingCash'],
 
   findAll: function () {
     var sheet = SpreadsheetConfig.getSheet('BusinessDay');

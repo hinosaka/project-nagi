@@ -17,5 +17,21 @@ var DateUtil = {
       return '';
     }
     return Utilities.formatDate(new Date(date), Session.getScriptTimeZone(), 'yyyy/MM/dd');
+  },
+
+  // 集計対象日の見出し表示用（例：2026年07月31日）
+  formatFullDate: function (date) {
+    if (!date) {
+      return '';
+    }
+    return Utilities.formatDate(new Date(date), Session.getScriptTimeZone(), 'yyyy年MM月dd日');
+  },
+
+  // レジクローズ履歴など日時表示用
+  formatDateTime: function (date) {
+    if (!date) {
+      return '';
+    }
+    return Utilities.formatDate(new Date(date), Session.getScriptTimeZone(), 'yyyy/MM/dd HH:mm');
   }
 };

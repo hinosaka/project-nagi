@@ -27,9 +27,10 @@ Googleスプレッドシート（唯一のデータベース）の構造を定�
 | Sales | 会計ヘッダ（売上管理） | REQ-005, REQ-007, REQ-008, REQ-009, REQ-010, REQ-017, REQ-024, REQ-028, REQ-032, REQ-033, REQ-034, REQ-036, REQ-037 |
 | SalesDetail | 売上明細（会計ごとの商品・数量） | REQ-006, REQ-007, REQ-018, REQ-023, REQ-025, REQ-029, REQ-030, REQ-031, REQ-034, REQ-036, REQ-037 |
 | Customer | 顧客マスタ（新規／リピート判別） | REQ-012, REQ-013, REQ-014, REQ-015, REQ-020, REQ-023, REQ-032 |
-| BusinessDay | 営業日実績（曜日・天候） | REQ-011, REQ-019 |
+| BusinessDay | 営業日実績（曜日・天候・準備金） | REQ-011, REQ-019, REQ-039, REQ-040 |
 | Seat | 座席マスタ（客単価・席稼働の分析用） | REQ-009, REQ-016, REQ-021 |
 | SalesTarget | 売上目標（予実管理用） | REQ-027, REQ-028 |
+| RegisterCloseLog | レジクローズ実施履歴（清算タブ用） | REQ-041 |
 
 ### 2.2 将来追加予定のデータドメイン（詳細設計は未着手）
 
@@ -120,6 +121,7 @@ Googleスプレッドシート（唯一のデータベース）の構造を定�
 | SalesDate | 日付 | ○ | 営業日。`Sales.SalesDate`との結合キー（IDではなく日付値で結合する） |
 | DayOfWeek | 文字列 | ○ | 曜日。`SalesDate`から登録時にアプリケーションが計算して保存する |
 | Weather | 文字列 | ○ | 天候（例：晴れ／曇り／雨／雪）。データ入力時に店主が選択・入力する |
+| StartingCash | 数値 | - | 準備金（レジ内の釣り銭準備金）。清算タブでいつでも入力・修正できる。未入力は0として扱う |
 
 - 関連：`Sales.SalesDate`と日付が一致する行から参照される（Sales 多 : BusinessDay 1）
 
@@ -148,6 +150,21 @@ Googleスプレッドシート（唯一のデータベース）の構造を定�
 | Note | 文字列 | - | 備考 |
 
 - 関連：`Sales.SalesDate`の年月と一致する期間の実績と比較される（IDではなく年月の値で結合する）
+
+### 3.8 RegisterCloseLog（レジクローズ実施履歴）
+
+> 清算タブの「レジクローズ」操作を実施するたびに1行追記するログ。同じ営業日に対して何回でも実施でき、上書きせず履歴として全件残す（会計管理側の編集をロックする機能ではない）
+
+| カラム名 | 型 | 必須 | 説明 |
+|---|---|---|---|
+| RegisterCloseLogId | 文字列 | ○ | 主キー。形式：`RC-YYYYMMDD-0001`（実施日ごとに連番リセット） |
+| SalesDate | 日付 | ○ | 対象の営業日 |
+| StartingCash | 数値 | ○ | 実施時点の準備金のスナップショット（`BusinessDay.StartingCash`は後から変更されうるため、実施時点の値を保持する） |
+| CashSalesAmount | 数値 | ○ | 実施時点の現金売上額のスナップショット（支払いは現金固定のため、対象営業日の`Sales.TotalAmount`合計と同値） |
+| ExpectedCashBalance | 数値 | ○ | 実施時点の予想現金残高のスナップショット（`StartingCash + CashSalesAmount`） |
+| ClosedAt | 日時 | ○ | レジクローズを実施した日時（システムが自動記録） |
+
+- 関連：`Sales.SalesDate`と日付が一致する行を集計した結果をスナップショットとして持つ（IDでの参照はしない）
 
 ## 4. 命名規則
 
