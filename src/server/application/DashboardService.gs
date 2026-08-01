@@ -288,10 +288,10 @@ function dashboardFullDate_(d) {
   return d.getFullYear() + '年' + mm + '月' + dd + '日';
 }
 
-// 集計対象日の表示。単日は日付＋曜日（例：2026年07月31日　金）、当月は年月、それ以外は範囲表示
+// 集計対象日の表示。単日は日付＋曜日（例：2026年07月31日(金)）、当月は年月、それ以外は範囲表示
 function buildDashboardPeriodLabel_(periodType, range) {
   if (range.dayCount === 1) {
-    return dashboardFullDate_(range.start) + '　' + DayOfWeekRule.fromDate(range.start);
+    return dashboardFullDate_(range.start) + '(' + DayOfWeekRule.fromDate(range.start) + ')';
   }
   if (periodType === 'month') {
     return range.start.getFullYear() + '年' + ('0' + (range.start.getMonth() + 1)).slice(-2) + '月';

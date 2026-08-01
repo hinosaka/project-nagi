@@ -29,8 +29,27 @@ function getSalesEntryData(salesDateStr) {
       };
     }),
     businessDay: businessDayRow ? { Weather: businessDayRow.Weather, DayOfWeek: businessDayRow.DayOfWeek } : null,
-    salesList: buildSalesListForDate_(salesDate, customerById)
+    salesList: buildSalesListForDate_(salesDate, customerById),
+    subCategoriesByLarge: buildSubCategoriesByLarge_()
   };
+}
+
+// 大分類名（"ドリンク"等）ごとの中分類名一覧（SortOrder順）。
+// その他商品（登録外商品）にも統計・分析用に中分類を選ばせるため、伝票入力側に渡す
+function buildSubCategoriesByLarge_() {
+  var categoryNameById = {};
+  CategoryRepository.findAll().forEach(function (c) { categoryNameById[c.CategoryId] = c.CategoryName; });
+
+  var result = {};
+  SubCategoryRepository.findAll()
+    .sort(function (a, b) { return Number(a.SortOrder) - Number(b.SortOrder); })
+    .forEach(function (sub) {
+      var largeName = categoryNameById[sub.CategoryId];
+      if (!largeName) { return; }
+      if (!result[largeName]) { result[largeName] = []; }
+      result[largeName].push(sub.SubCategoryName);
+    });
+  return result;
 }
 
 function saveBusinessDayWeather(salesDateStr, weather) {

@@ -14,16 +14,6 @@
       .toolbar-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-md); flex-wrap: wrap; gap: var(--space-sm); }
       .year-row { display: flex; align-items: center; gap: 2px; }
       .year-label { font-weight: 700; font-size: 1.1em; padding: 4px 10px; }
-      .month-select { font: inherit; font-weight: 700; font-size: 1.1em; padding: 4px 10px; border: none; background: none; color: var(--ink); cursor: pointer; border-radius: var(--radius-sm); }
-      .month-select:hover { background: var(--ai-soft); color: var(--ai); }
-
-      .month-picker-wrap { position: relative; display: inline-block; }
-      .month-picker-popover { display: none; position: absolute; top: 100%; left: 0; margin-top: 4px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); padding: var(--space-sm); z-index: 30; box-shadow: 0 4px 16px rgba(0,0,0,0.12); width: 220px; }
-      .month-picker-popover.open { display: block; }
-      .month-picker-year-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-sm); font-weight: 700; }
-      .month-picker-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; }
-      .month-picker-grid button { padding: 6px 0; font-size: 0.85em; }
-      .month-picker-grid button.current { background: var(--ai); color: #fff; border-color: var(--ai); }
       .edit-actions { display: flex; align-items: center; gap: var(--space-sm); }
       .edit-actions button { font-size: 0.9em; }
       .save-flash { color: var(--good); font-size: 0.8em; }
@@ -61,16 +51,6 @@
       .rate-badge { font-weight: 700; }
       .rate-badge.achieved { color: var(--good); }
       .rate-badge.behind { color: var(--bad); }
-      .loading-wrap { position: relative; }
-      .loading-target { opacity: 0.5; pointer-events: none; transition: opacity 0.15s; }
-      .loading-overlay { display: none; position: absolute; inset: 0; align-items: center; justify-content: center; z-index: 5; }
-      .loading-wrap.is-loading .loading-overlay { display: flex; }
-      .loading-overlay-pill { display: flex; align-items: center; gap: 8px; background: var(--surface); padding: 8px 16px; border-radius: 999px; border: 1px solid var(--border); box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-      .loading-spinner { width: 16px; height: 16px; border: 2px solid var(--surface-2); border-top-color: var(--ai); border-radius: 50%; animation: budget-spin 0.7s linear infinite; }
-      .loading-overlay-pill span { color: var(--ink-muted); font-size: 0.85em; font-weight: 700; }
-      @keyframes budget-spin { to { transform: rotate(360deg); } }
-      @media (prefers-reduced-motion: reduce) { .loading-spinner { animation: none; } }
-
       .alert-box { background: var(--warn-soft); color: var(--warn); padding: 10px 14px; border-radius: var(--radius-sm); font-size: 0.9em; margin-bottom: var(--space-sm); }
 
       .daily-summary-row { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-md); margin-bottom: var(--space-md); }
@@ -500,59 +480,23 @@
         document.getElementById('daily-loading-wrap').classList.toggle('is-loading', isLoading);
       }
 
-      // 年プルダウン×12マスの月選択ポップオーバー。pickerYearは表示中のdailyMonthの年に依存せず、
-      // ポップオーバーを開いている間だけ独立して前後の年へ移動できる（月を選ぶまでdailyMonthは変えない）
-      var pickerYear = null;
-
-      function refreshDailyMonthButton() {
-        var parts = dailyMonth.split('-');
-        document.getElementById('daily-month-btn').textContent = parts[0] + '年' + Number(parts[1]) + '月';
-      }
-
-      function renderMonthPickerGrid() {
-        document.getElementById('daily-picker-year-label').textContent = pickerYear + '年';
-        var grid = document.getElementById('daily-picker-grid');
-        grid.innerHTML = '';
-        for (var m = 1; m <= 12; m++) {
-          var mm = ('0' + m).slice(-2);
-          var value = pickerYear + '-' + mm;
-          var btn = document.createElement('button');
-          btn.type = 'button';
-          btn.textContent = m + '月';
-          if (value === dailyMonth) { btn.className = 'current'; }
-          btn.addEventListener('click', function () {
-            var newMonth = this.dataset.value;
-            closeMonthPicker();
-            guardNavigation(dailyDirty, function () { leaveDailyMonth(); dailyMonth = newMonth; loadDaily(); });
-          });
-          btn.dataset.value = value;
-          grid.appendChild(btn);
+      // 年×12マスの月選択ポップオーバー（共通部品。shared/javascript.html参照）
+      var dailyMonthPicker = createMonthPicker({
+        btnId: 'daily-month-btn',
+        popoverId: 'daily-month-popover',
+        yearLabelId: 'daily-picker-year-label',
+        gridId: 'daily-picker-grid',
+        yearPrevId: 'daily-picker-year-prev',
+        yearNextId: 'daily-picker-year-next',
+        getCurrentMonth: function () { return dailyMonth; },
+        onSelect: function (newMonth) {
+          guardNavigation(dailyDirty, function () { leaveDailyMonth(); dailyMonth = newMonth; loadDaily(); });
         }
-      }
-
-      function openMonthPicker() {
-        pickerYear = Number(dailyMonth.split('-')[0]);
-        renderMonthPickerGrid();
-        document.getElementById('daily-month-popover').classList.add('open');
-      }
-      function closeMonthPicker() {
-        document.getElementById('daily-month-popover').classList.remove('open');
-      }
-      document.getElementById('daily-month-btn').addEventListener('click', function (event) {
-        event.stopPropagation();
-        var popover = document.getElementById('daily-month-popover');
-        if (popover.classList.contains('open')) { closeMonthPicker(); } else { openMonthPicker(); }
-      });
-      document.getElementById('daily-picker-year-prev').addEventListener('click', function () { pickerYear--; renderMonthPickerGrid(); });
-      document.getElementById('daily-picker-year-next').addEventListener('click', function () { pickerYear++; renderMonthPickerGrid(); });
-      document.addEventListener('click', function (event) {
-        var wrap = document.getElementById('daily-month-btn').closest('.month-picker-wrap');
-        if (!wrap.contains(event.target)) { closeMonthPicker(); }
       });
 
       function loadDaily() {
         document.getElementById('load-error').textContent = '';
-        refreshDailyMonthButton();
+        dailyMonthPicker.refreshLabel();
         setDailyLoading(true);
         google.script.run
           .withSuccessHandler(function (plan) {

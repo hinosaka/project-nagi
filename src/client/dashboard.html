@@ -21,7 +21,6 @@
       .toggle-tab { border: none; background: none; border-radius: 999px; padding: 7px 14px; font-weight: 700; font-size: 0.9em; color: var(--ink-muted); }
       .toggle-tab.active { background: var(--ai); color: #fff; }
       .toggle-tab:disabled { opacity: 0.6; cursor: default; }
-      .dashboard-body.loading { opacity: 0.5; pointer-events: none; transition: opacity 0.15s; }
 
       .custom-range-row { display: none; align-items: center; gap: var(--space-sm); margin-bottom: var(--space-md); font-size: 0.9em; color: var(--ink-muted); }
       .custom-range-row.show { display: flex; }
@@ -147,6 +146,17 @@
               <span id="ref-date-label"></span>
               <input type="date" id="ref-date-input" title="基準日を選択">
             </span>
+            <div class="month-picker-wrap" id="ref-month-wrap" style="display:none;">
+              <button type="button" class="month-select" id="ref-month-btn"></button>
+              <div class="month-picker-popover" id="ref-month-popover">
+                <div class="month-picker-year-row">
+                  <button type="button" class="icon-btn" id="ref-month-picker-year-prev"><svg class="icon"><use href="#icon-chevron-left"></use></svg></button>
+                  <span id="ref-month-picker-year-label"></span>
+                  <button type="button" class="icon-btn" id="ref-month-picker-year-next"><svg class="icon"><use href="#icon-chevron-right"></use></svg></button>
+                </div>
+                <div class="month-picker-grid" id="ref-month-picker-grid"></div>
+              </div>
+            </div>
             <button type="button" class="icon-btn" id="ref-date-next"><svg class="icon"><use href="#icon-chevron-right"></use></svg></button>
           </div>
           <div class="period-basis-wrap">
@@ -159,42 +169,42 @@
           </div>
         </div>
 
-        <div class="dashboard-body" id="dashboard-body">
-          <!-- KPI -->
-          <div class="kpi-main-row">
-            <div class="card kpi-card-sales" id="kpi-sales-card"></div>
-            <div class="card kpi-card-detail" id="kpi-detail-card"></div>
-          </div>
-
-          <!-- 売上推移グラフ -->
-          <h2>売上推移</h2>
-          <div class="card">
-            <div class="bar-chart-wrap">
-              <div class="bar-gridlines" id="bar-gridlines"></div>
-              <div class="bar-chart" id="bar-chart"></div>
+        <div class="loading-wrap" id="dashboard-loading-wrap">
+          <div class="dashboard-body loading-target" id="dashboard-body">
+            <!-- KPI -->
+            <div class="kpi-main-row">
+              <div class="card kpi-card-sales" id="kpi-sales-card"></div>
+              <div class="card kpi-card-detail" id="kpi-detail-card"></div>
             </div>
-            <div class="bar-axis-labels" id="bar-axis-labels"></div>
-          </div>
 
-          <!-- TOP10 -->
-          <h2>商品別売上ランキング TOP10</h2>
-          <div class="card">
-            <p class="design-note">並び順は注文数（数量）ベース</p>
-            <div class="ranking-grid" id="ranking-grid"></div>
-          </div>
+            <!-- 売上推移グラフ -->
+            <h2>売上推移</h2>
+            <div class="card">
+              <div class="bar-chart-wrap">
+                <div class="bar-gridlines" id="bar-gridlines"></div>
+                <div class="bar-chart" id="bar-chart"></div>
+              </div>
+              <div class="bar-axis-labels" id="bar-axis-labels"></div>
+            </div>
 
-          <!-- カテゴリ別売上分布 -->
-          <h2>カテゴリ別売上分布</h2>
-          <div class="donut-grid" id="donut-grid"></div>
+            <!-- TOP10 -->
+            <h2>商品別注文数ランキング TOP10</h2>
+            <div class="card">
+              <div class="ranking-grid" id="ranking-grid"></div>
+            </div>
+
+            <!-- カテゴリ別売上分布 -->
+            <h2>カテゴリ別売上分布</h2>
+            <div class="donut-grid" id="donut-grid"></div>
+          </div>
+          <div class="loading-overlay"><div class="loading-overlay-pill"><span class="loading-spinner"></span><span>読み込み中...</span></div></div>
         </div>
 
         <h2>詳細分析</h2>
-        <div class="card">
-          <div class="detail-links">
-            <a class="detail-link" href="<?= baseUrl ?>?page=sales-stats"><svg class="icon"><use href="#icon-trending-up"></use></svg>売上統計</a>
-            <a class="detail-link" href="<?= baseUrl ?>?page=analysis-product"><svg class="icon"><use href="#icon-tag"></use></svg>商品統計</a>
-            <a class="detail-link" href="<?= baseUrl ?>?page=data-analysis"><svg class="icon"><use href="#icon-pie-chart"></use></svg>データ分析</a>
-          </div>
+        <div class="detail-links">
+          <a class="detail-link" href="<?= baseUrl ?>?page=sales-stats"><svg class="icon"><use href="#icon-trending-up"></use></svg>売上統計</a>
+          <a class="detail-link" href="<?= baseUrl ?>?page=analysis-product"><svg class="icon"><use href="#icon-tag"></use></svg>商品統計</a>
+          <a class="detail-link" href="<?= baseUrl ?>?page=data-analysis"><svg class="icon"><use href="#icon-pie-chart"></use></svg>データ分析</a>
         </div>
       </main>
     </div>
@@ -232,29 +242,48 @@
         return period === 'yesterday' ? shiftDateStr(t, -1) : t;
       }
 
+      // 年×12マスの月選択ポップオーバー（共通部品。shared/javascript.html参照）。当月タブでのみ表示する
+      var dashboardMonthPicker = createMonthPicker({
+        btnId: 'ref-month-btn',
+        popoverId: 'ref-month-popover',
+        yearLabelId: 'ref-month-picker-year-label',
+        gridId: 'ref-month-picker-grid',
+        yearPrevId: 'ref-month-picker-year-prev',
+        yearNextId: 'ref-month-picker-year-next',
+        getCurrentMonth: function () { return referenceDate.slice(0, 7); },
+        onSelect: function (newMonth) {
+          referenceDate = newMonth + '-01';
+          renderRefDateNav();
+          scheduleLoadDashboard();
+        }
+      });
+
       // 読み込み完了前の暫定ラベル。実際の表示はrenderDashboard()でサーバーのperiodLabelに置き換わる
       function renderRefDateNav() {
+        document.getElementById('ref-date-wrap').style.display = currentPeriod === 'month' ? 'none' : '';
+        document.getElementById('ref-month-wrap').style.display = currentPeriod === 'month' ? '' : 'none';
+        if (currentPeriod === 'month') {
+          dashboardMonthPicker.refreshLabel();
+          return;
+        }
         document.getElementById('ref-date-input').value = referenceDate;
-        var parts = referenceDate.split('-');
-        document.getElementById('ref-date-label').textContent = currentPeriod === 'month'
-          ? parts[0] + '年' + parts[1] + '月'
-          : formatFullDateWithWeekday(referenceDate);
+        document.getElementById('ref-date-label').textContent = formatFullDateWithWeekday(referenceDate);
       }
 
       document.getElementById('ref-date-prev').addEventListener('click', function () {
         referenceDate = currentPeriod === 'month' ? shiftMonthStr(referenceDate, -1) : shiftDateStr(referenceDate, currentPeriod === 'last7' ? -7 : -1);
         renderRefDateNav();
-        loadDashboard();
+        scheduleLoadDashboard();
       });
       document.getElementById('ref-date-next').addEventListener('click', function () {
         referenceDate = currentPeriod === 'month' ? shiftMonthStr(referenceDate, 1) : shiftDateStr(referenceDate, currentPeriod === 'last7' ? 7 : 1);
         renderRefDateNav();
-        loadDashboard();
+        scheduleLoadDashboard();
       });
       document.getElementById('ref-date-input').addEventListener('change', function () {
         referenceDate = this.value;
         renderRefDateNav();
-        loadDashboard();
+        scheduleLoadDashboard();
       });
 
       document.querySelectorAll('#period-tabs .toggle-tab').forEach(function (btn) {
@@ -266,17 +295,17 @@
           document.getElementById('custom-range-row').classList.toggle('show', currentPeriod === 'custom');
           document.getElementById('ref-date-nav').style.display = currentPeriod === 'custom' ? 'none' : '';
           renderRefDateNav();
-          loadDashboard();
+          scheduleLoadDashboard();
         });
       });
       document.getElementById('custom-start').addEventListener('change', function () {
-        if (currentPeriod === 'custom') { loadDashboard(); }
+        if (currentPeriod === 'custom') { scheduleLoadDashboard(); }
       });
       document.getElementById('custom-end').addEventListener('change', function () {
-        if (currentPeriod === 'custom') { loadDashboard(); }
+        if (currentPeriod === 'custom') { scheduleLoadDashboard(); }
       });
       document.querySelectorAll('input[name="basis"]').forEach(function (radio) {
-        radio.addEventListener('change', loadDashboard);
+        radio.addEventListener('change', scheduleLoadDashboard);
       });
 
       function currentCompareBasis() {
@@ -287,8 +316,20 @@
       var loadRequestId = 0;
 
       function setLoading(isLoading) {
-        document.getElementById('dashboard-body').classList.toggle('loading', isLoading);
+        document.getElementById('dashboard-loading-wrap').classList.toggle('is-loading', isLoading);
         document.querySelectorAll('#period-tabs .toggle-tab').forEach(function (btn) { btn.disabled = isLoading; });
+      }
+
+      // 期間タブ・日付・基準日を連続で切り替えた場合、途中の選択に対するサーバー呼び出しは行わず、
+      // 最後の操作から一定時間後の最終的な選択1回分だけ読み込む（連続切替時の待ち時間を短縮する）
+      var loadDebounceTimer = null;
+      function scheduleLoadDashboard() {
+        setLoading(true);
+        if (loadDebounceTimer) { clearTimeout(loadDebounceTimer); }
+        loadDebounceTimer = setTimeout(function () {
+          loadDebounceTimer = null;
+          loadDashboard();
+        }, 250);
       }
 
       function loadDashboard() {

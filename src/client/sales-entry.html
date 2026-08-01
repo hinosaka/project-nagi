@@ -112,6 +112,7 @@
       .confirm-row { display: flex; align-items: center; gap: var(--space-sm); padding: 8px 0; border-bottom: 1px solid var(--border); }
       .confirm-row .c-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       .confirm-row .c-price { width: 60px; text-align: right; color: var(--ink-muted); font-variant-numeric: tabular-nums; }
+      .confirm-row .c-price-input { width: 72px; text-align: right; font-variant-numeric: tabular-nums; }
       .confirm-footer { display: flex; align-items: center; justify-content: space-between; margin-top: var(--space-md); }
       .confirm-total .label { font-size: 0.8em; color: var(--ink-muted); }
       .confirm-total .value { font-size: 1.3em; font-weight: 700; font-variant-numeric: tabular-nums; }
@@ -128,9 +129,6 @@
       .history-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 0.9em; gap: var(--space-sm); }
       .history-row:last-child { border-bottom: none; }
       .history-row .amounts { color: var(--ink-muted); white-space: nowrap; }
-
-      /* ===== 読み込み中の表示 ===== */
-      #tab-manage.loading, #tab-settle.loading { opacity: 0.55; pointer-events: none; transition: opacity 0.15s; }
 
       /* ===== 汎用確認モーダル・その他商品追加モーダル ===== */
       .small-modal { max-width: 340px; }
@@ -169,13 +167,16 @@
 
           <p id="manage-error" class="error"></p>
 
-          <div class="manage-panes">
-            <div id="ticket-list-view">
-              <button type="button" class="ticket-create-btn btn-primary" id="btn-create">＋ 伝票作成</button>
-              <div class="ticket-list" id="ticket-list"></div>
-            </div>
+          <div class="loading-wrap" id="manage-loading-wrap">
+            <div class="manage-panes loading-target">
+              <div id="ticket-list-view">
+                <button type="button" class="ticket-create-btn btn-primary" id="btn-create">＋ 伝票作成</button>
+                <div class="ticket-list" id="ticket-list"></div>
+              </div>
 
-            <div class="card" id="ticket-create-view">左の一覧から伝票を選ぶか、「＋ 伝票作成」で新しい伝票を作成してください</div>
+              <div class="card" id="ticket-create-view">左の一覧から伝票を選ぶか、「＋ 伝票作成」で新しい伝票を作成してください</div>
+            </div>
+            <div class="loading-overlay"><div class="loading-overlay-pill"><span class="loading-spinner"></span><span>読み込み中...</span></div></div>
           </div>
         </div>
 
@@ -194,27 +195,32 @@
 
           <p id="settle-error" class="error"></p>
 
-          <div class="cash-grid">
-            <div class="card">
-              <h3 style="margin-top:0;">売上情報</h3>
-              <div class="cash-field"><span class="label">合計金額</span><span class="value" id="settle-total">¥0</span></div>
-              <div class="cash-field"><span class="label">会計数</span><span class="value" id="settle-count">0組</span></div>
-            </div>
-            <div class="card">
-              <h3 style="margin-top:0;">現金状況</h3>
-              <div class="cash-field"><span class="label">準備金</span><input type="number" id="starting-cash" min="0" inputmode="numeric"></div>
-              <div class="cash-field"><span class="label">現金売上額</span><span class="value" id="settle-cash-sales">¥0</span></div>
-              <div class="cash-field"><span class="label">予想現金残高</span><span class="value" id="settle-expected">¥0</span></div>
-            </div>
-          </div>
+          <div class="loading-wrap" id="settle-loading-wrap">
+            <div class="loading-target">
+              <div class="cash-grid">
+                <div class="card">
+                  <h3 style="margin-top:0;">売上情報</h3>
+                  <div class="cash-field"><span class="label">合計金額</span><span class="value" id="settle-total">¥0</span></div>
+                  <div class="cash-field"><span class="label">会計数</span><span class="value" id="settle-count">0組</span></div>
+                </div>
+                <div class="card">
+                  <h3 style="margin-top:0;">現金状況</h3>
+                  <div class="cash-field"><span class="label">準備金</span><input type="number" id="starting-cash" min="0" inputmode="numeric"></div>
+                  <div class="cash-field"><span class="label">現金売上額</span><span class="value" id="settle-cash-sales">¥0</span></div>
+                  <div class="cash-field"><span class="label">予想現金残高</span><span class="value" id="settle-expected">¥0</span></div>
+                </div>
+              </div>
 
-          <div class="close-btn-row">
-            <button type="button" class="btn-primary" id="btn-close-register">レジクローズを実行</button>
-          </div>
+              <div class="close-btn-row">
+                <button type="button" class="btn-primary" id="btn-close-register">レジクローズを実行</button>
+              </div>
 
-          <h2>管理履歴</h2>
-          <div class="card">
-            <div id="close-history"></div>
+              <h2>管理履歴</h2>
+              <div class="card">
+                <div id="close-history"></div>
+              </div>
+            </div>
+            <div class="loading-overlay"><div class="loading-overlay-pill"><span class="loading-spinner"></span><span>読み込み中...</span></div></div>
           </div>
         </div>
       </main>
@@ -257,6 +263,10 @@
           <label for="other-item-price">単価（円）</label>
           <input type="number" id="other-item-price" min="0" inputmode="numeric">
         </div>
+        <div class="form-row">
+          <label for="other-item-subcategory">中分類（任意）</label>
+          <select id="other-item-subcategory"></select>
+        </div>
         <p id="other-item-error" class="error"></p>
         <div class="modal-footer-row">
           <button type="button" id="other-item-cancel">キャンセル</button>
@@ -267,7 +277,7 @@
 
     <?!= include('client/shared/javascript') ?>
     <script>
-      var masterData = { menuList: [], seatList: [], customerList: [], businessDay: null, salesList: [] };
+      var masterData = { menuList: [], seatList: [], customerList: [], businessDay: null, salesList: [], subCategoriesByLarge: {} };
       var manageDate = todayStr();
       var settleDate = todayStr();
 
@@ -355,6 +365,11 @@
         document.getElementById('other-item-name').value = '';
         document.getElementById('other-item-price').value = '';
         document.getElementById('other-item-error').textContent = '';
+        var subSelect = document.getElementById('other-item-subcategory');
+        var subOptions = (masterData.subCategoriesByLarge && masterData.subCategoriesByLarge[categoryLarge]) || [];
+        subSelect.innerHTML = '<option value="">未選択</option>' + subOptions.map(function (name) {
+          return '<option value="' + name + '">' + name + '</option>';
+        }).join('');
         document.getElementById('other-item-modal').style.display = 'flex';
         otherItemCallback = onAdd;
         document.getElementById('other-item-name').focus();
@@ -379,9 +394,10 @@
           document.getElementById('other-item-error').textContent = '単価は0以上の数値で入力してください';
           return;
         }
+        var subCategory = document.getElementById('other-item-subcategory').value;
         var callback = otherItemCallback;
         closeOtherItemModal();
-        callback(name, price);
+        callback(name, price, subCategory);
       });
 
       /* ===================== 会計管理：日付ヘッダー ===================== */
@@ -431,16 +447,16 @@
       function loadManageData() {
         document.getElementById('manage-error').textContent = '';
         closeCreateView();
-        document.getElementById('tab-manage').classList.add('loading');
+        document.getElementById('manage-loading-wrap').classList.add('is-loading');
         google.script.run
           .withSuccessHandler(function (data) {
-            document.getElementById('tab-manage').classList.remove('loading');
+            document.getElementById('manage-loading-wrap').classList.remove('is-loading');
             masterData = data;
             renderWeather(data.businessDay);
             renderTicketList(data.salesList);
           })
           .withFailureHandler(function (error) {
-            document.getElementById('tab-manage').classList.remove('loading');
+            document.getElementById('manage-loading-wrap').classList.remove('is-loading');
             document.getElementById('manage-error').textContent = 'データの取得に失敗しました：' + error.message;
           })
           .getSalesEntryData(manageDate);
@@ -473,11 +489,11 @@
           card.querySelector('.t-delete').addEventListener('click', function (event) {
             event.stopPropagation();
             showConfirmModal('この伝票を削除しますか？', function () {
-              document.getElementById('tab-manage').classList.add('loading');
+              document.getElementById('manage-loading-wrap').classList.add('is-loading');
               google.script.run
                 .withSuccessHandler(loadManageData)
                 .withFailureHandler(function (error) {
-                  document.getElementById('tab-manage').classList.remove('loading');
+                  document.getElementById('manage-loading-wrap').classList.remove('is-loading');
                   document.getElementById('manage-error').textContent = error.message;
                 })
                 .deleteSalesEntry(sales.SalesId);
@@ -729,7 +745,7 @@
       }
 
       function addOtherItem(categoryLarge) {
-        showOtherItemModal(categoryLarge, function (name, price) {
+        showOtherItemModal(categoryLarge, function (name, price, subCategory) {
           currentDetails.push({
             key: 'other-' + (otherItemSeq++),
             MenuId: '',
@@ -738,7 +754,7 @@
             UnitCost: '',
             Quantity: 1,
             CategoryLarge: categoryLarge,
-            CategoryMedium: ''
+            CategoryMedium: subCategory
           });
           renderOtherList();
           updateRunningTotal();
@@ -790,19 +806,22 @@
         if (createError) { createError.textContent = ''; }
         var rows = document.getElementById('confirm-rows');
         rows.innerHTML = '';
-        var total = 0;
         currentDetails.forEach(function (d) {
-          total += d.Quantity * d.UnitPrice;
           var row = document.createElement('div');
           row.className = 'confirm-row';
           row.innerHTML =
             '<span class="c-name">' + d.MenuName + '</span>' +
-            '<span class="c-price">¥' + d.UnitPrice.toLocaleString() + '</span>' +
+            '<input type="number" class="c-price-input" min="0" inputmode="numeric" value="' + d.UnitPrice + '" title="価格を修正（メニュー価格改定後の伝票処理用）">' +
             '<div class="qty-control" style="margin-left:0;">' +
             '<button type="button" class="circle-btn minus">' + iconSvg('minus') + '</button>' +
             '<span class="qty-num">' + d.Quantity + '</span>' +
             '<button type="button" class="circle-btn plus">' + iconSvg('plus') + '</button>' +
             '</div>';
+          row.querySelector('.c-price-input').addEventListener('input', function () {
+            d.UnitPrice = Math.max(0, Number(this.value) || 0);
+            updateConfirmTotal();
+            updateRunningTotal();
+          });
           row.querySelector('.minus').addEventListener('click', function () {
             d.Quantity -= 1;
             if (d.Quantity <= 0) { currentDetails.splice(currentDetails.indexOf(d), 1); }
@@ -820,9 +839,17 @@
           });
           rows.appendChild(row);
         });
-        document.getElementById('confirm-total').textContent = '¥' + total.toLocaleString();
+        updateConfirmTotal();
         document.getElementById('confirm-error').textContent = '';
+        var submitBtn = document.getElementById('confirm-submit');
+        submitBtn.disabled = false;
+        submitBtn.textContent = '確定';
         document.getElementById('confirm-modal').style.display = 'flex';
+      }
+
+      function updateConfirmTotal() {
+        var total = currentDetails.reduce(function (sum, d) { return sum + d.Quantity * d.UnitPrice; }, 0);
+        document.getElementById('confirm-total').textContent = '¥' + total.toLocaleString();
       }
 
       function closeConfirmModal() {
@@ -902,14 +929,14 @@
 
       function loadSettleData() {
         document.getElementById('settle-error').textContent = '';
-        document.getElementById('tab-settle').classList.add('loading');
+        document.getElementById('settle-loading-wrap').classList.add('is-loading');
         google.script.run
           .withSuccessHandler(function (data) {
-            document.getElementById('tab-settle').classList.remove('loading');
+            document.getElementById('settle-loading-wrap').classList.remove('is-loading');
             renderSettleData(data);
           })
           .withFailureHandler(function (error) {
-            document.getElementById('tab-settle').classList.remove('loading');
+            document.getElementById('settle-loading-wrap').classList.remove('is-loading');
             document.getElementById('settle-error').textContent = 'データの取得に失敗しました：' + error.message;
           })
           .getCashRegisterData(settleDate);
@@ -943,14 +970,14 @@
 
       document.getElementById('starting-cash').addEventListener('change', function () {
         document.getElementById('settle-error').textContent = '';
-        document.getElementById('tab-settle').classList.add('loading');
+        document.getElementById('settle-loading-wrap').classList.add('is-loading');
         google.script.run
           .withSuccessHandler(function (data) {
-            document.getElementById('tab-settle').classList.remove('loading');
+            document.getElementById('settle-loading-wrap').classList.remove('is-loading');
             renderSettleData(data);
           })
           .withFailureHandler(function (error) {
-            document.getElementById('tab-settle').classList.remove('loading');
+            document.getElementById('settle-loading-wrap').classList.remove('is-loading');
             document.getElementById('settle-error').textContent = error.message;
           })
           .saveStartingCash(settleDate, this.value);
@@ -959,14 +986,14 @@
       document.getElementById('btn-close-register').addEventListener('click', function () {
         showConfirmModal('レジクローズを実行しますか？（会計データはロックされません）', function () {
           document.getElementById('settle-error').textContent = '';
-          document.getElementById('tab-settle').classList.add('loading');
+          document.getElementById('settle-loading-wrap').classList.add('is-loading');
           google.script.run
             .withSuccessHandler(function (data) {
-              document.getElementById('tab-settle').classList.remove('loading');
+              document.getElementById('settle-loading-wrap').classList.remove('is-loading');
               renderSettleData(data);
             })
             .withFailureHandler(function (error) {
-              document.getElementById('tab-settle').classList.remove('loading');
+              document.getElementById('settle-loading-wrap').classList.remove('is-loading');
               document.getElementById('settle-error').textContent = error.message;
             })
             .closeRegister(settleDate);

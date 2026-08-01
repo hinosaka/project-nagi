@@ -568,6 +568,28 @@
     display: block;
   }
 
+  /* ===== 年×12マス月選択ポップオーバー ===== */
+  .month-select { font: inherit; font-weight: 700; font-size: 1.1em; padding: 4px 10px; border: none; background: none; color: var(--ink); cursor: pointer; border-radius: var(--radius-sm); }
+  .month-select:hover { background: var(--ai-soft); color: var(--ai); }
+  .month-picker-wrap { position: relative; display: inline-block; }
+  .month-picker-popover { display: none; position: absolute; top: 100%; left: 0; margin-top: 4px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); padding: var(--space-sm); z-index: 30; box-shadow: 0 4px 16px rgba(0,0,0,0.12); width: 220px; }
+  .month-picker-popover.open { display: block; }
+  .month-picker-year-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-sm); font-weight: 700; }
+  .month-picker-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; }
+  .month-picker-grid button { padding: 6px 0; font-size: 0.85em; }
+  .month-picker-grid button.current { background: var(--ai); color: #fff; border-color: var(--ai); }
+
+  /* ===== 読み込み中演出 ===== */
+  .loading-wrap { position: relative; }
+  .loading-target { opacity: 0.5; pointer-events: none; transition: opacity 0.15s; }
+  .loading-overlay { display: none; position: absolute; inset: 0; align-items: center; justify-content: center; z-index: 5; }
+  .loading-wrap.is-loading .loading-overlay { display: flex; }
+  .loading-overlay-pill { display: flex; align-items: center; gap: 8px; background: var(--surface); padding: 8px 16px; border-radius: 999px; border: 1px solid var(--border); box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+  .loading-overlay-pill span { color: var(--ink-muted); font-size: 0.85em; font-weight: 700; }
+  .loading-spinner { width: 16px; height: 16px; border: 2px solid var(--surface-2); border-top-color: var(--ai); border-radius: 50%; animation: app-spin 0.7s linear infinite; }
+  @keyframes app-spin { to { transform: rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) { .loading-spinner { animation: none; } }
+
   /* ===== ランキング表示（顧客のよく注文する商品など） ===== */
   .ranking-list {
     margin: var(--space-xs) 0 var(--space-md);

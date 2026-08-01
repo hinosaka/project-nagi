@@ -41,6 +41,63 @@
     }
   });
 
+  // 年×12マス月選択ポップオーバー（.month-picker-wrap構造のボタン群を組み立てる）。
+  // config: { btnId, popoverId, yearLabelId, gridId, yearPrevId, yearNextId,
+  //           getCurrentMonth: () => "yyyy-MM", onSelect: (yyyyMM) => void }
+  // 戻り値のrefreshLabel()はボタン表示（例："2026年7月"）を現在の月に合わせて更新する
+  function createMonthPicker(config) {
+    var btn = document.getElementById(config.btnId);
+    var popover = document.getElementById(config.popoverId);
+    var yearLabel = document.getElementById(config.yearLabelId);
+    var grid = document.getElementById(config.gridId);
+    var pickerYear = null;
+
+    function render() {
+      yearLabel.textContent = pickerYear + '年';
+      grid.innerHTML = '';
+      var current = config.getCurrentMonth();
+      for (var m = 1; m <= 12; m++) {
+        var mm = ('0' + m).slice(-2);
+        var value = pickerYear + '-' + mm;
+        var cell = document.createElement('button');
+        cell.type = 'button';
+        cell.textContent = m + '月';
+        if (value === current) { cell.className = 'current'; }
+        cell.dataset.value = value;
+        cell.addEventListener('click', function () {
+          var newMonth = this.dataset.value;
+          close();
+          config.onSelect(newMonth);
+        });
+        grid.appendChild(cell);
+      }
+    }
+    function open() {
+      pickerYear = Number(config.getCurrentMonth().split('-')[0]);
+      render();
+      popover.classList.add('open');
+    }
+    function close() {
+      popover.classList.remove('open');
+    }
+    function refreshLabel() {
+      var parts = config.getCurrentMonth().split('-');
+      btn.textContent = parts[0] + '年' + Number(parts[1]) + '月';
+    }
+
+    btn.addEventListener('click', function (event) {
+      event.stopPropagation();
+      if (popover.classList.contains('open')) { close(); } else { open(); }
+    });
+    document.getElementById(config.yearPrevId).addEventListener('click', function () { pickerYear--; render(); });
+    document.getElementById(config.yearNextId).addEventListener('click', function () { pickerYear++; render(); });
+    document.addEventListener('click', function (event) {
+      if (!btn.closest('.month-picker-wrap').contains(event.target)) { close(); }
+    });
+
+    return { refreshLabel: refreshLabel, close: close };
+  }
+
   function formatDateForInput(d) {
     var mm = ('0' + (d.getMonth() + 1)).slice(-2);
     var dd = ('0' + d.getDate()).slice(-2);
