@@ -19,7 +19,8 @@ var API_ALLOWED_ACTIONS_ = [
   'getCustomerOrderRanking', 'getDailyTargetsForMonth', 'getDashboardData', 'getDayAnalysisData',
   'getMenuList', 'getMenuManagementData', 'getProductAnalysisData', 'getSalesEntryData', 'getSalesStatsData', 'getSeatList',
   'getSegmentAnalysisData', 'getSubCategoryList', 'getWeatherAnalysisData', 'moveSubCategory', 'reactivateMenu',
-  'registerCustomer', 'renameCategory', 'renameSubCategory', 'saveBudgetTarget', 'saveBudgetTargetsForYear',
+  'registerCustomer', 'renameCategory', 'renameSubCategory', 'reorderMenus', 'reorderSubCategories',
+  'saveBudgetTarget', 'saveBudgetTargetsForYear',
   'saveBusinessDayWeather', 'saveBusinessDayWeatherAndGetData', 'saveCustomerDetail', 'saveDailyTargetsForMonth',
   'saveMenu', 'saveSalesEntry', 'saveStartingCash', 'toggleSeatActive'
 ];

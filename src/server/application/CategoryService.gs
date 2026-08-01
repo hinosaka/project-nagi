@@ -141,3 +141,20 @@ function moveSubCategory(subCategoryId, direction) {
     }
   });
 }
+
+// サブカテゴリー一覧のドラッグ並び替え。同じ大分類内でのSortOrderを、渡された順序で1からの連番に振り直す
+function reorderSubCategories(categoryId, orderedSubCategoryIds) {
+  var byId = {};
+  SubCategoryRepository.findAll().forEach(function (s) { byId[s.SubCategoryId] = s; });
+  orderedSubCategoryIds.forEach(function (subCategoryId, i) {
+    var s = byId[subCategoryId];
+    if (!s || s.CategoryId !== categoryId) {
+      return;
+    }
+    var newOrder = i + 1;
+    if (Number(s.SortOrder) !== newOrder) {
+      s.SortOrder = newOrder;
+      SubCategoryRepository.save(s);
+    }
+  });
+}

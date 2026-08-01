@@ -1,6 +1,6 @@
 // データアクセス層：Menuシートの読み書き
 var MenuRepository = {
-  HEADERS: ['MenuId', 'MenuName', 'Price', 'Cost', 'CategoryLarge', 'CategoryMedium', 'IsActive'],
+  HEADERS: ['MenuId', 'MenuName', 'Price', 'Cost', 'CategoryLarge', 'CategoryMedium', 'IsActive', 'SortOrder'],
 
   findAll: function () {
     var sheet = SpreadsheetConfig.getSheet('Menu');

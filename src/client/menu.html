@@ -5,8 +5,6 @@
     <base target="_top">
     <?!= include('client/shared/stylesheet') ?>
     <style>
-      #menu-body.loading { opacity: 0.5; pointer-events: none; transition: opacity 0.15s; }
-
       /* ===== 画面切り替え ===== */
       .view { display: none; }
       .view.active { display: block; }
@@ -60,9 +58,13 @@
       .subcat-row { display: flex; align-items: center; gap: 4px; padding: 6px 2px; }
       .subcat-row .subcat-name { flex: 1; color: var(--ink); }
       .subcat-empty { color: var(--ink-muted); font-size: 0.85em; padding: 4px 2px 4px var(--space-md); }
-      .reorder-btns { display: flex; flex-direction: column; }
-      .reorder-btns .icon-btn { padding: 0 4px; font-size: 0.9em; line-height: 1; }
       .empty-note { color: var(--ink-muted); font-size: 0.9em; padding: var(--space-md) 2px; text-align: center; }
+
+      /* ===== 並び替え（商品一覧・サブカテゴリー一覧で共通） ===== */
+      .drag-handle { display: flex; align-items: center; justify-content: center; width: 1.4em; height: 1.4em; color: var(--ink-muted); cursor: grab; touch-action: none; flex-shrink: 0; }
+      .drag-handle:active { cursor: grabbing; }
+      .drag-item.dragging { opacity: 0.5; background: var(--ai-soft); }
+      #product-table td.drag-col { width: 1.8em; padding-right: 0; }
 
       /* ===== 商品追加／編集フォーム ===== */
       .hint { color: var(--ink-muted); font-size: 0.85em; margin-top: 4px; }
@@ -83,7 +85,8 @@
       <main class="main-content">
         <p id="load-error" class="error"></p>
 
-        <div id="menu-body">
+        <div class="loading-wrap" id="menu-loading-wrap">
+        <div class="loading-target" id="menu-body">
           <!-- 商品一覧 -->
           <div class="view active" id="view-list">
             <div class="top-actions">
@@ -97,9 +100,8 @@
               <div class="table-scroll">
                 <table id="product-table">
                   <thead>
-                    <tr><th>商品名</th><th class="num">価格</th><th class="num">原価</th><th></th><th></th></tr>
+                    <tr><th></th><th>商品名</th><th class="num">価格</th><th class="num">原価</th><th></th><th></th></tr>
                   </thead>
-                  <tbody id="product-list"></tbody>
                 </table>
               </div>
 
@@ -120,6 +122,8 @@
             <div class="card" id="category-list"></div>
           </div>
 
+        </div>
+        <div class="loading-overlay"><div class="loading-overlay-pill"><span class="loading-spinner"></span><span>読み込み中...</span></div></div>
         </div>
       </main>
     </div>
@@ -147,7 +151,7 @@
             <input type="number" id="pf-price" min="0" inputmode="numeric" required>
           </div>
           <div class="form-row">
-            <label for="pf-cost">原価（任意）</label>
+            <label for="pf-cost">原価（任意・未入力は0）</label>
             <input type="number" id="pf-cost" min="0" inputmode="numeric">
           </div>
           <p id="product-form-error" class="error"></p>
@@ -210,7 +214,7 @@
       }
 
       function setLoading(isLoading) {
-        document.getElementById('menu-body').classList.toggle('loading', isLoading);
+        document.getElementById('menu-loading-wrap').classList.toggle('is-loading', isLoading);
       }
 
       function showView(name) {
@@ -279,14 +283,16 @@
       }
 
       function renderProductList() {
-        var tbody = document.getElementById('product-list');
-        tbody.innerHTML = '';
+        var table = document.getElementById('product-table');
+        table.querySelectorAll('tbody').forEach(function (tb) { tb.remove(); });
 
         var currentCategoryName = currentTab === 'all' ? null : categoryName(currentTab);
         var filtered = currentTab === 'all' ? allMenus : allMenus.filter(function (m) { return m.CategoryLarge === currentCategoryName; });
 
         if (filtered.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="5"><p class="empty-note">このカテゴリーの商品はまだありません</p></td></tr>';
+          var emptyBody = document.createElement('tbody');
+          emptyBody.innerHTML = '<tr><td colspan="6"><p class="empty-note">このカテゴリーの商品はまだありません</p></td></tr>';
+          table.appendChild(emptyBody);
           return;
         }
 
@@ -308,21 +314,45 @@
           .sort(function (a, b) { return a.localeCompare(b, 'ja'); });
         var order = orderedKeys.concat(leftoverKeys);
 
+        // グループ（大分類・中分類）ごとに独立した<tbody>にする。ドラッグ並び替えを
+        // グループ内に限定するため（<tbody>は仕切りとして描画上の見た目には影響しない）
         order.forEach(function (key) {
+          var groupBody = document.createElement('tbody');
+          groupBody.className = 'drag-group';
+
           var header = document.createElement('tr');
           header.className = 'group-header';
-          header.innerHTML = '<td colspan="5">' + key + '（' + groups[key].length + '）</td>';
-          tbody.appendChild(header);
+          header.innerHTML = '<td colspan="6">' + key + '（' + groups[key].length + '）</td>';
+          groupBody.appendChild(header);
 
-          groups[key].slice().sort(function (a, b) { return (a.MenuName || '').localeCompare(b.MenuName || '', 'ja'); }).forEach(function (m) {
-            tbody.appendChild(buildMenuRow(m));
+          var items = groups[key].slice().sort(function (a, b) { return (Number(a.SortOrder) || 0) - (Number(b.SortOrder) || 0); });
+          items.forEach(function (m) {
+            groupBody.appendChild(buildMenuRow(m));
+          });
+          table.appendChild(groupBody);
+
+          var categoryLarge = items[0].CategoryLarge;
+          enableDragReorder(groupBody, {
+            itemSelector: '.drag-item',
+            getId: function (el) { return el.dataset.id; },
+            onReorder: function (orderedIds) {
+              google.script.run
+                .withFailureHandler(function (error) {
+                  document.getElementById('load-error').textContent = '並び替えに失敗しました：' + error.message;
+                  loadAll();
+                })
+                .reorderMenus(categoryLarge, key, orderedIds);
+            }
           });
         });
       }
 
       function buildMenuRow(menu) {
         var row = document.createElement('tr');
+        row.className = 'drag-item';
+        row.dataset.id = menu.MenuId;
         row.innerHTML =
+          '<td class="drag-col"><span class="drag-handle" title="ドラッグで並び替え"><svg class="icon"><use href="#icon-grip-vertical"></use></svg></span></td>' +
           '<td><input type="text" class="cell-input" data-field="MenuName" value="' + escapeAttr(menu.MenuName) + '"></td>' +
           '<td class="num"><input type="number" min="0" inputmode="numeric" class="cell-input num-input" data-field="Price" value="' + Number(menu.Price || 0) + '"></td>' +
           '<td class="num"><input type="number" min="0" inputmode="numeric" class="cell-input num-input" data-field="Cost" value="' + Number(menu.Cost || 0) + '"></td>' +
@@ -344,6 +374,48 @@
 
       function escapeAttr(value) {
         return String(value == null ? '' : value).replace(/&/g, '&amp;').replace(/"/g, '&quot;');
+      }
+
+      // ポインターイベントによるドラッグ並び替え（HTML5 Drag and Drop APIはタッチ端末で
+      // dragstartが発火しないため使わない）。container内の.drag-handleを掴んで動かすと、
+      // container内の他options.itemSelector要素との位置関係に応じて並び替わり、
+      // 指を離した時点の順序（DOM上の並び）でoptions.onReorder(orderedIds)を呼ぶ
+      function enableDragReorder(container, options) {
+        container.querySelectorAll('.drag-handle').forEach(function (handle) {
+          handle.addEventListener('pointerdown', function (event) {
+            var dragEl = handle.closest(options.itemSelector);
+            if (!dragEl) { return; }
+            event.preventDefault();
+            dragEl.classList.add('dragging');
+            handle.setPointerCapture(event.pointerId);
+
+            function onMove(moveEvent) {
+              var y = moveEvent.clientY;
+              var siblings = Array.prototype.slice.call(container.querySelectorAll(options.itemSelector))
+                .filter(function (el) { return el !== dragEl; });
+              var next = null;
+              for (var i = 0; i < siblings.length; i++) {
+                var rect = siblings[i].getBoundingClientRect();
+                if (y < rect.top + rect.height / 2) { next = siblings[i]; break; }
+              }
+              if (next) {
+                container.insertBefore(dragEl, next);
+              } else {
+                container.appendChild(dragEl);
+              }
+            }
+            function onUp(upEvent) {
+              handle.releasePointerCapture(upEvent.pointerId);
+              handle.removeEventListener('pointermove', onMove);
+              handle.removeEventListener('pointerup', onUp);
+              dragEl.classList.remove('dragging');
+              var orderedIds = Array.prototype.slice.call(container.querySelectorAll(options.itemSelector)).map(options.getId);
+              options.onReorder(orderedIds);
+            }
+            handle.addEventListener('pointermove', onMove);
+            handle.addEventListener('pointerup', onUp);
+          });
+        });
       }
 
       // 表内での商品名・価格・原価の直接編集。カテゴリー選択は変更しないため既存の値をそのまま引き継ぐ
@@ -421,37 +493,33 @@
           if (scoped.length === 0) {
             subList.innerHTML = '<p class="subcat-empty">サブカテゴリーがまだありません</p>';
           } else {
-            scoped.forEach(function (sub, i) {
+            scoped.forEach(function (sub) {
               var subRow = document.createElement('div');
-              subRow.className = 'subcat-row';
+              subRow.className = 'subcat-row drag-item';
+              subRow.dataset.id = sub.SubCategoryId;
               subRow.innerHTML =
+                '<span class="drag-handle" title="ドラッグで並び替え"><svg class="icon"><use href="#icon-grip-vertical"></use></svg></span>' +
                 '<span class="subcat-name">' + sub.SubCategoryName + '</span>' +
-                '<div class="reorder-btns">' +
-                '<button type="button" class="icon-btn" title="上へ"' + (i === 0 ? ' disabled' : '') + '><svg class="icon"><use href="#icon-chevron-up"></use></svg></button>' +
-                '<button type="button" class="icon-btn" title="下へ"' + (i === scoped.length - 1 ? ' disabled' : '') + '><svg class="icon"><use href="#icon-chevron-down"></use></svg></button>' +
-                '</div>' +
                 '<button type="button" class="icon-btn" title="サブカテゴリー名を編集"><svg class="icon"><use href="#icon-edit"></use></svg></button>';
-              var buttons = subRow.querySelectorAll('button');
-              buttons[0].addEventListener('click', function () { moveSubCategory(sub.SubCategoryId, -1); });
-              buttons[1].addEventListener('click', function () { moveSubCategory(sub.SubCategoryId, 1); });
-              buttons[2].addEventListener('click', function () { openSubCategoryModal(cat.CategoryId, sub.SubCategoryId); });
+              subRow.querySelector('.icon-btn').addEventListener('click', function () { openSubCategoryModal(cat.CategoryId, sub.SubCategoryId); });
               subList.appendChild(subRow);
+            });
+            enableDragReorder(subList, {
+              itemSelector: '.drag-item',
+              getId: function (el) { return el.dataset.id; },
+              onReorder: function (orderedIds) {
+                google.script.run
+                  .withFailureHandler(function (error) {
+                    document.getElementById('load-error').textContent = '並び替えに失敗しました：' + error.message;
+                    loadAll();
+                  })
+                  .reorderSubCategories(cat.CategoryId, orderedIds);
+              }
             });
           }
           group.appendChild(subList);
           wrap.appendChild(group);
         });
-      }
-
-      function moveSubCategory(subCategoryId, direction) {
-        setLoading(true);
-        google.script.run
-          .withSuccessHandler(loadAll)
-          .withFailureHandler(function (error) {
-            setLoading(false);
-            document.getElementById('load-error').textContent = '並び替えに失敗しました：' + error.message;
-          })
-          .moveSubCategory(subCategoryId, direction);
       }
 
       // カテゴリー作成／編集モーダル（editIdを渡すと編集モード）
