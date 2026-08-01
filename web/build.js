@@ -22,6 +22,7 @@ var PAGE_FILES = {
   sales: 'sales-entry',
   menu: 'menu',
   'sales-stats': 'sales-stats',
+  budget: 'budget',
   'analysis-product': 'analysis-product',
   'data-analysis': 'data-analysis',
   customer: 'customer',

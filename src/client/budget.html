@@ -1,0 +1,310 @@
+<!-- SCR-012 予算管理（月ごとの目標売上の登録・確認、固定費からの目標逆算） -->
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+    <?!= include('client/shared/stylesheet') ?>
+    <style>
+      .toggle-tabs { display: inline-flex; background: var(--surface-2); border-radius: 999px; padding: 3px; margin-bottom: var(--space-md); }
+      .toggle-tab { border: none; background: none; border-radius: 999px; padding: 7px 16px; font-weight: 700; font-size: 0.9em; color: var(--ink-muted); }
+      .toggle-tab.active { background: var(--ai); color: #fff; }
+      .tab-panel { display: none; }
+      .tab-panel.active { display: block; }
+
+      .year-row { display: flex; align-items: center; gap: 2px; margin-bottom: var(--space-md); }
+      .year-label { font-weight: 700; font-size: 1.1em; padding: 4px 10px; }
+      .cell-input { width: 100%; border: 1px solid transparent; background: none; color: inherit; font: inherit; padding: 3px 4px; border-radius: var(--radius-sm); text-align: right; }
+      .cell-input:hover { border-color: var(--border); }
+      .cell-input:focus { border-color: var(--ai); outline: 2px solid var(--ai-soft); background: var(--surface); }
+
+      #budget-table { font-variant-numeric: tabular-nums; }
+      #budget-table th, #budget-table td { text-align: right; }
+      #budget-table th:first-child, #budget-table td:first-child { text-align: left; }
+      #budget-table th:last-child, #budget-table td:last-child { text-align: left; }
+      #budget-table td:last-child .cell-input { text-align: left; }
+      .rate-badge { font-weight: 700; }
+      .rate-badge.achieved { color: var(--good); }
+      .rate-badge.behind { color: var(--warn); }
+      .rate-badge.none { color: var(--ink-muted); font-weight: normal; }
+      .save-flash { color: var(--good); font-size: 0.8em; }
+      .loading-target { opacity: 0.5; pointer-events: none; transition: opacity 0.15s; }
+
+      #fixedcost-table { font-variant-numeric: tabular-nums; }
+      #fixedcost-table th, #fixedcost-table td { text-align: right; }
+      #fixedcost-table th:first-child, #fixedcost-table td:first-child { text-align: left; }
+      #fixedcost-table td:first-child .cell-input { text-align: left; }
+      .fixedcost-actions { text-align: center; }
+
+      .rate-row { display: flex; align-items: center; gap: var(--space-sm); margin: var(--space-md) 0; }
+      .rate-row label { color: var(--ink-muted); }
+      .rate-row input { width: 80px; }
+
+      .result-row { display: flex; gap: var(--space-lg); flex-wrap: wrap; margin-top: var(--space-md); padding-top: var(--space-md); border-top: 1px solid var(--border); }
+      .result-tile .kpi-label { font-size: 0.78em; color: var(--ink-muted); }
+      .result-tile .kpi-value { font-size: 1.3em; font-weight: 700; font-variant-numeric: tabular-nums; margin-top: 2px; }
+      .result-tile.main .kpi-value { font-size: 1.7em; color: var(--ai); }
+      .result-note { color: var(--bad); font-size: 0.85em; margin-top: var(--space-sm); }
+    </style>
+  </head>
+  <body data-page="<?= currentPage ?>">
+    <?!= include('client/shared/icons') ?>
+    <div class="app-shell">
+      <?!= include('client/shared/sidebar', {baseUrl: baseUrl}) ?>
+      <main class="main-content">
+        <h2>予算管理</h2>
+        <div class="toggle-tabs" id="budget-tabs">
+          <button type="button" class="toggle-tab active" data-tab="monthly">月別予算設定</button>
+          <button type="button" class="toggle-tab" data-tab="fixedcost">固定費から逆算</button>
+        </div>
+
+        <p id="load-error" class="error"></p>
+
+        <div class="tab-panel active" id="panel-monthly">
+          <div class="year-row">
+            <button type="button" class="icon-btn" id="year-prev"><svg class="icon"><use href="#icon-chevron-left"></use></svg></button>
+            <span class="year-label" id="year-label"></span>
+            <button type="button" class="icon-btn" id="year-next"><svg class="icon"><use href="#icon-chevron-right"></use></svg></button>
+            <span class="save-flash" id="save-flash"></span>
+          </div>
+
+          <div class="card" id="budget-body">
+            <div class="table-scroll">
+              <table id="budget-table">
+                <thead>
+                  <tr><th>月</th><th>目標売上（円）</th><th>実績売上</th><th>達成率</th><th>備考</th></tr>
+                </thead>
+                <tbody id="budget-table-body"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <div class="tab-panel" id="panel-fixedcost">
+          <div class="card" id="fixedcost-body">
+            <h3>固定費</h3>
+            <div class="table-scroll">
+              <table id="fixedcost-table">
+                <thead><tr><th>項目名</th><th>金額（円）</th><th></th></tr></thead>
+                <tbody id="fixedcost-table-body"></tbody>
+              </table>
+            </div>
+            <div class="fixedcost-actions">
+              <button type="button" id="fixedcost-add-btn">＋ 項目を追加</button>
+            </div>
+
+            <div class="rate-row">
+              <label for="profit-rate-input">目標利益率</label>
+              <input type="number" id="profit-rate-input" class="cell-input" min="0" step="1" inputmode="numeric" style="text-align:left;border-color:var(--border);">
+              <span>%</span>
+            </div>
+
+            <div class="result-row">
+              <div class="result-tile">
+                <div class="kpi-label">固定費合計</div>
+                <div class="kpi-value" id="result-fixed-total">-</div>
+              </div>
+              <div class="result-tile">
+                <div class="kpi-label">原価率（実績）</div>
+                <div class="kpi-value" id="result-cost-rate">-</div>
+              </div>
+              <div class="result-tile main">
+                <div class="kpi-label">逆算した目標売上（月額）</div>
+                <div class="kpi-value" id="result-target">-</div>
+              </div>
+            </div>
+            <p class="result-note" id="result-note" style="display:none;">原価率と目標利益率の合計が100%以上のため、目標売上を計算できません。目標利益率を見直してください。</p>
+          </div>
+        </div>
+      </main>
+    </div>
+
+    <?!= include('client/shared/javascript') ?>
+    <script>
+      var currentYear = new Date().getFullYear();
+
+      document.querySelectorAll('#budget-tabs .toggle-tab').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          document.querySelectorAll('#budget-tabs .toggle-tab').forEach(function (b) { b.classList.remove('active'); });
+          btn.classList.add('active');
+          var tab = btn.dataset.tab;
+          document.getElementById('panel-monthly').classList.toggle('active', tab === 'monthly');
+          document.getElementById('panel-fixedcost').classList.toggle('active', tab === 'fixedcost');
+          document.getElementById('load-error').textContent = '';
+          if (tab === 'fixedcost') { loadFixedCostPlan(); }
+        });
+      });
+
+      // ----- 月別予算設定 -----
+      function setMonthlyLoading(isLoading) {
+        document.getElementById('budget-body').classList.toggle('loading-target', isLoading);
+      }
+
+      function loadMonthly() {
+        document.getElementById('load-error').textContent = '';
+        document.getElementById('year-label').textContent = currentYear + '年';
+        setMonthlyLoading(true);
+        google.script.run
+          .withSuccessHandler(function (months) {
+            setMonthlyLoading(false);
+            renderMonthly(months);
+          })
+          .withFailureHandler(function (error) {
+            setMonthlyLoading(false);
+            document.getElementById('load-error').textContent = 'データの取得に失敗しました：' + error.message;
+          })
+          .getBudgetDataForYear(currentYear);
+      }
+
+      function rateBadgeHtml(rate) {
+        if (rate === null || rate === undefined) {
+          return '<span class="rate-badge none">目標未設定</span>';
+        }
+        return '<span class="rate-badge ' + (rate >= 100 ? 'achieved' : 'behind') + '">' + rate + '%</span>';
+      }
+
+      function renderMonthly(months) {
+        var tbody = document.getElementById('budget-table-body');
+        tbody.innerHTML = '';
+        months.forEach(function (m) {
+          var tr = document.createElement('tr');
+          var monthNum = Number(m.targetMonth.split('-')[1]);
+          tr.innerHTML =
+            '<td>' + monthNum + '月</td>' +
+            '<td><input type="number" class="cell-input" min="0" step="1000" inputmode="numeric" data-field="targetAmount" value="' + (m.targetAmount || '') + '"></td>' +
+            '<td>' + m.actualAmount.toLocaleString() + '</td>' +
+            '<td>' + rateBadgeHtml(m.achievementRate) + '</td>' +
+            '<td><input type="text" class="cell-input" data-field="note" value="' + escapeAttr(m.note) + '" placeholder="任意"></td>';
+
+          tr.querySelectorAll('.cell-input').forEach(function (input) {
+            input.addEventListener('keydown', function (event) {
+              if (event.key === 'Enter') { this.blur(); }
+            });
+            input.addEventListener('blur', function () { saveMonthlyField(m, tr, input); });
+          });
+          tbody.appendChild(tr);
+        });
+      }
+
+      function saveMonthlyField(month, row, input) {
+        var amountInput = row.querySelector('[data-field="targetAmount"]');
+        var noteInput = row.querySelector('[data-field="note"]');
+        document.getElementById('load-error').textContent = '';
+        google.script.run
+          .withSuccessHandler(function (data) {
+            row.children[2].textContent = month.actualAmount.toLocaleString();
+            row.children[3].innerHTML = rateBadgeHtml(data.achievementRate);
+            flashSaved();
+          })
+          .withFailureHandler(function (error) {
+            document.getElementById('load-error').textContent = '保存に失敗しました：' + error.message;
+          })
+          .saveBudgetTarget({
+            targetMonth: month.targetMonth,
+            targetAmount: amountInput.value,
+            note: noteInput.value
+          });
+      }
+
+      function flashSaved() {
+        var flash = document.getElementById('save-flash');
+        flash.textContent = '保存しました';
+        setTimeout(function () { flash.textContent = ''; }, 1500);
+      }
+
+      function escapeAttr(str) {
+        return String(str || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+      }
+
+      document.getElementById('year-prev').addEventListener('click', function () { currentYear--; loadMonthly(); });
+      document.getElementById('year-next').addEventListener('click', function () { currentYear++; loadMonthly(); });
+
+      // ----- 固定費から逆算 -----
+      function setFixedCostLoading(isLoading) {
+        document.getElementById('fixedcost-body').classList.toggle('loading-target', isLoading);
+      }
+
+      function loadFixedCostPlan() {
+        setFixedCostLoading(true);
+        google.script.run
+          .withSuccessHandler(function (plan) {
+            setFixedCostLoading(false);
+            renderFixedCostPlan(plan);
+          })
+          .withFailureHandler(function (error) {
+            setFixedCostLoading(false);
+            document.getElementById('load-error').textContent = 'データの取得に失敗しました：' + error.message;
+          })
+          .getFixedCostPlan();
+      }
+
+      function renderFixedCostPlan(plan) {
+        var tbody = document.getElementById('fixedcost-table-body');
+        tbody.innerHTML = '';
+        plan.items.forEach(function (item) {
+          var tr = document.createElement('tr');
+          tr.innerHTML =
+            '<td><input type="text" class="cell-input" style="text-align:left;" data-field="Name" value="' + escapeAttr(item.Name) + '"></td>' +
+            '<td><input type="number" class="cell-input" min="0" step="1000" inputmode="numeric" data-field="Amount" value="' + Number(item.Amount || 0) + '"></td>' +
+            '<td><button type="button" class="icon-btn" title="削除"><svg class="icon"><use href="#icon-trash"></use></svg></button></td>';
+
+          tr.querySelectorAll('.cell-input').forEach(function (input) {
+            input.addEventListener('keydown', function (event) {
+              if (event.key === 'Enter') { this.blur(); }
+            });
+            input.addEventListener('blur', function () { saveFixedCostRow(item, tr); });
+          });
+          tr.querySelector('.icon-btn').addEventListener('click', function () {
+            google.script.run
+              .withSuccessHandler(function (updatedPlan) { flashSaved(); renderFixedCostPlan(updatedPlan); })
+              .withFailureHandler(function (error) { document.getElementById('load-error').textContent = '削除に失敗しました：' + error.message; })
+              .deleteFixedCostItem(item.FixedCostId);
+          });
+          tbody.appendChild(tr);
+        });
+
+        document.getElementById('profit-rate-input').value = plan.targetProfitRate;
+        renderFixedCostResult(plan);
+      }
+
+      function saveFixedCostRow(item, row) {
+        var name = row.querySelector('[data-field="Name"]').value;
+        var amount = row.querySelector('[data-field="Amount"]').value;
+        if (!name.trim()) { return; }
+        google.script.run
+          .withSuccessHandler(function (plan) { flashSaved(); item.Amount = amount; renderFixedCostResult(plan); })
+          .withFailureHandler(function (error) { document.getElementById('load-error').textContent = '保存に失敗しました：' + error.message; })
+          .saveFixedCostItem({ FixedCostId: item.FixedCostId, Name: name, Amount: amount });
+      }
+
+      document.getElementById('fixedcost-add-btn').addEventListener('click', function () {
+        google.script.run
+          .withSuccessHandler(function (plan) { renderFixedCostPlan(plan); })
+          .withFailureHandler(function (error) { document.getElementById('load-error').textContent = '追加に失敗しました：' + error.message; })
+          .saveFixedCostItem({ Name: '新しい項目', Amount: 0 });
+      });
+
+      document.getElementById('profit-rate-input').addEventListener('blur', function () {
+        google.script.run
+          .withSuccessHandler(function (plan) { flashSaved(); renderFixedCostResult(plan); })
+          .withFailureHandler(function (error) { document.getElementById('load-error').textContent = '保存に失敗しました：' + error.message; })
+          .saveTargetProfitRate(this.value);
+      });
+
+      function renderFixedCostResult(plan) {
+        document.getElementById('result-fixed-total').textContent = '¥' + plan.totalFixedCost.toLocaleString();
+        document.getElementById('result-cost-rate').textContent = plan.costRatePercent + '%';
+        var targetEl = document.getElementById('result-target');
+        var noteEl = document.getElementById('result-note');
+        if (plan.suggestedTargetAmount === null) {
+          targetEl.textContent = '計算不可';
+          noteEl.style.display = '';
+        } else {
+          targetEl.textContent = '¥' + plan.suggestedTargetAmount.toLocaleString();
+          noteEl.style.display = 'none';
+        }
+      }
+
+      loadMonthly();
+    </script>
+  </body>
+</html>
