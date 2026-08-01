@@ -16,13 +16,15 @@
       .sub-tab.active { background: var(--surface); color: var(--ai); font-weight: 700; }
 
       .period-controls { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: 0.9em; }
-      .period-controls input[type="date"], .period-controls input[type="month"] { padding: 4px 6px; font-size: 0.9em; }
+      .period-controls input[type="date"] { padding: 4px 6px; font-size: 0.9em; }
       .unit-label { color: var(--ink); font-weight: 700; white-space: nowrap; }
-      #ref-date-input {
-        width: 26px; height: 26px; color: transparent; background: var(--ai-soft);
-        border: 1px solid var(--ai-soft); border-radius: var(--radius-sm); padding: 3px; cursor: pointer;
-      }
-      #ref-date-input::-webkit-calendar-picker-indicator { opacity: 1; cursor: pointer; }
+      .period-range-note { color: var(--ink-muted); font-size: 0.85em; width: 100%; }
+
+      /* ===== 日付表示（会計処理と同じ：タップでネイティブのカレンダーを開く） ===== */
+      .date-display-wrap { position: relative; display: inline-flex; align-items: center; gap: 6px; font-weight: 700; padding: 4px 8px; border-radius: var(--radius-sm); cursor: pointer; white-space: nowrap; }
+      .date-display-wrap:hover { background: var(--ai-soft); color: var(--ai); }
+      .date-display-wrap input[type="date"] { position: absolute; inset: 0; color: transparent; background: transparent; border: none; cursor: pointer; }
+      .date-display-wrap input[type="date"]::-webkit-calendar-picker-indicator { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
 
       /* 円グラフ */
       .pie-toggle { display: inline-flex; background: var(--surface-2); border-radius: 999px; padding: 3px; margin-bottom: var(--space-md); }
@@ -63,18 +65,31 @@
             </div>
             <span id="single-date-row">
               <button type="button" class="icon-btn" id="ref-date-prev"><svg class="icon"><use href="#icon-chevron-left"></use></svg></button>
-              <span class="unit-label" id="ref-date-label"></span>
+              <span class="date-display-wrap" id="ref-date-wrap">
+                <span id="ref-date-label"></span>
+                <input type="date" id="ref-date-input" title="基準日を選択">
+              </span>
               <button type="button" class="icon-btn" id="ref-date-next"><svg class="icon"><use href="#icon-chevron-right"></use></svg></button>
-              <input type="date" id="ref-date-input" title="基準日を選択">
             </span>
             <span id="custom-range-row" style="display:none;">
               <input type="date" id="custom-start"> 〜 <input type="date" id="custom-end">
             </span>
+            <div class="period-range-note" id="week-range-note" style="display:none;"></div>
           </div>
 
           <div id="panel-month" class="period-controls" style="display:none;">
             <button type="button" class="icon-btn" id="month-prev"><svg class="icon"><use href="#icon-chevron-left"></use></svg></button>
-            <span class="unit-label" id="month-label"></span>
+            <div class="month-picker-wrap" id="month-wrap">
+              <button type="button" class="month-select" id="month-btn"></button>
+              <div class="month-picker-popover" id="month-popover">
+                <div class="month-picker-year-row">
+                  <button type="button" class="icon-btn" id="month-picker-year-prev"><svg class="icon"><use href="#icon-chevron-left"></use></svg></button>
+                  <span id="month-picker-year-label"></span>
+                  <button type="button" class="icon-btn" id="month-picker-year-next"><svg class="icon"><use href="#icon-chevron-right"></use></svg></button>
+                </div>
+                <div class="month-picker-grid" id="month-picker-grid"></div>
+              </div>
+            </div>
             <button type="button" class="icon-btn" id="month-next"><svg class="icon"><use href="#icon-chevron-right"></use></svg></button>
           </div>
 
@@ -88,21 +103,26 @@
         <p id="load-error" class="error"></p>
 
         <h2 style="margin-top:0;" id="pie-heading">商品別TOP5</h2>
-        <div class="card">
-          <div class="pie-toggle" id="pie-toggle">
-            <button type="button" class="active" data-pie="product">商品別</button>
-            <button type="button" data-pie="category">カテゴリー別</button>
+        <div class="loading-wrap" id="analysis-loading-wrap">
+        <div class="loading-target">
+          <div class="card">
+            <div class="pie-toggle" id="pie-toggle">
+              <button type="button" class="active" data-pie="product">商品別</button>
+              <button type="button" data-pie="category">カテゴリー別</button>
+            </div>
+            <div class="donut-body">
+              <svg class="donut-svg" viewBox="-14 -14 70 70" id="donut-svg"></svg>
+              <div class="donut-legend" id="donut-legend"></div>
+            </div>
           </div>
-          <div class="donut-body">
-            <svg class="donut-svg" viewBox="-14 -14 70 70" id="donut-svg"></svg>
-            <div class="donut-legend" id="donut-legend"></div>
+
+          <div class="card">
+            <div class="table-scroll">
+              <table id="detail-table"></table>
+            </div>
           </div>
         </div>
-
-        <div class="card">
-          <div class="table-scroll">
-            <table id="detail-table"></table>
-          </div>
+        <div class="loading-overlay"><div class="loading-overlay-pill"><span class="loading-spinner"></span><span>読み込み中...</span></div></div>
         </div>
       </main>
     </div>
@@ -137,6 +157,27 @@
         return d.getFullYear() + '-' + mm;
       }
 
+      // 日付表示クリックでネイティブのカレンダーを開く（会計処理と同じ手法。隠したdate inputへの
+      // クリック透過だけでは開かないブラウザがあるため、showPicker()を明示的に呼ぶ）
+      function openDatePicker(inputEl) {
+        if (typeof inputEl.showPicker === 'function') {
+          try {
+            inputEl.showPicker();
+          } catch (e) {
+            // 未対応・権限エラー等は無視（隠しinputへの直接クリックにフォールバック）
+          }
+        }
+      }
+
+      // 週次選択時の対象週（月曜始まり。サーバー側calcPeriodRange_のweek算出と同じ規則）
+      function weekRangeLabel(dateStr) {
+        var day = new Date(dateStr).getDay();
+        var diffToMonday = (day === 0 ? -6 : 1 - day);
+        var start = shiftDateStr(dateStr, diffToMonday);
+        var end = shiftDateStr(start, 6);
+        return '対象週：' + formatFullDateWithWeekday(start) + ' 〜 ' + formatFullDateWithWeekday(end);
+      }
+
       /* ===== 単位トグル（期間別／月別／年別） ===== */
       document.querySelectorAll('#unit-tabs .toggle-tab').forEach(function (btn) {
         btn.addEventListener('click', function () {
@@ -159,13 +200,23 @@
           var isCustom = currentSubPeriod === 'custom';
           document.getElementById('single-date-row').style.display = isCustom ? 'none' : '';
           document.getElementById('custom-range-row').style.display = isCustom ? 'inline' : 'none';
+          renderRefDateLabel();
           loadAnalysis();
         });
       });
       function renderRefDateLabel() {
-        document.getElementById('ref-date-label').textContent = refDate;
+        document.getElementById('ref-date-label').textContent = formatFullDateWithWeekday(refDate);
         document.getElementById('ref-date-input').value = refDate;
+        var isWeek = currentSubPeriod === 'week';
+        var noteEl = document.getElementById('week-range-note');
+        noteEl.style.display = isWeek ? '' : 'none';
+        if (isWeek) {
+          noteEl.textContent = weekRangeLabel(refDate);
+        }
       }
+      document.getElementById('ref-date-wrap').addEventListener('click', function () {
+        openDatePicker(document.getElementById('ref-date-input'));
+      });
       document.getElementById('ref-date-prev').addEventListener('click', function () {
         refDate = shiftDateStr(refDate, currentSubPeriod === 'week' ? -7 : -1);
         renderRefDateLabel();
@@ -184,10 +235,19 @@
       document.getElementById('custom-start').addEventListener('change', loadAnalysis);
       document.getElementById('custom-end').addEventListener('change', loadAnalysis);
 
-      /* ===== 月別 ===== */
+      /* ===== 月別（年×12マスの月選択ポップオーバー。共通部品。shared/javascript.html参照） ===== */
+      var monthPicker = createMonthPicker({
+        btnId: 'month-btn',
+        popoverId: 'month-popover',
+        yearLabelId: 'month-picker-year-label',
+        gridId: 'month-picker-grid',
+        yearPrevId: 'month-picker-year-prev',
+        yearNextId: 'month-picker-year-next',
+        getCurrentMonth: function () { return currentMonth; },
+        onSelect: function (newMonth) { currentMonth = newMonth; renderMonthLabel(); loadAnalysis(); }
+      });
       function renderMonthLabel() {
-        var parts = currentMonth.split('-');
-        document.getElementById('month-label').textContent = parts[0] + '年' + parts[1] + '月';
+        monthPicker.refreshLabel();
       }
       document.getElementById('month-prev').addEventListener('click', function () {
         currentMonth = shiftMonthStr(currentMonth, -1);
@@ -216,8 +276,13 @@
       });
 
       /* ===== データ取得 ===== */
+      function setLoading(isLoading) {
+        document.getElementById('analysis-loading-wrap').classList.toggle('is-loading', isLoading);
+      }
+
       function loadAnalysis() {
         document.getElementById('load-error').textContent = '';
+        setLoading(true);
         var periodType, referenceDateStr = '', startDateStr = '', endDateStr = '';
 
         if (currentUnit === 'period') {
@@ -238,6 +303,7 @@
 
         google.script.run
           .withSuccessHandler(function (data) {
+            setLoading(false);
             lastData = data;
             try {
               renderPieAndTable();
@@ -246,6 +312,7 @@
             }
           })
           .withFailureHandler(function (error) {
+            setLoading(false);
             document.getElementById('load-error').textContent = 'データの取得に失敗しました：' + error.message;
           })
           .getProductAnalysisData(periodType, referenceDateStr, startDateStr, endDateStr);
