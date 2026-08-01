@@ -1,0 +1,526 @@
+<!-- SCR-007, SCR-011 売上統計（予算管理・月次推移比較を統合） -->
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+    <script src="config.js"></script>
+    <script src="api-client.js"></script>
+    <script>PosApi.requireAuth();</script>
+    <link rel="stylesheet" href="style.css">
+    <style>
+      .month-row {
+        display: flex;
+        align-items: center;
+        gap: var(--space-sm);
+        margin-bottom: var(--space-md);
+      }
+      #target-month {
+        border: none;
+        background: transparent;
+        font-weight: bold;
+        font-size: 1.05em;
+        width: 140px;
+        padding: 4px 0;
+      }
+      .tab-panel {
+        display: none;
+      }
+      .tab-panel.active {
+        display: block;
+      }
+      .kpi-tile.achieved {
+        background: var(--good-soft);
+        border-color: var(--good-soft);
+      }
+      .kpi-tile.achieved .kpi-label,
+      .kpi-tile.achieved .kpi-value {
+        color: var(--good);
+      }
+      .kpi-tile.behind {
+        background: var(--bad-soft);
+        border-color: var(--bad-soft);
+      }
+      .kpi-tile.behind .kpi-label,
+      .kpi-tile.behind .kpi-value {
+        color: var(--bad);
+      }
+      .form-row-inline {
+        display: flex;
+        align-items: center;
+        gap: var(--space-sm);
+        flex-wrap: wrap;
+      }
+      .form-row-inline label {
+        color: var(--ink-muted);
+      }
+      #target-amount {
+        width: 140px;
+      }
+      #target-note {
+        flex: 1;
+        min-width: 160px;
+      }
+      .kpi-delta {
+        font-size: 0.85em;
+        font-variant-numeric: tabular-nums;
+      }
+      .rate-value.up { color: var(--good); }
+      .rate-value.down { color: var(--bad); }
+      .bar-chart {
+        display: flex;
+        align-items: flex-end;
+        gap: 6px;
+        height: 160px;
+        padding-top: var(--space-md);
+        overflow-x: auto;
+      }
+      .bar-col {
+        flex: 1;
+        min-width: 32px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: flex-end;
+        height: 100%;
+        gap: 4px;
+      }
+      .bar-col.current .bar {
+        background: var(--ai);
+      }
+      .bar-col:not(.current) .bar {
+        background: var(--surface-2);
+      }
+      .bar-amount {
+        font-size: 0.7em;
+        color: var(--ink-muted);
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
+      }
+      .bar {
+        width: 70%;
+        min-height: 2px;
+        border-radius: 4px 4px 0 0;
+      }
+      .bar-label {
+        font-size: 0.75em;
+        color: var(--ink-muted);
+        white-space: nowrap;
+      }
+      .back-link {
+        display: inline-block;
+        margin-top: var(--space-md);
+      }
+    </style>
+  </head>
+  <body data-page="sales-stats">
+    <svg style="display:none;" aria-hidden="true">
+  <symbol id="icon-home" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+    <polyline points="9 22 9 12 15 12 15 22"/>
+  </symbol>
+
+  <symbol id="icon-receipt" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+    <polyline points="14 2 14 8 20 8"/>
+    <line x1="8" y1="13" x2="16" y2="13"/>
+    <line x1="8" y1="17" x2="16" y2="17"/>
+    <line x1="8" y1="9" x2="10" y2="9"/>
+  </symbol>
+
+  <symbol id="icon-utensils" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/>
+    <path d="M7 2v20"/>
+    <path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/>
+  </symbol>
+
+  <symbol id="icon-armchair" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M19 9V6a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v3"/>
+    <path d="M5 9a2 2 0 0 0-2 2v3a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2"/>
+    <path d="M5 16v3a1 1 0 0 0 1 1h1a1 1 0 0 0 1-1v-3"/>
+    <path d="M16 16v3a1 1 0 0 0 1 1h1a1 1 0 0 0 1-1v-3"/>
+  </symbol>
+
+  <symbol id="icon-user" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+    <circle cx="12" cy="7" r="4"/>
+  </symbol>
+
+  <symbol id="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="12" cy="12" r="5"/>
+    <line x1="12" y1="1" x2="12" y2="3"/>
+    <line x1="12" y1="21" x2="12" y2="23"/>
+    <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
+    <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+    <line x1="1" y1="12" x2="3" y2="12"/>
+    <line x1="21" y1="12" x2="23" y2="12"/>
+    <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
+    <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+  </symbol>
+
+  <symbol id="icon-cloud" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/>
+  </symbol>
+
+  <symbol id="icon-cloud-rain" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M4 14.9A7 7 0 1 1 15.7 8h1.8a4.5 4.5 0 0 1 2.5 8.2"/>
+    <path d="M16 14v6"/>
+    <path d="M8 14v6"/>
+    <path d="M12 16v6"/>
+  </symbol>
+
+  <symbol id="icon-cloud-snow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M20 17.6A5 5 0 0 0 18 8h-1.3A8 8 0 1 0 4 16.3"/>
+    <path d="M8 16h.01"/>
+    <path d="M8 20h.01"/>
+    <path d="M12 18h.01"/>
+    <path d="M12 22h.01"/>
+    <path d="M16 16h.01"/>
+    <path d="M16 20h.01"/>
+  </symbol>
+
+  <symbol id="icon-edit" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+    <path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4z"/>
+  </symbol>
+
+  <symbol id="icon-trash" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <polyline points="3 6 5 6 21 6"/>
+    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+    <line x1="10" y1="11" x2="10" y2="17"/>
+    <line x1="14" y1="11" x2="14" y2="17"/>
+  </symbol>
+
+  <symbol id="icon-ban" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="12" cy="12" r="10"/>
+    <line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/>
+  </symbol>
+
+  <symbol id="icon-menu" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <line x1="3" y1="6" x2="21" y2="6"/>
+    <line x1="3" y1="12" x2="21" y2="12"/>
+    <line x1="3" y1="18" x2="21" y2="18"/>
+  </symbol>
+
+  <symbol id="icon-info" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="12" cy="12" r="10"/>
+    <line x1="12" y1="16" x2="12" y2="12"/>
+    <line x1="12" y1="8" x2="12.01" y2="8"/>
+  </symbol>
+
+  <symbol id="icon-coffee" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M18 8h1a4 4 0 0 1 0 8h-1"/>
+    <path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"/>
+    <line x1="6" y1="1" x2="6" y2="4"/>
+    <line x1="10" y1="1" x2="10" y2="4"/>
+    <line x1="14" y1="1" x2="14" y2="4"/>
+  </symbol>
+
+  <symbol id="icon-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <line x1="12" y1="5" x2="12" y2="19"/>
+    <line x1="5" y1="12" x2="19" y2="12"/>
+  </symbol>
+
+  <symbol id="icon-minus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <line x1="5" y1="12" x2="19" y2="12"/>
+  </symbol>
+
+  <symbol id="icon-tag" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M20.59 13.41 11.42 22.6a2 2 0 0 1-2.83 0L2 16V2h14l4.59 4.59a2 2 0 0 1 0 2.82Z"/>
+    <line x1="7" y1="7" x2="7.01" y2="7"/>
+  </symbol>
+
+  <symbol id="icon-phone" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92Z"/>
+  </symbol>
+
+  <symbol id="icon-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <polyline points="20 6 9 17 4 12"/>
+  </symbol>
+
+  <symbol id="icon-bar-chart" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <line x1="18" y1="20" x2="18" y2="10"/>
+    <line x1="12" y1="20" x2="12" y2="4"/>
+    <line x1="6" y1="20" x2="6" y2="14"/>
+  </symbol>
+
+  <symbol id="icon-chevron-left" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <polyline points="15 18 9 12 15 6"/>
+  </symbol>
+
+  <symbol id="icon-chevron-right" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <polyline points="9 18 15 12 9 6"/>
+  </symbol>
+
+  <symbol id="icon-trending-up" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/>
+    <polyline points="17 6 23 6 23 12"/>
+  </symbol>
+
+  <symbol id="icon-pie-chart" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M21.21 15.89A10 10 0 1 1 8 2.83"/>
+    <path d="M22 12A10 10 0 0 0 12 2v10z"/>
+  </symbol>
+
+  <symbol id="icon-chevron-up" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <polyline points="18 15 12 9 6 15"/>
+  </symbol>
+
+  <symbol id="icon-chevron-down" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <polyline points="6 9 12 15 18 9"/>
+  </symbol>
+</svg>
+
+    <div class="app-shell">
+      <nav class="sidebar">
+  <div class="sidebar-header">
+    <div class="brand">店長のノート</div>
+    <button type="button" class="hamburger-btn" id="hamburger-btn" aria-label="メニューを開く">
+      <svg class="icon"><use href="#icon-menu"></use></svg>
+    </button>
+  </div>
+  <div class="nav-items" id="nav-items">
+    <a class="nav-item" data-page="dashboard" href="dashboard.html"><svg class="icon"><use href="#icon-bar-chart"></use></svg>ダッシュボード</a>
+    <a class="nav-item" data-page="sales" href="sales-entry.html"><svg class="icon"><use href="#icon-receipt"></use></svg>会計処理</a>
+    <a class="nav-item" data-page="menu" href="menu.html"><svg class="icon"><use href="#icon-utensils"></use></svg>商品管理</a>
+    <a class="nav-item" data-page="sales-stats" href="sales-stats.html"><svg class="icon"><use href="#icon-trending-up"></use></svg>売上統計</a>
+    <a class="nav-item" data-page="analysis-product" href="analysis-product.html"><svg class="icon"><use href="#icon-tag"></use></svg>商品統計</a>
+    <a class="nav-item" data-page="data-analysis" href="data-analysis.html"><svg class="icon"><use href="#icon-pie-chart"></use></svg>データ分析</a>
+    <a class="nav-item" data-page="customer" href="customer.html"><svg class="icon"><use href="#icon-user"></use></svg>顧客管理</a>
+    <a class="nav-item" data-page="seat" href="seat.html"><svg class="icon"><use href="#icon-armchair"></use></svg>座席管理</a>
+  </div>
+</nav>
+
+      <main class="main-content">
+        <div class="month-row">
+          <button type="button" class="icon-btn" id="month-prev" title="前月"><svg class="icon"><use href="#icon-chevron-left"></use></svg></button>
+          <input type="month" id="target-month">
+          <button type="button" class="icon-btn" id="month-next" title="翌月"><svg class="icon"><use href="#icon-chevron-right"></use></svg></button>
+        </div>
+
+        <div class="tabs" id="stats-tabs"></div>
+
+        <p id="load-error" class="error"></p>
+
+        <div class="tab-panel" id="panel-budget">
+          <div class="kpi-row">
+            <div class="kpi-tile primary">
+              <div class="kpi-label">目標売上</div>
+              <div class="kpi-value">¥<span id="kpi-target">0</span></div>
+            </div>
+            <div class="kpi-tile">
+              <div class="kpi-label">実績売上</div>
+              <div class="kpi-value">¥<span id="kpi-actual">0</span></div>
+            </div>
+            <div class="kpi-tile" id="kpi-rate-tile">
+              <div class="kpi-label">達成率</div>
+              <div class="kpi-value"><span id="kpi-rate">-</span></div>
+            </div>
+          </div>
+
+          <div class="card">
+            <h2>目標の登録・編集</h2>
+            <form id="target-form" class="form-row-inline">
+              <label for="target-amount">目標売上（円）</label>
+              <input type="number" id="target-amount" inputmode="numeric" min="0" step="1000" required>
+              <label for="target-note">備考</label>
+              <input type="text" id="target-note" placeholder="任意">
+              <button type="submit">保存</button>
+            </form>
+            <p id="save-message" style="color: var(--good);"></p>
+          </div>
+        </div>
+
+        <div class="tab-panel" id="panel-trend">
+          <div class="kpi-row">
+            <div class="kpi-tile primary">
+              <div class="kpi-label">当月実績</div>
+              <div class="kpi-value">¥<span id="kpi-current">0</span></div>
+            </div>
+            <div class="kpi-tile">
+              <div class="kpi-label">前月比</div>
+              <div class="kpi-value"><span id="kpi-mom" class="rate-value">-</span></div>
+              <div class="kpi-delta" id="kpi-mom-detail"></div>
+            </div>
+            <div class="kpi-tile">
+              <div class="kpi-label">前年同月比</div>
+              <div class="kpi-value"><span id="kpi-yoy" class="rate-value">-</span></div>
+              <div class="kpi-delta" id="kpi-yoy-detail"></div>
+            </div>
+          </div>
+
+          <div class="card">
+            <h2>直近12ヶ月の推移</h2>
+            <div class="bar-chart" id="trend-chart"></div>
+          </div>
+        </div>
+
+        <a class="back-link" href="dashboard.html">← ダッシュボードに戻る</a>
+      </main>
+    </div>
+
+    <script src="app.js"></script>
+    <script>
+      var currentTab = 'budget';
+      var TAB_LABELS = { budget: '予算実績', trend: '月次推移' };
+
+      function currentYearMonth() {
+        var d = new Date();
+        var mm = ('0' + (d.getMonth() + 1)).slice(-2);
+        return d.getFullYear() + '-' + mm;
+      }
+
+      function shiftMonth(value, direction) {
+        var parts = value.split('-');
+        var d = new Date(Number(parts[0]), Number(parts[1]) - 1 + direction, 1);
+        var mm = ('0' + (d.getMonth() + 1)).slice(-2);
+        return d.getFullYear() + '-' + mm;
+      }
+
+      var monthInput = document.getElementById('target-month');
+      monthInput.value = currentYearMonth();
+
+      document.getElementById('month-prev').addEventListener('click', function () {
+        monthInput.value = shiftMonth(monthInput.value, -1);
+        loadActiveTab();
+      });
+      document.getElementById('month-next').addEventListener('click', function () {
+        monthInput.value = shiftMonth(monthInput.value, 1);
+        loadActiveTab();
+      });
+      monthInput.addEventListener('change', loadActiveTab);
+
+      function renderTabs() {
+        var container = document.getElementById('stats-tabs');
+        container.innerHTML = '';
+        Object.keys(TAB_LABELS).forEach(function (key) {
+          var tab = document.createElement('button');
+          tab.type = 'button';
+          tab.className = 'tab' + (key === currentTab ? ' active' : '');
+          tab.textContent = TAB_LABELS[key];
+          tab.addEventListener('click', function () {
+            currentTab = key;
+            renderTabs();
+            renderPanels();
+            loadActiveTab();
+          });
+          container.appendChild(tab);
+        });
+      }
+
+      function renderPanels() {
+        document.getElementById('panel-budget').classList.toggle('active', currentTab === 'budget');
+        document.getElementById('panel-trend').classList.toggle('active', currentTab === 'trend');
+      }
+
+      function loadActiveTab() {
+        if (currentTab === 'budget') {
+          loadBudget();
+        } else {
+          loadTrend();
+        }
+      }
+
+      function loadBudget() {
+        document.getElementById('load-error').textContent = '';
+        document.getElementById('save-message').textContent = '';
+        google.script.run
+          .withSuccessHandler(renderBudget)
+          .withFailureHandler(function (error) {
+            document.getElementById('load-error').textContent = 'データの取得に失敗しました：' + error.message;
+          })
+          .getBudgetData(monthInput.value);
+      }
+
+      function renderBudget(data) {
+        document.getElementById('kpi-target').textContent = data.targetAmount;
+        document.getElementById('kpi-actual').textContent = data.actualAmount;
+        document.getElementById('target-amount').value = data.targetAmount;
+        document.getElementById('target-note').value = data.note;
+
+        var rateEl = document.getElementById('kpi-rate');
+        var tile = document.getElementById('kpi-rate-tile');
+        tile.classList.remove('achieved', 'behind');
+        if (data.achievementRate === null) {
+          rateEl.textContent = '目標未設定';
+        } else {
+          rateEl.textContent = data.achievementRate + '%';
+          tile.classList.add(data.achievementRate >= 100 ? 'achieved' : 'behind');
+        }
+      }
+
+      document.getElementById('target-form').addEventListener('submit', function (event) {
+        event.preventDefault();
+        document.getElementById('save-message').textContent = '';
+        document.getElementById('load-error').textContent = '';
+        google.script.run
+          .withSuccessHandler(function (data) {
+            renderBudget(data);
+            document.getElementById('save-message').textContent = '保存しました。';
+          })
+          .withFailureHandler(function (error) {
+            document.getElementById('load-error').textContent = '保存に失敗しました：' + error.message;
+          })
+          .saveBudgetTarget({
+            targetMonth: monthInput.value,
+            targetAmount: document.getElementById('target-amount').value,
+            note: document.getElementById('target-note').value
+          });
+      });
+
+      function loadTrend() {
+        document.getElementById('load-error').textContent = '';
+        google.script.run
+          .withSuccessHandler(renderTrend)
+          .withFailureHandler(function (error) {
+            document.getElementById('load-error').textContent = 'データの取得に失敗しました：' + error.message;
+          })
+          .getMonthlyTrendData(monthInput.value);
+      }
+
+      function renderRateTile(valueId, detailId, rate, compareAmount, compareLabel) {
+        var valueEl = document.getElementById(valueId);
+        var detailEl = document.getElementById(detailId);
+        valueEl.classList.remove('up', 'down');
+        if (rate === null) {
+          valueEl.textContent = '比較対象なし';
+          detailEl.textContent = '';
+          return;
+        }
+        valueEl.textContent = (rate > 0 ? '+' : '') + rate + '%';
+        valueEl.classList.add(rate >= 0 ? 'up' : 'down');
+        detailEl.textContent = compareLabel + '：¥' + compareAmount;
+      }
+
+      function renderTrend(data) {
+        document.getElementById('kpi-current').textContent = data.targetAmount;
+        renderRateTile('kpi-mom', 'kpi-mom-detail', data.momRate, data.prevAmount, data.prevMonth);
+        renderRateTile('kpi-yoy', 'kpi-yoy-detail', data.yoyRate, data.lastYearAmount, data.lastYearMonth);
+
+        var maxAmount = data.trend.reduce(function (max, t) { return Math.max(max, t.amount); }, 0);
+        var chart = document.getElementById('trend-chart');
+        chart.innerHTML = '';
+        data.trend.forEach(function (t) {
+          var col = document.createElement('div');
+          col.className = 'bar-col' + (t.month === data.targetMonth ? ' current' : '');
+          var amountLabel = document.createElement('div');
+          amountLabel.className = 'bar-amount';
+          amountLabel.textContent = t.amount > 0 ? '¥' + t.amount : '';
+          var bar = document.createElement('div');
+          bar.className = 'bar';
+          bar.style.height = (maxAmount > 0 ? Math.max((t.amount / maxAmount) * 100, t.amount > 0 ? 4 : 0) : 0) + '%';
+          var label = document.createElement('div');
+          label.className = 'bar-label';
+          label.textContent = Number(t.month.split('-')[1]) + '月';
+          col.appendChild(amountLabel);
+          col.appendChild(bar);
+          col.appendChild(label);
+          chart.appendChild(col);
+        });
+      }
+
+      renderTabs();
+      renderPanels();
+      loadActiveTab();
+    </script>
+  </body>
+</html>

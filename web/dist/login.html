@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>店長のノート - ログイン</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+      body {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+      }
+      .login-card {
+        width: 100%;
+        max-width: 320px;
+      }
+      .login-card h1 {
+        text-align: center;
+        margin-bottom: var(--space-lg);
+      }
+      .login-card input {
+        width: 100%;
+        margin-bottom: var(--space-sm);
+      }
+      .login-card button {
+        width: 100%;
+      }
+    </style>
+  </head>
+  <body>
+    <form class="card login-card" id="login-form">
+      <h1>店長のノート</h1>
+      <div class="form-row">
+        <input type="password" id="password" placeholder="パスワード" autofocus>
+      </div>
+      <p class="error" id="login-error"></p>
+      <div class="form-actions">
+        <button type="submit" class="btn-primary">ログイン</button>
+      </div>
+    </form>
+
+    <script src="config.js"></script>
+    <script src="api-client.js"></script>
+    <script>
+      if (PosApi.getToken()) {
+        location.href = 'dashboard.html';
+      }
+
+      document.getElementById('login-form').addEventListener('submit', function (event) {
+        event.preventDefault();
+        var errorEl = document.getElementById('login-error');
+        errorEl.textContent = '';
+        var password = document.getElementById('password').value;
+        PosApi.login(password).then(function () {
+          location.href = 'dashboard.html';
+        }).catch(function (error) {
+          errorEl.textContent = error.message;
+        });
+      });
+    </script>
+  </body>
+</html>

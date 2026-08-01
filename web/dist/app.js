@@ -1,0 +1,58 @@
+
+  // 単色SVGアイコン（shared/icons.htmlのスプライトを参照）のHTML文字列を返す
+  function iconSvg(name) {
+    return '<svg class="icon"><use href="#icon-' + name + '"></use></svg>';
+  }
+
+  (function () {
+    var currentPage = document.body.dataset.page;
+    document.querySelectorAll('.sidebar .nav-item').forEach(function (item) {
+      if (item.dataset.page === currentPage) {
+        item.classList.add('active');
+      }
+    });
+  })();
+
+  // ハンバーガーボタン（狭幅画面）でナビの開閉
+  (function () {
+    var hamburgerBtn = document.getElementById('hamburger-btn');
+    var navItems = document.getElementById('nav-items');
+    if (hamburgerBtn && navItems) {
+      hamburgerBtn.addEventListener('click', function () {
+        navItems.classList.toggle('open');
+      });
+    }
+  })();
+
+  // 補足説明ポップオーバー（.info-btnクリックで隣接する.popoverを開閉。外側クリックで閉じる）
+  document.addEventListener('click', function (event) {
+    var infoBtn = event.target.closest ? event.target.closest('.info-btn') : null;
+    if (infoBtn) {
+      var popover = infoBtn.parentElement.querySelector('.popover');
+      var wasOpen = popover.classList.contains('open');
+      document.querySelectorAll('.popover.open').forEach(function (p) { p.classList.remove('open'); });
+      if (!wasOpen) {
+        popover.classList.add('open');
+      }
+      return;
+    }
+    if (!event.target.closest('.popover')) {
+      document.querySelectorAll('.popover.open').forEach(function (p) { p.classList.remove('open'); });
+    }
+  });
+
+  function formatDateForInput(d) {
+    var mm = ('0' + (d.getMonth() + 1)).slice(-2);
+    var dd = ('0' + d.getDate()).slice(-2);
+    return d.getFullYear() + '-' + mm + '-' + dd;
+  }
+
+  // 日付表示欄の見出し用（例：2026年07月31日(金)）。dateStrは"yyyy-MM-dd"形式。
+  // new Date("yyyy-MM-dd")はUTC0時として解釈されるため、getUTC系で取り出してローカルの日付ズレを防ぐ
+  function formatFullDateWithWeekday(dateStr) {
+    var d = new Date(dateStr);
+    var days = ['日', '月', '火', '水', '木', '金', '土'];
+    var mm = ('0' + (d.getUTCMonth() + 1)).slice(-2);
+    var dd = ('0' + d.getUTCDate()).slice(-2);
+    return d.getUTCFullYear() + '年' + mm + '月' + dd + '日(' + days[d.getUTCDay()] + ')';
+  }
