@@ -23,6 +23,19 @@
 
 ### Removed
 
+## [2026-08-01]
+
+### Added
+
+- 外部フロントエンド（GitHub Pages配信の静的サイト、`web/`）を新設。GAS Webアプリの`/exec`URLへの遷移のたびに表示される「Google Apps Scriptで作成されたアプリケーションです」という警告を回避するため、UI層をGAS HtmlServiceの外に切り出した
+  - `src/server/Api.gs`：パスワード＋トークン方式の簡易認証付きJSON API（`doPost`）を新設。クライアントから呼び出せる関数は許可リスト（`API_ALLOWED_ACTIONS_`）で制限する
+  - GAS Webアプリのデプロイを2系統に分離：既存のGoogleアカウントログイン必須デプロイ（`main.gs`の`doGet`、旧画面用）はそのまま維持し、匿名アクセス可能な新デプロイ（`Api.gs`の`doPost`専用、`appsscript.json`の`access: "ANYONE_ANONYMOUS"`）を追加した
+  - `web/build.js`：`src/client/*.html`のGASスクリプトレット（`include()`等）を静的な`<link>`/`<script src>`に置換し`web/dist/`へビルドするNode標準ライブラリのみのビルドスクリプト。ソースは`src/client/`のまま一元化し、コードの重複を持たない
+  - `web/src/api-client.js`：`google.script.run`と同じ書式（`withSuccessHandler`/`withFailureHandler`）で呼び出せるfetchベースの互換シムを実装。既存8画面のJSは無改修のまま流用している
+  - `web/src/login.html`：パスワードログイン画面を新設。ログイン成功時のトークンは`localStorage`に保存し、各画面冒頭で有効性を確認する（`PosApi.requireAuth()`）
+  - `.github/workflows/deploy-pages.yml`：`main`へのpush時に自動ビルドしGitHub Pagesへデプロイするワークフローを追加
+  - 旧GAS版（`doGet`によるHtmlService配信）は新フロントエンドが安定稼働するまで並行稼働を継続する方針（切替時期は別途決定）
+
 ## [2026-07-31]
 
 ### Added

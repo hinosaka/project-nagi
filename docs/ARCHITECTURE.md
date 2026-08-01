@@ -11,6 +11,7 @@ GASでの実装方法・レイヤードアーキテクチャの構成を定義�
 5. [GAS特有の設計方針](#5-gas特有の設計方針)
 6. [エラーハンドリング方針](#6-エラーハンドリング方針)
 7. [拡張・変更時の指針](#7-拡張変更時の指針)
+8. [外部フロントエンド（web/）とAPI公開](#8-外部フロントエンドwebとapi公開)
 
 ## 1. 本ドキュメントについて
 
@@ -51,7 +52,17 @@ src/
 │   ├── application/                 # ユースケース関数（例：SalesService, MenuService）
 │   ├── domain/                      # 業務ロジック（例：SalesCalculator, VisitPolicy）
 │   └── repository/                  # シート別のデータアクセス（例：SalesRepository）
+│   └── Api.gs                       # 外部フロントエンド向けJSON API（doPost）。8章参照
 └── appsscript.json
+
+web/                                  # 外部フロントエンド（GitHub Pages配信）。8章参照
+├── build.js                          # src/client/*.htmlをweb/dist/へビルドするNodeスクリプト
+├── serve.js                          # ローカル動作確認用の簡易静的サーバー
+├── src/                              # ビルドスクリプトが直接読み込まない、手書きの追加ファイル
+│   ├── config.js                     # APIのURL設定
+│   ├── api-client.js                 # google.script.run互換のfetchシム
+│   └── login.html                    # ログイン画面
+└── dist/                             # ビルド生成物（gitignore対象。GitHub Actionsが都度生成）
 ```
 
 - `client/`はUI.mdの画面（SCR-XXX）に対応させる
@@ -93,3 +104,41 @@ src/
 - 新しいシート（DATABASE.md）の追加：`server/repository/`に対応するリポジトリを1つ追加する。他レイヤーはドメインオブジェクトの形しか知らないため影響範囲が閉じる
 - 新しい業務ルールの追加：まずドメイン層に置けないか検討する（Spreadsheetに依存しないロジックはドメイン層に集約し、テストしやすくする）
 - 既存レイヤーをまたぐ変更が必要になった場合は、層の役割分担（本ドキュメント2章）を見直す前に、まず本当に層の境界が誤っていないか疑う
+
+## 8. 外部フロントエンド（web/）とAPI公開
+
+### 8.1 背景
+
+GAS Webアプリ（`webapp.access: "ANYONE"`）は、`/exec` URLへ遷移するたびにGoogleアカウントへのログインと「Google Apps Scriptのユーザーによって作成されたアプリケーションです」という未検証アプリの警告表示を要求する。この挙動はGAS HtmlServiceの仕様であり、UI層をGASの外（静的ホスティング）に切り出す以外に恒久的な回避策がないと判断し、`client/`のHTML/JS資産はそのままに、UI層をGitHub Pagesで配信する構成へ移行した。
+
+### 8.2 構成
+
+- UI層（`web/`）：`src/client/*.html`をビルドしたプレーンな静的HTML/CSS/JS。GitHub Pagesで配信し、`google.script.run`の代わりに`fetch`でGASのJSON APIを呼び出す
+- アプリケーション層の一部（`src/server/Api.gs`）：`doPost`をエントリーポイントとするJSON API。既存の`application/`層の関数（`getMenuList`等）をそのまま呼び出す。新しいドメイン・データアクセスロジックは追加しない
+- GASのデプロイを2系統持つ：
+  - 旧デプロイ（`doGet`、`access: "ANYONE"`）：Googleアカウントログイン必須。旧UI（`client/*.html`を直接HtmlServiceで配信）が新フロントエンド安定稼働まで並行稼働する
+  - API用デプロイ（`doPost`、`access: "ANYONE_ANONYMOUS"`）：匿名アクセス可。新フロントエンドの`fetch`呼び出し専用。同一スクリプトプロジェクトの別デプロイとして作成し、旧デプロイのアクセス設定に影響しない
+  - `appsscript.json`の`webapp`設定は新規デプロイ作成時の初期値としてのみ使われる。デプロイ済みのバージョンは作成時点の設定を保持し続けるため、マニフェストを変更しても既存デプロイのアクセスレベルは変わらない
+
+### 8.3 認証
+
+- 店舗規模（店主のみが管理）を踏まえ、パスワード＋トークン方式の簡易認証を採用。個別ユーザーアカウント管理は行わない
+- パスワードは`PropertiesService`にのみ保存し、コードにハードコードしない。初回のみApps Scriptエディタから`setApiPassword()`を手動実行するか、プロジェクト設定のスクリプトプロパティに直接`API_PASSWORD`を設定する（`setupDatabase()`と同じ運用方針）
+- ログイン成功時にUUIDトークンを発行し30日間有効（`API_TOKEN_TTL_MS_`）。トークンはブラウザの`localStorage`に保存する
+- クライアントから呼び出し可能な関数は`Api.gs`の`API_ALLOWED_ACTIONS_`許可リストで制限する（`doGet`・`include`・`setupDatabase`等の内部/管理用関数は含めない）
+
+### 8.4 通信方式
+
+- POSTボディの`Content-Type`は`text/plain`固定とする。`application/json`にするとブラウザがCORSプリフライト（OPTIONS）を送るが、GAS WebアプリはプリフライトOPTIONSに正しく応答できずエラーになるため
+- リクエスト形式：`{ action, token, args }`をJSON文字列化してPOSTボディに格納する（ログインのみ`{ action: 'login', password }`でtoken不要）
+- ページ遷移直後の初回呼び出しに限り、ブラウザ側のネットワーク層で一過性の`TypeError: Failed to fetch`が発生することがあるため、`web/src/api-client.js`はこの種のエラーに限定して1回だけ自動再試行する
+
+### 8.5 `google.script.run`互換シム
+
+既存8画面のクライアントJSは`google.script.run.withSuccessHandler(...).withFailureHandler(...).関数名(引数)`という書式に依存しており、GASのAPIをfetchベースに置き換える際にこれらの呼び出し箇所（約30箇所）を書き換えるのは変更量・リスクともに大きい。そこで`web/src/api-client.js`が`google.script.run`と同じ書式で呼び出せるProxyベースの互換オブジェクトを提供し、実体をfetch呼び出しに差し替える。この方式により、`client/*.html`のJSは一切変更せずに新フロントエンドへ流用している。
+
+### 8.6 ビルド
+
+- フレームワークは使用しない（`web/build.js`はNode標準ライブラリのみ）。`src/client/*.html`を唯一の情報源とし、GAS専用のスクリプトレット（`<?!= include(...) ?>`等）だけを静的な同等物（`<link>`/`<script src>`やファイルへのハイパーリンク）に機械的に置換して`web/dist/`へ出力する
+- 共通CSS/JS/アイコン（`shared/stylesheet.html`等）もGAS版と共用し、`web/`側に複製を持たない
+- `web/dist/`はビルド生成物のためgit管理対象外（`.gitignore`）とし、`main`へのpush時に`.github/workflows/deploy-pages.yml`が都度ビルドしGitHub Pagesへデプロイする
