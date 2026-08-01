@@ -18,20 +18,14 @@
       .year-label { font-weight: 700; font-size: 1.05em; padding: 6px 10px; }
       .period-range-note { color: var(--ink-muted); font-size: 0.85em; }
 
-      .stats-body.loading { opacity: 0.5; pointer-events: none; transition: opacity 0.15s; }
-
       .top-row { display: grid; grid-template-columns: 1.4fr 1fr; gap: var(--space-md); margin-bottom: var(--space-md); }
       @media (max-width: 640px) { .top-row { grid-template-columns: 1fr; } }
 
-      .budget-actual-labels, .budget-actual-subs { display: grid; grid-template-columns: 1fr 1fr; }
-      .budget-actual-labels span, .budget-actual-subs span { font-size: 0.78em; color: var(--ink-muted); }
-      .budget-actual-labels span:first-child, .budget-actual-subs span:first-child { text-align: right; padding-right: 12px; }
-      .budget-actual-labels span:last-child, .budget-actual-subs span:last-child { text-align: left; padding-left: 12px; }
-      .budget-actual-values { display: grid; grid-template-columns: 1fr auto 1fr; align-items: baseline; gap: var(--space-sm); margin: 2px 0; }
-      .budget-actual-values .value { font-size: 1.5em; font-weight: 700; font-variant-numeric: tabular-nums; }
-      .budget-actual-values .value.target { color: var(--ink-muted); text-align: right; }
-      .budget-actual-values .value.actual { color: var(--ai); text-align: left; }
-      .budget-actual-values .divider { color: var(--border); font-weight: 300; }
+      /* ===== 予実カード（ダッシュボードのKPI詳細カードと同じ構成・文字サイズ） ===== */
+      .kpi-detail-cols { grid-template-columns: repeat(2, 1fr); }
+      .kpi-detail-col .kpi-label { font-weight: 700; }
+      #kpi-budget { color: var(--ink-muted); }
+      #kpi-actual { color: var(--ai); }
 
       .donut-card { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
       .donut-wrap { position: relative; width: 110px; height: 110px; margin: 0 auto; }
@@ -57,9 +51,12 @@
       .combo-axis-labels { display: flex; gap: 3px; padding-right: 44px; margin-top: 4px; }
       .combo-axis-label { flex: 1; min-width: 4px; font-size: 0.65em; color: var(--ink-muted); text-align: center; white-space: nowrap; overflow: hidden; }
 
-      .variance-chart-wrap { position: relative; height: 180px; margin-top: var(--space-sm); }
-      .variance-zero-line { position: absolute; left: 0; right: 0; top: 50%; border-top: 1px solid var(--ink-muted); }
-      .variance-bars { position: absolute; inset: 0; display: flex; gap: 3px; }
+      .variance-chart-wrap { position: relative; height: 180px; margin-top: var(--space-sm); padding-right: 44px; }
+      .variance-zero-line { position: absolute; left: 0; right: 44px; top: 50%; border-top: 1px solid var(--ink-muted); }
+      .variance-gridlines { position: absolute; inset: 0; }
+      .variance-gridline { position: absolute; left: 0; right: 44px; border-top: 1px dashed var(--border); }
+      .variance-gridline-label { position: absolute; right: -44px; width: 40px; text-align: right; transform: translateY(-0.6em); font-size: 0.68em; color: var(--ink-muted); font-variant-numeric: tabular-nums; }
+      .variance-bars { position: absolute; inset: 0; right: 44px; display: flex; gap: 3px; }
       .variance-col { flex: 1; min-width: 4px; position: relative; }
       .variance-bar { position: absolute; left: 0; right: 0; border-radius: 2px; min-height: 1px; }
       .variance-bar.up { background: var(--good); }
@@ -70,6 +67,7 @@
 
       .table-scroll { overflow-x: auto; max-width: 100%; }
       #stats-table { font-variant-numeric: tabular-nums; }
+      #stats-table tbody tr:nth-child(even) { background: none; }
       #stats-table th, #stats-table td { text-align: right; white-space: nowrap; }
       #stats-table th:first-child, #stats-table td:first-child { text-align: left; }
       tr.total-row td { font-weight: 700; border-top: 2px solid var(--ink); background: var(--surface-2); }
@@ -92,10 +90,17 @@
         <div class="period-row" id="period-row-day">
           <div class="date-nav-row">
             <button type="button" class="icon-btn" id="day-prev"><svg class="icon"><use href="#icon-chevron-left"></use></svg></button>
-            <span class="date-display-wrap">
-              <span id="day-period-label"></span>
-              <input type="month" id="day-month-input">
-            </span>
+            <div class="month-picker-wrap" id="day-month-wrap">
+              <button type="button" class="month-select" id="day-month-btn"></button>
+              <div class="month-picker-popover" id="day-month-popover">
+                <div class="month-picker-year-row">
+                  <button type="button" class="icon-btn" id="day-picker-year-prev"><svg class="icon"><use href="#icon-chevron-left"></use></svg></button>
+                  <span id="day-picker-year-label"></span>
+                  <button type="button" class="icon-btn" id="day-picker-year-next"><svg class="icon"><use href="#icon-chevron-right"></use></svg></button>
+                </div>
+                <div class="month-picker-grid" id="day-picker-grid"></div>
+              </div>
+            </div>
             <button type="button" class="icon-btn" id="day-next"><svg class="icon"><use href="#icon-chevron-right"></use></svg></button>
           </div>
           <div class="period-range-note" id="day-range-note"></div>
@@ -117,17 +122,23 @@
 
         <p id="load-error" class="error"></p>
 
-        <div class="stats-body" id="stats-body">
+        <div class="loading-wrap" id="stats-loading-wrap">
+        <div class="stats-body loading-target" id="stats-body">
           <div class="top-row">
             <div class="card">
               <div class="kpi-scope-note" id="kpi-scope-note" style="display:none;"></div>
-              <div class="budget-actual-labels"><span>予算</span><span>実績</span></div>
-              <div class="budget-actual-values">
-                <span class="value target" id="kpi-budget">-</span>
-                <span class="divider">｜</span>
-                <span class="value actual" id="kpi-actual">-</span>
+              <div class="kpi-detail-cols">
+                <div class="kpi-detail-col">
+                  <div class="kpi-label">予算</div>
+                  <div class="kpi-value-row"><span class="kpi-value" id="kpi-budget">-</span></div>
+                  <div class="kpi-extra" id="kpi-budget-sub"></div>
+                </div>
+                <div class="kpi-detail-col">
+                  <div class="kpi-label">実績</div>
+                  <div class="kpi-value-row"><span class="kpi-value" id="kpi-actual">-</span></div>
+                  <div class="kpi-extra" id="kpi-actual-sub"></div>
+                </div>
               </div>
-              <div class="budget-actual-subs"><span id="kpi-budget-sub"></span><span id="kpi-actual-sub"></span></div>
             </div>
             <div class="card donut-card">
               <div class="donut-wrap">
@@ -159,6 +170,7 @@
           <h2>予算比</h2>
           <div class="card">
             <div class="variance-chart-wrap">
+              <div class="variance-gridlines" id="variance-gridlines"></div>
               <div class="variance-zero-line"></div>
               <div class="variance-bars" id="variance-bars"></div>
             </div>
@@ -171,7 +183,7 @@
               <table id="stats-table">
                 <thead>
                   <tr>
-                    <th id="th-period">日付</th><th>売上(税込)</th><th>内消費税</th><th>会計数</th><th>客単価</th><th>フード</th><th>ドリンク</th><th>予算</th><th>予算比</th>
+                    <th id="th-period">日付</th><th>売上(税込)</th><th>内税</th><th>組数</th><th>人数</th><th>客単価</th><th>フード売上</th><th>ドリンク売上</th><th>予算</th><th>予算比</th>
                   </tr>
                 </thead>
                 <tbody id="stats-table-body"></tbody>
@@ -181,6 +193,8 @@
               </table>
             </div>
           </div>
+        </div>
+        <div class="loading-overlay"><div class="loading-overlay-pill"><span class="loading-spinner"></span><span>読み込み中...</span></div></div>
         </div>
       </main>
     </div>
@@ -203,7 +217,17 @@
         return d.getFullYear() + '-' + mm;
       }
 
-      document.getElementById('day-month-input').value = dayMonth;
+      // 年×12マスの月選択ポップオーバー（共通部品。shared/javascript.html参照）
+      var dayMonthPicker = createMonthPicker({
+        btnId: 'day-month-btn',
+        popoverId: 'day-month-popover',
+        yearLabelId: 'day-picker-year-label',
+        gridId: 'day-picker-grid',
+        yearPrevId: 'day-picker-year-prev',
+        yearNextId: 'day-picker-year-next',
+        getCurrentMonth: function () { return dayMonth; },
+        onSelect: function (newMonth) { dayMonth = newMonth; renderPeriodRow(); load(); }
+      });
 
       function renderPeriodRow() {
         document.getElementById('period-row-day').style.display = currentUnit === 'day' ? '' : 'none';
@@ -211,9 +235,7 @@
         document.getElementById('period-row-year').style.display = currentUnit === 'year' ? '' : 'none';
 
         if (currentUnit === 'day') {
-          var parts = dayMonth.split('-');
-          document.getElementById('day-period-label').textContent = parts[0] + '年' + Number(parts[1]) + '月';
-          document.getElementById('day-month-input').value = dayMonth;
+          dayMonthPicker.refreshLabel();
         } else if (currentUnit === 'month') {
           document.getElementById('month-period-label').textContent = monthYear + '年';
         }
@@ -221,7 +243,6 @@
 
       document.getElementById('day-prev').addEventListener('click', function () { dayMonth = shiftYearMonth(dayMonth, -1); renderPeriodRow(); load(); });
       document.getElementById('day-next').addEventListener('click', function () { dayMonth = shiftYearMonth(dayMonth, 1); renderPeriodRow(); load(); });
-      document.getElementById('day-month-input').addEventListener('change', function () { dayMonth = this.value; renderPeriodRow(); load(); });
       document.getElementById('month-prev').addEventListener('click', function () { monthYear = String(Number(monthYear) - 1); renderPeriodRow(); load(); });
       document.getElementById('month-next').addEventListener('click', function () { monthYear = String(Number(monthYear) + 1); renderPeriodRow(); load(); });
 
@@ -242,7 +263,7 @@
       }
 
       function setLoading(isLoading) {
-        document.getElementById('stats-body').classList.toggle('loading', isLoading);
+        document.getElementById('stats-loading-wrap').classList.toggle('is-loading', isLoading);
         document.querySelectorAll('#unit-tabs .toggle-tab').forEach(function (btn) { btn.disabled = isLoading; });
       }
 
@@ -402,7 +423,11 @@
         axisWrap.innerHTML = '';
         gridWrap.innerHTML = '';
 
-        var maxAmount = items.reduce(function (m, it) { return Math.max(m, it.amount); }, 0);
+        // 目盛りの最大値は実績だけでなく予算ラインも含めて決める（含めないと、予算が実績より
+        // 大きい場合に目標線がスケール外（画面外）になり、動いていないように見えてしまうため）
+        var maxAmount = items.reduce(function (m, it) {
+          return Math.max(m, it.amount, it.hasBudget ? it.budget : 0);
+        }, 0);
         var niceMax = maxAmount > 0 ? Math.ceil(maxAmount / 4 / 1000) * 4 * 1000 : 1;
         [0, 0.5, 1].forEach(function (frac) {
           var line = document.createElement('div');
@@ -484,18 +509,35 @@
         svgEl.appendChild(path);
       }
 
-      // 予算比：実績がない（休業日・未到来）か予算が未設定の項目はニュートラルな印にする
+      // 予算比：実績がない（休業日・未到来）か予算が未設定の項目はニュートラルな印にする。
+      // 目盛り線で上振れ・下振れがおおよそいくらぐらいかを分かるようにする
       function renderVarianceChart(data) {
         var items = data.items;
         var barsWrap = document.getElementById('variance-bars');
         var axisWrap = document.getElementById('variance-axis');
+        var gridWrap = document.getElementById('variance-gridlines');
         barsWrap.innerHTML = '';
         axisWrap.innerHTML = '';
+        gridWrap.innerHTML = '';
 
         var maxAbs = items.reduce(function (m, it) {
           if (!it.hasBudget || it.amount === 0) { return m; }
           return Math.max(m, Math.abs(it.amount - it.budget));
         }, 1);
+        var niceAbs = maxAbs > 1 ? Math.ceil(maxAbs / 1000) * 1000 : 1;
+
+        [0.5, 1].forEach(function (frac) {
+          [1, -1].forEach(function (sign) {
+            var line = document.createElement('div');
+            line.className = 'variance-gridline';
+            line.style.top = (50 - sign * frac * 48) + '%';
+            var label = document.createElement('span');
+            label.className = 'variance-gridline-label';
+            label.textContent = (sign > 0 ? '+' : '−') + '¥' + Math.round(niceAbs * frac).toLocaleString();
+            line.appendChild(label);
+            gridWrap.appendChild(line);
+          });
+        });
 
         items.forEach(function (it) {
           var col = document.createElement('div');
@@ -506,7 +548,7 @@
             col.appendChild(neutral);
           } else {
             var diff = it.amount - it.budget;
-            var pct = (Math.abs(diff) / maxAbs) * 48;
+            var pct = (Math.abs(diff) / niceAbs) * 48;
             var bar = document.createElement('div');
             if (diff >= 0) {
               bar.className = 'variance-bar up';
@@ -547,6 +589,7 @@
             '<td>' + it.amount.toLocaleString() + '</td>' +
             '<td>' + it.tax.toLocaleString() + '</td>' +
             '<td>' + it.count + '組</td>' +
+            '<td>' + it.partySize + '人</td>' +
             '<td>' + it.avgAmount.toLocaleString() + '</td>' +
             '<td>' + it.foodAmount.toLocaleString() + '</td>' +
             '<td>' + it.drinkAmount.toLocaleString() + '</td>' +
@@ -561,6 +604,7 @@
           '<td>' + t.amount.toLocaleString() + '</td>' +
           '<td>' + t.tax.toLocaleString() + '</td>' +
           '<td>' + t.count + '組</td>' +
+          '<td>' + t.partySize + '人</td>' +
           '<td>' + t.avgAmount.toLocaleString() + '</td>' +
           '<td>' + t.foodAmount.toLocaleString() + '</td>' +
           '<td>' + t.drinkAmount.toLocaleString() + '</td>' +

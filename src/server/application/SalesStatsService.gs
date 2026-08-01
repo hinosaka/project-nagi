@@ -42,6 +42,7 @@ function getSalesStatsData(unit, periodKey) {
   items.forEach(function (item) {
     item.amount = 0;
     item.count = 0;
+    item.partySize = 0;
     item.foodAmount = 0;
     item.drinkAmount = 0;
     itemByKey[item.key] = item;
@@ -54,6 +55,7 @@ function getSalesStatsData(unit, periodKey) {
     }
     item.amount += Number(s.TotalAmount) || 0;
     item.count += 1;
+    item.partySize += Number(s.PartySize) || 0;
     (detailsBySalesId[s.SalesId] || []).forEach(function (d) {
       var subtotal = Number(d.Subtotal) || 0;
       if (d.CategoryLarge === 'フード') {
@@ -155,11 +157,12 @@ function buildSalesStatsYearItems_(targetByMonth) {
 // ----- 合計行 -----
 
 function sumSalesStatsItems_(items) {
-  var totals = { amount: 0, tax: 0, count: 0, foodAmount: 0, drinkAmount: 0, budget: 0, hasBudget: false };
+  var totals = { amount: 0, tax: 0, count: 0, partySize: 0, foodAmount: 0, drinkAmount: 0, budget: 0, hasBudget: false };
   items.forEach(function (item) {
     totals.amount += item.amount;
     totals.tax += item.tax;
     totals.count += item.count;
+    totals.partySize += item.partySize;
     totals.foodAmount += item.foodAmount;
     totals.drinkAmount += item.drinkAmount;
     if (item.hasBudget) {

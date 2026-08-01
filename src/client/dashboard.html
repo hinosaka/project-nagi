@@ -54,10 +54,7 @@
       .kpi-sub-line { display: flex; justify-content: space-between; font-size: 0.8em; color: var(--ai); opacity: 0.85; padding: 2px 0; }
       .kpi-sub-line .val { font-variant-numeric: tabular-nums; }
 
-      .kpi-detail-cols { display: grid; grid-template-columns: repeat(3, 1fr); }
-      .kpi-detail-col { padding: 0 var(--space-md); text-align: center; }
-      .kpi-detail-col .kpi-extra { font-size: 0.72em; color: var(--ink-muted); margin-top: 2px; }
-      .kpi-detail-col:not(:first-child) { border-left: 1px solid var(--border); }
+      .kpi-detail-cols { grid-template-columns: repeat(3, 1fr); }
       .kpi-turnover-row {
         margin-top: var(--space-sm); padding-top: var(--space-sm); border-top: 1px solid var(--border);
         display: flex; align-items: baseline; gap: var(--space-sm);
@@ -65,8 +62,6 @@
       .kpi-turnover-row .kpi-label { margin: 0; }
       .kpi-turnover-row .kpi-value { font-size: 1.1em; margin: 0; }
 
-      .kpi-value-row { display: flex; align-items: baseline; gap: var(--space-sm); flex-wrap: wrap; margin-top: 2px; }
-      .kpi-detail-col .kpi-value-row { justify-content: center; }
       .kpi-label { font-weight: 700; }
       .kpi-sub { font-size: 0.6em; font-weight: 400; color: inherit; opacity: 0.8; }
       .kpi-delta { font-size: 0.8em; font-variant-numeric: tabular-nums; display: inline-flex; align-items: center; gap: 2px; }

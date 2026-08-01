@@ -431,6 +431,14 @@
   .kpi-delta.up { color: var(--good); }
   .kpi-delta.down { color: var(--bad); }
 
+  /* ===== KPI詳細カード（複数指標を横並びの列で見せる。列数は利用側でgrid-template-columnsを指定） ===== */
+  .kpi-detail-cols { display: grid; }
+  .kpi-detail-col { padding: 0 var(--space-md); text-align: center; }
+  .kpi-detail-col .kpi-extra { font-size: 0.72em; color: var(--ink-muted); margin-top: 2px; }
+  .kpi-detail-col:not(:first-child) { border-left: 1px solid var(--border); }
+  .kpi-value-row { display: flex; align-items: baseline; gap: var(--space-sm); flex-wrap: wrap; margin-top: 2px; }
+  .kpi-detail-col .kpi-value-row { justify-content: center; }
+
   /* ===== 構成比バー（フード/ドリンク比率など） ===== */
   .split-bar {
     display: flex;
