@@ -42,6 +42,8 @@
       .donut-pct.achieved { color: var(--good); }
       .donut-pct.behind { color: var(--warn); }
       .donut-pct.none { color: var(--ink-muted); font-size: 0.85em; }
+      .pace-note { font-size: 0.72em; color: var(--ink-muted); margin-top: 4px; text-align: center; }
+      .kpi-scope-note { font-size: 0.78em; color: var(--ink-muted); margin-bottom: var(--space-xs); }
 
       .combo-chart-wrap { position: relative; height: 200px; margin-top: var(--space-sm); }
       .combo-gridlines { position: absolute; inset: 0; }
@@ -118,6 +120,7 @@
         <div class="stats-body" id="stats-body">
           <div class="top-row">
             <div class="card">
+              <div class="kpi-scope-note" id="kpi-scope-note" style="display:none;"></div>
               <div class="budget-actual-labels"><span>予算</span><span>実績</span></div>
               <div class="budget-actual-values">
                 <span class="value target" id="kpi-budget">-</span>
@@ -133,9 +136,11 @@
                   <circle cx="21" cy="21" r="15.9155" fill="transparent" stroke-width="4" stroke-linecap="round" id="donut-arc"></circle>
                 </svg>
                 <div class="donut-center">
-                  <div class="donut-caption-top">予算達成率</div>
+                  <div class="donut-caption-top" id="donut-caption-top">予算達成率</div>
                   <div class="donut-pct" id="donut-pct">-</div>
                 </div>
+              </div>
+              <div class="pace-note" id="pace-note" style="display:none;">
               </div>
             </div>
           </div>
@@ -311,6 +316,46 @@
           arc.setAttribute('stroke', 'var(--border)');
           arc.setAttribute('stroke-dasharray', '0 100');
         }
+
+        renderPaceNote(data, t);
+
+        var scopeNoteEl = document.getElementById('kpi-scope-note');
+        var donutCaptionEl = document.getElementById('donut-caption-top');
+        if (currentUnit === 'year') {
+          scopeNoteEl.textContent = '今年（' + new Date().getFullYear() + '年）の実績（下のグラフは直近10年分）';
+          scopeNoteEl.style.display = '';
+          donutCaptionEl.textContent = '予算達成率（今年）';
+        } else {
+          scopeNoteEl.style.display = 'none';
+          donutCaptionEl.textContent = '予算達成率';
+        }
+      }
+
+      // 期間の途中時点では達成率が低く見えがちなため、経過日数／経過月数ベースの目安を併記する
+      // （例：31日中24日経過なら77%が「順調」の目安。達成率が80%でもペースは上回っている、という早合点防止）
+      function renderPaceNote(data, totals) {
+        var noteEl = document.getElementById('pace-note');
+        if (!totals.hasBudget) {
+          noteEl.style.display = 'none';
+          return;
+        }
+        var paceRate = null;
+        if (currentUnit === 'day') {
+          var todayYm = formatDateForInput(new Date()).slice(0, 7);
+          if (todayYm === dayMonth) {
+            paceRate = Math.round((new Date().getDate() / data.items.length) * 1000) / 10;
+          }
+        } else if (currentUnit === 'month') {
+          if (String(new Date().getFullYear()) === monthYear) {
+            paceRate = Math.round(((new Date().getMonth() + 1) / 12) * 1000) / 10;
+          }
+        }
+        if (paceRate === null) {
+          noteEl.style.display = 'none';
+          return;
+        }
+        noteEl.textContent = '経過ペース目安：' + paceRate + '%';
+        noteEl.style.display = '';
       }
 
       function todayCoverageNote(data) {

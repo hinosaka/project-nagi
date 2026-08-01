@@ -89,6 +89,8 @@ web/                                  # 外部フロントエンド（GitHub Pag
 - スプレッドシートへの直接アクセスを防ぐ実装（方針の根拠は [DATABASE.md](./DATABASE.md) の「データ管理方針」参照）
 - ページルーティング：GASのWebアプリは`doGet`を1つしか持てないため、`e.parameter.page`（例：`?page=menu`）でHTMLファイルを出し分ける（`server/main.gs`の`PAGE_FILES`）。画面内の遷移リンクは相対パス（`href="?page=xxx"`）ではなく絶対URLで書く必要がある。Webアプリの`/exec` URLはアクセス時に`googleusercontent.com`のURLへリダイレクトされ、相対リンクはリダイレクト後のURLを基準に解決されて壊れるため。`doGet`で`template.baseUrl = ScriptApp.getService().getUrl()`をセットし、各画面で`<a href="<?= baseUrl ?>?page=xxx">`のように使う
 - スプレッドシートIDの保持：`PropertiesService.getScriptProperties()`に`SPREADSHEET_ID`として保存する。ハードコードしない（コード変更・再デプロイなしにDB切り替えができるようにするため）。初回のみ`server/setup.gs`の`setupDatabase()`をApps Scriptエディタから手動実行し、スプレッドシートの新規作成とID保存を行う（`clasp run`によるコマンド実行はAPI Executableデプロイ等の追加設定が必要になるため、現状の規模では採用しない）
+- 日付・年月文字列を主キー/検索キーに使う列（`SalesTarget.TargetMonth`, `DailyTarget.TargetDate`等）の注意点：`"2026-07"`のような文字列をシートに書き込んでも、Googleスプレッドシートが自動的に日付型（Dateオブジェクト）に変換して保存することがある。セルの見た目は元の文字列のままに見えても、`getValues()`で読み込むと実体はDateオブジェクトになっており、文字列比較（`===`）や配列インデックスのキーに使うと常に不一致になる。該当列を読むリポジトリは`SheetUtil.normalizeDateKey(value, format)`で"yyyy-MM"等の文字列へ正規化してから返す（データアクセス層の責務。4章の「シートの生の行を上位層に渡さない」原則の実例）
+- 日本の祝日データ：Googleが公開している祝日カレンダー（`CalendarApp.getCalendarById('ja.japanese#holiday@group.v.calendar.google.com')`）から取得する。自前のマスタ管理は不要。`webapp.executeAs: "USER_DEPLOYING"`のため、カレンダーへのアクセス権限は店主のアカウントで一度だけ許可すれば全利用者分をカバーできる（`setupDatabase()`と同様、Apps Scriptエディタから対象APIを呼ぶ関数を一度手動実行して許可する）
 - TODO：AI分析機能で外部APIを呼び出す場合の技術的な制約（タイムアウト・リトライ等）への対応方針（実装着手前に決定）
 
 ## 6. エラーハンドリング方針

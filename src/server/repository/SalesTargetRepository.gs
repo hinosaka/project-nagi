@@ -2,10 +2,15 @@
 var SalesTargetRepository = {
   HEADERS: ['SalesTargetId', 'TargetMonth', 'TargetAmount', 'Note'],
 
+  // TargetMonthはGoogleスプレッドシートが自動的に日付型に変換して保存することがあるため、
+  // 読み込み時に"yyyy-MM"形式の文字列へ正規化する（SheetUtil.normalizeDateKey参照）
   findAll: function () {
     var sheet = SpreadsheetConfig.getSheet('SalesTarget');
     var values = sheet.getDataRange().getValues();
-    return SheetUtil.rowsToObjects(values);
+    return SheetUtil.rowsToObjects(values).map(function (t) {
+      t.TargetMonth = SheetUtil.normalizeDateKey(t.TargetMonth, 'yyyy-MM');
+      return t;
+    });
   },
 
   findByMonth: function (targetMonth) {

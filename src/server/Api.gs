@@ -14,14 +14,14 @@ var API_TOKEN_TTL_MS_ = 30 * 24 * 60 * 60 * 1000; // 30日
 // クライアント（ブラウザ）から呼び出せる関数のみ許可する（許可リスト方式）。
 // setupDatabase・doGet・include等の管理用/内部関数は含めない
 var API_ALLOWED_ACTIONS_ = [
-  'closeRegister', 'createCategory', 'createSubCategory', 'deactivateMenu', 'deleteFixedCostItem', 'deleteSalesEntry',
+  'closeRegister', 'createCategory', 'createSubCategory', 'deactivateMenu', 'deleteSalesEntry',
   'getAbcAnalysisData', 'getBudgetData', 'getBudgetDataForYear', 'getCashRegisterData', 'getCategoryList', 'getCustomerList',
-  'getCustomerOrderRanking', 'getDashboardData', 'getDayAnalysisData', 'getFixedCostPlan', 'getMenuList', 'getMenuManagementData',
-  'getProductAnalysisData', 'getSalesEntryData', 'getSalesStatsData', 'getSeatList', 'getSegmentAnalysisData',
-  'getSubCategoryList', 'getWeatherAnalysisData', 'moveSubCategory', 'reactivateMenu', 'registerCustomer',
-  'renameCategory', 'renameSubCategory', 'saveBudgetTarget', 'saveBusinessDayWeather',
-  'saveBusinessDayWeatherAndGetData', 'saveCustomerDetail', 'saveFixedCostItem', 'saveMenu', 'saveSalesEntry',
-  'saveStartingCash', 'saveTargetProfitRate', 'toggleSeatActive'
+  'getCustomerOrderRanking', 'getDailyTargetsForMonth', 'getDashboardData', 'getDayAnalysisData',
+  'getMenuList', 'getMenuManagementData', 'getProductAnalysisData', 'getSalesEntryData', 'getSalesStatsData', 'getSeatList',
+  'getSegmentAnalysisData', 'getSubCategoryList', 'getWeatherAnalysisData', 'moveSubCategory', 'reactivateMenu',
+  'registerCustomer', 'renameCategory', 'renameSubCategory', 'saveBudgetTarget', 'saveBudgetTargetsForYear',
+  'saveBusinessDayWeather', 'saveBusinessDayWeatherAndGetData', 'saveCustomerDetail', 'saveDailyTargetsForMonth',
+  'saveMenu', 'saveSalesEntry', 'saveStartingCash', 'toggleSeatActive'
 ];
 
 // Apps Scriptエディタから手動で一度だけ実行し、ログイン用パスワードを設定する

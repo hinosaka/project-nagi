@@ -15,6 +15,7 @@ function setupDatabase() {
   ensureRegisterCloseLogSheet_(spreadsheet);
   ensureFixedCostSheet_(spreadsheet);
   ensureBudgetSettingsSheet_(spreadsheet);
+  ensureDailyTargetSheet_(spreadsheet);
   ensureCategorySheet_(spreadsheet);
   ensureSubCategorySheet_(spreadsheet);
   ensureCategoryMasterSeeded_(spreadsheet);
@@ -138,7 +139,7 @@ function ensureFixedCostSheet_(spreadsheet) {
     return;
   }
   var sheet = spreadsheet.insertSheet('FixedCost');
-  sheet.appendRow(['FixedCostId', 'Name', 'Amount']);
+  sheet.appendRow(['FixedCostId', 'TargetMonth', 'Name', 'Amount']);
 }
 
 // 単一行のみを持つ設定シート。目標利益率（%の整数値）を2行目1列目に保持する
@@ -149,6 +150,14 @@ function ensureBudgetSettingsSheet_(spreadsheet) {
   var sheet = spreadsheet.insertSheet('BudgetSettings');
   sheet.appendRow(['TargetProfitRate']);
   sheet.appendRow([0]);
+}
+
+function ensureDailyTargetSheet_(spreadsheet) {
+  if (spreadsheet.getSheetByName('DailyTarget')) {
+    return;
+  }
+  var sheet = spreadsheet.insertSheet('DailyTarget');
+  sheet.appendRow(['DailyTargetId', 'TargetDate', 'TargetAmount']);
 }
 
 function ensureCategorySheet_(spreadsheet) {

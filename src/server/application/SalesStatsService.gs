@@ -76,24 +76,33 @@ function getSalesStatsData(unit, periodKey) {
 
 // ----- 各粒度のアイテムの骨組み（key・label・集計対象期間・予算）を作る -----
 
+// 日ごとの目標は、日別予算設定（予算管理）で明示的に設定されていればそれを優先し、
+// 未設定の日は月目標を日数按分した金額にフォールバックする
 function buildSalesStatsDayItems_(periodKey, targetByMonth) {
   var parts = periodKey.split('-');
   var year = Number(parts[0]);
   var month = Number(parts[1]);
   var daysInMonth = new Date(year, month, 0).getDate();
   var monthTarget = targetByMonth[periodKey] || 0;
-  var hasBudget = monthTarget > 0;
-  var dayTarget = hasBudget ? monthTarget / daysInMonth : 0;
+  var monthHasBudget = monthTarget > 0;
+  var fallbackDayTarget = monthHasBudget ? monthTarget / daysInMonth : 0;
+
+  var explicitByDate = {};
+  DailyTargetRepository.findByMonth(periodKey).forEach(function (t) {
+    explicitByDate[t.TargetDate] = Number(t.TargetAmount) || 0;
+  });
 
   var items = [];
   for (var day = 1; day <= daysInMonth; day++) {
+    var dateKey = DateUtil.formatYmd(new Date(year, month - 1, day));
+    var hasExplicit = explicitByDate.hasOwnProperty(dateKey);
     items.push({
-      key: DateUtil.formatYmd(new Date(year, month - 1, day)),
+      key: dateKey,
       label: month + '/' + day,
       start: new Date(year, month - 1, day, 0, 0, 0, 0),
       end: new Date(year, month - 1, day, 23, 59, 59, 999),
-      budget: dayTarget,
-      hasBudget: hasBudget
+      budget: hasExplicit ? explicitByDate[dateKey] : fallbackDayTarget,
+      hasBudget: hasExplicit || monthHasBudget
     });
   }
   return items;

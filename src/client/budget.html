@@ -1,4 +1,4 @@
-<!-- SCR-012 予算管理（月ごとの目標売上の登録・確認、固定費からの目標逆算） -->
+<!-- SCR-012 予算管理（月ごとの目標売上・日別目標売上の登録・確認） -->
 <!DOCTYPE html>
 <html>
   <head>
@@ -11,39 +11,89 @@
       .tab-panel { display: none; }
       .tab-panel.active { display: block; }
 
-      .year-row { display: flex; align-items: center; gap: 2px; margin-bottom: var(--space-md); }
+      .toolbar-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-md); flex-wrap: wrap; gap: var(--space-sm); }
+      .year-row { display: flex; align-items: center; gap: 2px; }
       .year-label { font-weight: 700; font-size: 1.1em; padding: 4px 10px; }
+      .month-select { font: inherit; font-weight: 700; font-size: 1.1em; padding: 4px 10px; border: none; background: none; color: var(--ink); cursor: pointer; border-radius: var(--radius-sm); }
+      .month-select:hover { background: var(--ai-soft); color: var(--ai); }
+
+      .month-picker-wrap { position: relative; display: inline-block; }
+      .month-picker-popover { display: none; position: absolute; top: 100%; left: 0; margin-top: 4px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); padding: var(--space-sm); z-index: 30; box-shadow: 0 4px 16px rgba(0,0,0,0.12); width: 220px; }
+      .month-picker-popover.open { display: block; }
+      .month-picker-year-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-sm); font-weight: 700; }
+      .month-picker-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; }
+      .month-picker-grid button { padding: 6px 0; font-size: 0.85em; }
+      .month-picker-grid button.current { background: var(--ai); color: #fff; border-color: var(--ai); }
+      .edit-actions { display: flex; align-items: center; gap: var(--space-sm); }
+      .edit-actions button { font-size: 0.9em; }
+      .save-flash { color: var(--good); font-size: 0.8em; }
+
       .cell-input { width: 100%; border: 1px solid transparent; background: none; color: inherit; font: inherit; padding: 3px 4px; border-radius: var(--radius-sm); text-align: right; }
       .cell-input:hover { border-color: var(--border); }
       .cell-input:focus { border-color: var(--ai); outline: 2px solid var(--ai-soft); background: var(--surface); }
+      .readonly-cell { padding: 3px 4px; }
 
-      #budget-table { font-variant-numeric: tabular-nums; }
+      /* 列構成：1.月 2.売上目標 3.実績 4.達成率 5.メモ 6.日別へ（編集有無で行き来する
+         input⇔読み取り専用表示の両方に同じ配置ルールが効くよう、列位置（nth-child）で指定する） */
+      #budget-table { font-variant-numeric: tabular-nums; table-layout: fixed; font-size: 0.9em; }
+      #budget-table tbody tr:nth-child(even) { background: none; }
       #budget-table th, #budget-table td { text-align: right; }
-      #budget-table th:first-child, #budget-table td:first-child { text-align: left; }
-      #budget-table th:last-child, #budget-table td:last-child { text-align: left; }
-      #budget-table td:last-child .cell-input { text-align: left; }
+      #budget-table th:nth-child(1), #budget-table td:nth-child(1) { text-align: left; width: 4.5em; }
+      #budget-table th:nth-child(5), #budget-table td:nth-child(5) { text-align: left; }
+      #budget-table th:nth-child(5) .cell-input, #budget-table td:nth-child(5) .readonly-cell { text-align: left; }
+      #budget-table th:nth-child(6), #budget-table td:nth-child(6) { text-align: right; width: 5.5em; }
+
+      .cal-weekdays { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; margin-bottom: 6px; }
+      .cal-weekdays span { text-align: center; font-size: 0.78em; color: var(--ink-muted); font-weight: 700; }
+      .cal-weekdays span:first-child { color: var(--bad); }
+      .cal-weekdays span:last-child { color: var(--ai); }
+      .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+      .cal-cell { aspect-ratio: 1 / 0.85; border-radius: var(--radius-sm); border: 1px solid var(--border); padding: 6px; display: flex; flex-direction: column; }
+      .cal-cell.empty { border: none; background: none; }
+      .cal-cell.sun { background: var(--bad-soft); }
+      .cal-cell.sat { background: var(--ai-soft); }
+      .cal-cell.holiday { background: var(--warn-soft); }
+      .cal-day-num { font-size: 0.78em; color: var(--ink-muted); font-weight: 700; }
+      .cal-amount { margin-top: auto; font-size: 0.82em; font-variant-numeric: tabular-nums; font-weight: 700; text-align: right; }
+      .cal-amount.fallback { color: var(--ink-muted); font-weight: 400; font-style: italic; }
+      .cal-cell input { width: 100%; border: 1px solid var(--border); border-radius: 4px; font: inherit; font-size: 0.78em; text-align: right; padding: 2px 3px; margin-top: auto; background: var(--surface); color: var(--ink); }
+
       .rate-badge { font-weight: 700; }
       .rate-badge.achieved { color: var(--good); }
-      .rate-badge.behind { color: var(--warn); }
-      .rate-badge.none { color: var(--ink-muted); font-weight: normal; }
-      .save-flash { color: var(--good); font-size: 0.8em; }
+      .rate-badge.behind { color: var(--bad); }
+      .loading-wrap { position: relative; }
       .loading-target { opacity: 0.5; pointer-events: none; transition: opacity 0.15s; }
+      .loading-overlay { display: none; position: absolute; inset: 0; align-items: center; justify-content: center; z-index: 5; }
+      .loading-wrap.is-loading .loading-overlay { display: flex; }
+      .loading-overlay-pill { display: flex; align-items: center; gap: 8px; background: var(--surface); padding: 8px 16px; border-radius: 999px; border: 1px solid var(--border); box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+      .loading-spinner { width: 16px; height: 16px; border: 2px solid var(--surface-2); border-top-color: var(--ai); border-radius: 50%; animation: budget-spin 0.7s linear infinite; }
+      .loading-overlay-pill span { color: var(--ink-muted); font-size: 0.85em; font-weight: 700; }
+      @keyframes budget-spin { to { transform: rotate(360deg); } }
+      @media (prefers-reduced-motion: reduce) { .loading-spinner { animation: none; } }
 
-      #fixedcost-table { font-variant-numeric: tabular-nums; }
-      #fixedcost-table th, #fixedcost-table td { text-align: right; }
-      #fixedcost-table th:first-child, #fixedcost-table td:first-child { text-align: left; }
-      #fixedcost-table td:first-child .cell-input { text-align: left; }
-      .fixedcost-actions { text-align: center; }
+      .alert-box { background: var(--warn-soft); color: var(--warn); padding: 10px 14px; border-radius: var(--radius-sm); font-size: 0.9em; margin-bottom: var(--space-sm); }
 
-      .rate-row { display: flex; align-items: center; gap: var(--space-sm); margin: var(--space-md) 0; }
-      .rate-row label { color: var(--ink-muted); }
-      .rate-row input { width: 80px; }
+      .daily-summary-row { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-md); margin-bottom: var(--space-md); }
+      @media (max-width: 480px) { .daily-summary-row { grid-template-columns: 1fr; } }
+      .daily-summary-tile .kpi-label { font-size: 0.78em; color: var(--ink-muted); }
+      .daily-summary-tile .kpi-value-row { display: flex; align-items: baseline; gap: 6px; margin-top: 2px; }
+      .daily-summary-tile .kpi-value { font-size: 1.5em; font-weight: 700; font-variant-numeric: tabular-nums; }
+      .daily-summary-tile .kpi-sub { font-size: 0.78em; color: var(--ink-muted); font-variant-numeric: tabular-nums; margin-top: 2px; }
+      .daily-summary-tile .kpi-sub.diff-zero { color: var(--ink-muted); }
+      .daily-summary-tile .kpi-sub.diff-up { color: var(--good); }
+      .daily-summary-tile .kpi-sub.diff-down { color: var(--bad); }
+      .cross-link, .drill-link { display: inline-flex; align-items: center; gap: 4px; font-family: inherit; font-size: 0.85em; font-weight: 700; text-decoration: none; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--surface); color: var(--ink); padding: 6px 12px; white-space: nowrap; }
+      .cross-link:hover, .drill-link:hover { border-color: var(--ai); color: var(--ai); }
+      .cross-link { margin-top: var(--space-md); }
+      .drill-link { padding: 4px 10px; }
 
-      .result-row { display: flex; gap: var(--space-lg); flex-wrap: wrap; margin-top: var(--space-md); padding-top: var(--space-md); border-top: 1px solid var(--border); }
-      .result-tile .kpi-label { font-size: 0.78em; color: var(--ink-muted); }
-      .result-tile .kpi-value { font-size: 1.3em; font-weight: 700; font-variant-numeric: tabular-nums; margin-top: 2px; }
-      .result-tile.main .kpi-value { font-size: 1.7em; color: var(--ai); }
-      .result-note { color: var(--bad); font-size: 0.85em; margin-top: var(--space-sm); }
+      .modal-overlay { position: fixed; inset: 0; background: rgba(35, 38, 43, 0.4); display: none; align-items: center; justify-content: center; z-index: 40; }
+      .modal-overlay.show { display: flex; }
+      .modal-box { background: var(--surface); border-radius: var(--radius-md); padding: var(--space-md) var(--space-lg); max-width: 340px; width: 90%; position: relative; }
+      .modal-close { position: absolute; top: var(--space-sm); right: var(--space-sm); }
+      .confirm-modal-header { display: flex; align-items: center; gap: var(--space-sm); }
+      .confirm-modal-header h2 { margin: 0; }
+      .confirm-modal-icon { width: 1.4em; height: 1.4em; color: var(--warn); flex-shrink: 0; }
     </style>
   </head>
   <body data-page="<?= currentPage ?>">
@@ -54,255 +104,636 @@
         <h2>予算管理</h2>
         <div class="toggle-tabs" id="budget-tabs">
           <button type="button" class="toggle-tab active" data-tab="monthly">月別予算設定</button>
-          <button type="button" class="toggle-tab" data-tab="fixedcost">固定費から逆算</button>
+          <button type="button" class="toggle-tab" data-tab="daily">日別予算設定</button>
         </div>
 
         <p id="load-error" class="error"></p>
 
         <div class="tab-panel active" id="panel-monthly">
-          <div class="year-row">
-            <button type="button" class="icon-btn" id="year-prev"><svg class="icon"><use href="#icon-chevron-left"></use></svg></button>
-            <span class="year-label" id="year-label"></span>
-            <button type="button" class="icon-btn" id="year-next"><svg class="icon"><use href="#icon-chevron-right"></use></svg></button>
-            <span class="save-flash" id="save-flash"></span>
-          </div>
-
-          <div class="card" id="budget-body">
-            <div class="table-scroll">
-              <table id="budget-table">
-                <thead>
-                  <tr><th>月</th><th>目標売上（円）</th><th>実績売上</th><th>達成率</th><th>備考</th></tr>
-                </thead>
-                <tbody id="budget-table-body"></tbody>
-              </table>
+          <div class="toolbar-row">
+            <div class="year-row">
+              <button type="button" class="icon-btn" id="year-prev"><svg class="icon"><use href="#icon-chevron-left"></use></svg></button>
+              <span class="year-label" id="year-label"></span>
+              <button type="button" class="icon-btn" id="year-next"><svg class="icon"><use href="#icon-chevron-right"></use></svg></button>
+              <span class="save-flash" id="save-flash-monthly"></span>
+            </div>
+            <div class="edit-actions" id="monthly-view-actions">
+              <button type="button" class="btn-primary" id="monthly-edit-btn"><svg class="icon"><use href="#icon-edit"></use></svg> 編集</button>
+            </div>
+            <div class="edit-actions" id="monthly-edit-actions" style="display:none;">
+              <button type="button" id="monthly-bulk-btn">一括設定</button>
+              <button type="button" id="monthly-cancel-btn">キャンセル</button>
+              <button type="button" class="btn-primary" id="monthly-save-btn">保存</button>
             </div>
           </div>
+
+          <div class="loading-wrap" id="budget-loading-wrap">
+            <div class="card" id="budget-body">
+              <div class="table-scroll">
+                <table id="budget-table">
+                  <thead>
+                    <tr><th>月</th><th>売上目標</th><th>実績</th><th>達成率</th><th>メモ</th><th></th></tr>
+                  </thead>
+                  <tbody id="budget-table-body"></tbody>
+                </table>
+              </div>
+            </div>
+            <div class="loading-overlay"><div class="loading-overlay-pill"><span class="loading-spinner"></span><span>読み込み中...</span></div></div>
+          </div>
+          <a class="cross-link" href="<?= baseUrl ?>?page=sales-stats">売上統計に移動</a>
         </div>
 
-        <div class="tab-panel" id="panel-fixedcost">
-          <div class="card" id="fixedcost-body">
-            <h3>固定費</h3>
-            <div class="table-scroll">
-              <table id="fixedcost-table">
-                <thead><tr><th>項目名</th><th>金額（円）</th><th></th></tr></thead>
-                <tbody id="fixedcost-table-body"></tbody>
-              </table>
-            </div>
-            <div class="fixedcost-actions">
-              <button type="button" id="fixedcost-add-btn">＋ 項目を追加</button>
-            </div>
-
-            <div class="rate-row">
-              <label for="profit-rate-input">目標利益率</label>
-              <input type="number" id="profit-rate-input" class="cell-input" min="0" step="1" inputmode="numeric" style="text-align:left;border-color:var(--border);">
-              <span>%</span>
-            </div>
-
-            <div class="result-row">
-              <div class="result-tile">
-                <div class="kpi-label">固定費合計</div>
-                <div class="kpi-value" id="result-fixed-total">-</div>
+        <div class="tab-panel" id="panel-daily">
+          <div class="toolbar-row">
+            <div class="date-nav-row">
+              <button type="button" class="icon-btn" id="daily-month-prev"><svg class="icon"><use href="#icon-chevron-left"></use></svg></button>
+              <div class="month-picker-wrap">
+                <button type="button" class="month-select" id="daily-month-btn"></button>
+                <div class="month-picker-popover" id="daily-month-popover">
+                  <div class="month-picker-year-row">
+                    <button type="button" class="icon-btn" id="daily-picker-year-prev"><svg class="icon"><use href="#icon-chevron-left"></use></svg></button>
+                    <span id="daily-picker-year-label"></span>
+                    <button type="button" class="icon-btn" id="daily-picker-year-next"><svg class="icon"><use href="#icon-chevron-right"></use></svg></button>
+                  </div>
+                  <div class="month-picker-grid" id="daily-picker-grid"></div>
+                </div>
               </div>
-              <div class="result-tile">
-                <div class="kpi-label">原価率（実績）</div>
-                <div class="kpi-value" id="result-cost-rate">-</div>
-              </div>
-              <div class="result-tile main">
-                <div class="kpi-label">逆算した目標売上（月額）</div>
-                <div class="kpi-value" id="result-target">-</div>
-              </div>
+              <button type="button" class="icon-btn" id="daily-month-next"><svg class="icon"><use href="#icon-chevron-right"></use></svg></button>
+              <span class="save-flash" id="save-flash-daily"></span>
             </div>
-            <p class="result-note" id="result-note" style="display:none;">原価率と目標利益率の合計が100%以上のため、目標売上を計算できません。目標利益率を見直してください。</p>
+            <div class="edit-actions" id="daily-view-actions">
+              <button type="button" class="btn-primary" id="daily-edit-btn"><svg class="icon"><use href="#icon-edit"></use></svg> 編集</button>
+            </div>
+            <div class="edit-actions" id="daily-edit-actions" style="display:none;">
+              <button type="button" id="daily-fill-btn">均等割付</button>
+              <span class="popover-wrap">
+                <button type="button" class="info-btn" title="説明を表示"><svg class="icon"><use href="#icon-info"></use></svg></button>
+                <span class="popover">店休日は先に金額欄へ「0」を入力してから押すと、その日を除いた残り日数で均等割付します。</span>
+              </span>
+              <button type="button" id="daily-cancel-btn">キャンセル</button>
+              <button type="button" class="btn-primary" id="daily-save-btn">保存</button>
+            </div>
           </div>
+
+          <div class="alert-box" id="daily-no-target-alert" style="display:none;">この月の月目標が未設定です。月別予算設定タブで登録すると、日数按分の目安が表示されます。</div>
+
+          <div class="daily-summary-row" id="daily-summary-row" style="display:none;">
+            <div class="card daily-summary-tile">
+              <div class="kpi-label">月間目標</div>
+              <div class="kpi-value-row">
+                <span class="kpi-value" id="daily-summary-month-target">-</span>
+              </div>
+              <div class="kpi-sub" id="daily-summary-per-day"></div>
+            </div>
+            <div class="card daily-summary-tile">
+              <div class="kpi-label">日別目標合計</div>
+              <div class="kpi-value-row">
+                <span class="kpi-value" id="daily-summary-total">-</span>
+              </div>
+              <div class="kpi-sub" id="daily-summary-diff"></div>
+            </div>
+          </div>
+
+          <div class="loading-wrap" id="daily-loading-wrap">
+            <div class="card" id="daily-body">
+              <div class="cal-weekdays"><span>日</span><span>月</span><span>火</span><span>水</span><span>木</span><span>金</span><span>土</span></div>
+              <div class="cal-grid" id="daily-cal-grid"></div>
+            </div>
+            <div class="loading-overlay"><div class="loading-overlay-pill"><span class="loading-spinner"></span><span>読み込み中...</span></div></div>
+          </div>
+          <a class="cross-link" href="<?= baseUrl ?>?page=sales-stats">売上統計に移動</a>
         </div>
+
       </main>
+    </div>
+
+    <div class="modal-overlay" id="confirm-modal">
+      <div class="modal-box">
+        <button type="button" class="icon-btn modal-close" id="confirm-modal-close" title="閉じる">✕</button>
+        <div class="confirm-modal-header">
+          <svg class="icon confirm-modal-icon"><use href="#icon-alert-triangle"></use></svg>
+          <h2>未保存の変更があります</h2>
+        </div>
+        <p class="period-range-note">保存されていない変更があります。<br>このまま移動すると、変更内容は失われます。</p>
+        <div class="form-actions">
+          <button type="button" class="btn-danger" id="confirm-modal-discard">破棄する</button>
+          <button type="button" class="btn-primary" id="confirm-modal-save">保存して移動</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-overlay" id="bulk-modal">
+      <div class="modal-box">
+        <button type="button" class="icon-btn modal-close" id="bulk-modal-close" title="閉じる">✕</button>
+        <h2>一括設定</h2>
+        <div class="form-row">
+          <label for="bulk-amount-input">金額</label>
+          <input type="number" id="bulk-amount-input" min="0" step="1000" inputmode="numeric">
+        </div>
+        <div class="form-actions">
+          <button type="button" class="btn-primary" id="bulk-modal-confirm">すべての月に反映</button>
+        </div>
+      </div>
     </div>
 
     <?!= include('client/shared/javascript') ?>
     <script>
-      var currentYear = new Date().getFullYear();
-
-      document.querySelectorAll('#budget-tabs .toggle-tab').forEach(function (btn) {
-        btn.addEventListener('click', function () {
-          document.querySelectorAll('#budget-tabs .toggle-tab').forEach(function (b) { b.classList.remove('active'); });
-          btn.classList.add('active');
-          var tab = btn.dataset.tab;
-          document.getElementById('panel-monthly').classList.toggle('active', tab === 'monthly');
-          document.getElementById('panel-fixedcost').classList.toggle('active', tab === 'fixedcost');
-          document.getElementById('load-error').textContent = '';
-          if (tab === 'fixedcost') { loadFixedCostPlan(); }
-        });
-      });
-
-      // ----- 月別予算設定 -----
-      function setMonthlyLoading(isLoading) {
-        document.getElementById('budget-body').classList.toggle('loading-target', isLoading);
-      }
-
-      function loadMonthly() {
-        document.getElementById('load-error').textContent = '';
-        document.getElementById('year-label').textContent = currentYear + '年';
-        setMonthlyLoading(true);
-        google.script.run
-          .withSuccessHandler(function (months) {
-            setMonthlyLoading(false);
-            renderMonthly(months);
-          })
-          .withFailureHandler(function (error) {
-            setMonthlyLoading(false);
-            document.getElementById('load-error').textContent = 'データの取得に失敗しました：' + error.message;
-          })
-          .getBudgetDataForYear(currentYear);
-      }
-
-      function rateBadgeHtml(rate) {
-        if (rate === null || rate === undefined) {
-          return '<span class="rate-badge none">目標未設定</span>';
-        }
-        return '<span class="rate-badge ' + (rate >= 100 ? 'achieved' : 'behind') + '">' + rate + '%</span>';
-      }
-
-      function renderMonthly(months) {
-        var tbody = document.getElementById('budget-table-body');
-        tbody.innerHTML = '';
-        months.forEach(function (m) {
-          var tr = document.createElement('tr');
-          var monthNum = Number(m.targetMonth.split('-')[1]);
-          tr.innerHTML =
-            '<td>' + monthNum + '月</td>' +
-            '<td><input type="number" class="cell-input" min="0" step="1000" inputmode="numeric" data-field="targetAmount" value="' + (m.targetAmount || '') + '"></td>' +
-            '<td>' + m.actualAmount.toLocaleString() + '</td>' +
-            '<td>' + rateBadgeHtml(m.achievementRate) + '</td>' +
-            '<td><input type="text" class="cell-input" data-field="note" value="' + escapeAttr(m.note) + '" placeholder="任意"></td>';
-
-          tr.querySelectorAll('.cell-input').forEach(function (input) {
-            input.addEventListener('keydown', function (event) {
-              if (event.key === 'Enter') { this.blur(); }
-            });
-            input.addEventListener('blur', function () { saveMonthlyField(m, tr, input); });
-          });
-          tbody.appendChild(tr);
-        });
-      }
-
-      function saveMonthlyField(month, row, input) {
-        var amountInput = row.querySelector('[data-field="targetAmount"]');
-        var noteInput = row.querySelector('[data-field="note"]');
-        document.getElementById('load-error').textContent = '';
-        google.script.run
-          .withSuccessHandler(function (data) {
-            row.children[2].textContent = month.actualAmount.toLocaleString();
-            row.children[3].innerHTML = rateBadgeHtml(data.achievementRate);
-            flashSaved();
-          })
-          .withFailureHandler(function (error) {
-            document.getElementById('load-error').textContent = '保存に失敗しました：' + error.message;
-          })
-          .saveBudgetTarget({
-            targetMonth: month.targetMonth,
-            targetAmount: amountInput.value,
-            note: noteInput.value
-          });
-      }
-
-      function flashSaved() {
-        var flash = document.getElementById('save-flash');
-        flash.textContent = '保存しました';
-        setTimeout(function () { flash.textContent = ''; }, 1500);
-      }
+      var MONTHS = ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12'];
 
       function escapeAttr(str) {
         return String(str || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
       }
-
-      document.getElementById('year-prev').addEventListener('click', function () { currentYear--; loadMonthly(); });
-      document.getElementById('year-next').addEventListener('click', function () { currentYear++; loadMonthly(); });
-
-      // ----- 固定費から逆算 -----
-      function setFixedCostLoading(isLoading) {
-        document.getElementById('fixedcost-body').classList.toggle('loading-target', isLoading);
+      function flashSaved(id) {
+        var flash = document.getElementById(id);
+        flash.textContent = '保存しました';
+        setTimeout(function () { flash.textContent = ''; }, 1500);
       }
 
-      function loadFixedCostPlan() {
-        setFixedCostLoading(true);
+      // 編集中に移動しようとした場合の確認（保存されていない変更を破棄してよいか）。
+      // ブラウザ標準のconfirm()はscript.google.comが表示している警告のように見えて紛らわしいため使わない
+      var confirmPendingAction = null;
+      function guardNavigation(isEditing, action) {
+        if (!isEditing) {
+          action();
+          return;
+        }
+        confirmPendingAction = action;
+        document.getElementById('confirm-modal').classList.add('show');
+      }
+      function closeConfirmModal() {
+        confirmPendingAction = null;
+        document.getElementById('confirm-modal').classList.remove('show');
+      }
+      document.getElementById('confirm-modal-close').addEventListener('click', closeConfirmModal);
+      document.getElementById('confirm-modal-discard').addEventListener('click', function () {
+        var action = confirmPendingAction;
+        confirmPendingAction = null;
+        document.getElementById('confirm-modal').classList.remove('show');
+        if (action) { action(); }
+      });
+      // 「保存して移動」：編集中のタブを保存してから、保留していた移動先の処理を実行する
+      document.getElementById('confirm-modal-save').addEventListener('click', function () {
+        var action = confirmPendingAction;
+        confirmPendingAction = null;
+        document.getElementById('confirm-modal').classList.remove('show');
+        if (!action) { return; }
+        if (monthlyEditing) {
+          saveMonthlyAndThen(action);
+        } else if (dailyEditing) {
+          saveDailyAndThen(action);
+        } else {
+          action();
+        }
+      });
+
+      // ポップアップは領域外（オーバーレイの背景部分）クリックでも閉じる
+      document.querySelectorAll('.modal-overlay').forEach(function (overlay) {
+        overlay.addEventListener('click', function (event) {
+          if (event.target === overlay) {
+            confirmPendingAction = null;
+            overlay.classList.remove('show');
+          }
+        });
+      });
+
+      document.querySelectorAll('#budget-tabs .toggle-tab').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          guardNavigation(monthlyDirty || dailyDirty, function () {
+            exitMonthlyEditing();
+            exitDailyEditing();
+            document.querySelectorAll('#budget-tabs .toggle-tab').forEach(function (b) { b.classList.remove('active'); });
+            btn.classList.add('active');
+            var tab = btn.dataset.tab;
+            document.getElementById('panel-monthly').classList.toggle('active', tab === 'monthly');
+            document.getElementById('panel-daily').classList.toggle('active', tab === 'daily');
+            document.getElementById('load-error').textContent = '';
+            if (tab === 'daily' && !dailyLoadedOnce) { loadDaily(); }
+          });
+        });
+      });
+
+      /* ================= 月別予算設定 ================= */
+      var monthlyYear = new Date().getFullYear();
+      var monthlyData = [];
+      var monthlyEditing = false;
+      var monthlyDirty = false; // 編集モードに入っただけでなく、実際に値を変更したかどうか
+
+      function setMonthlyLoading(isLoading) {
+        document.getElementById('budget-body').classList.toggle('loading-target', isLoading);
+        document.getElementById('budget-loading-wrap').classList.toggle('is-loading', isLoading);
+      }
+
+      function loadMonthly() {
+        document.getElementById('load-error').textContent = '';
+        document.getElementById('year-label').textContent = monthlyYear + '年';
+        setMonthlyLoading(true);
         google.script.run
-          .withSuccessHandler(function (plan) {
-            setFixedCostLoading(false);
-            renderFixedCostPlan(plan);
+          .withSuccessHandler(function (months) {
+            setMonthlyLoading(false);
+            monthlyData = months;
+            renderMonthly();
           })
           .withFailureHandler(function (error) {
-            setFixedCostLoading(false);
+            setMonthlyLoading(false);
             document.getElementById('load-error').textContent = 'データの取得に失敗しました：' + error.message;
           })
-          .getFixedCostPlan();
+          .getBudgetDataForYear(monthlyYear);
       }
 
-      function renderFixedCostPlan(plan) {
-        var tbody = document.getElementById('fixedcost-table-body');
-        tbody.innerHTML = '';
-        plan.items.forEach(function (item) {
-          var tr = document.createElement('tr');
-          tr.innerHTML =
-            '<td><input type="text" class="cell-input" style="text-align:left;" data-field="Name" value="' + escapeAttr(item.Name) + '"></td>' +
-            '<td><input type="number" class="cell-input" min="0" step="1000" inputmode="numeric" data-field="Amount" value="' + Number(item.Amount || 0) + '"></td>' +
-            '<td><button type="button" class="icon-btn" title="削除"><svg class="icon"><use href="#icon-trash"></use></svg></button></td>';
+      function rateBadgeHtml(rate) {
+        if (rate === null || rate === undefined) {
+          return '-';
+        }
+        return '<span class="rate-badge ' + (rate >= 100 ? 'achieved' : 'behind') + '">' + rate + '%</span>';
+      }
 
-          tr.querySelectorAll('.cell-input').forEach(function (input) {
-            input.addEventListener('keydown', function (event) {
-              if (event.key === 'Enter') { this.blur(); }
-            });
-            input.addEventListener('blur', function () { saveFixedCostRow(item, tr); });
-          });
-          tr.querySelector('.icon-btn').addEventListener('click', function () {
-            google.script.run
-              .withSuccessHandler(function (updatedPlan) { flashSaved(); renderFixedCostPlan(updatedPlan); })
-              .withFailureHandler(function (error) { document.getElementById('load-error').textContent = '削除に失敗しました：' + error.message; })
-              .deleteFixedCostItem(item.FixedCostId);
-          });
+      function renderMonthly() {
+        var tbody = document.getElementById('budget-table-body');
+        tbody.innerHTML = '';
+        monthlyData.forEach(function (m, i) {
+          var monthNum = Number(m.targetMonth.split('-')[1]);
+          var tr = document.createElement('tr');
+          var drillCell = '<td><a class="drill-link" href="#" data-month="' + m.targetMonth + '">日別へ</a></td>';
+          if (monthlyEditing) {
+            tr.innerHTML =
+              '<td>' + monthNum + '月</td>' +
+              '<td><input type="number" class="cell-input" min="0" step="1000" inputmode="numeric" data-i="' + i + '" data-field="targetAmount" value="' + (m.targetAmount || '') + '"></td>' +
+              '<td>' + m.actualAmount.toLocaleString() + '</td>' +
+              '<td>' + rateBadgeHtml(m.achievementRate) + '</td>' +
+              '<td><input type="text" class="cell-input" data-i="' + i + '" data-field="note" value="' + escapeAttr(m.note) + '"></td>' +
+              drillCell;
+          } else {
+            tr.innerHTML =
+              '<td>' + monthNum + '月</td>' +
+              '<td class="readonly-cell">' + (m.targetAmount ? m.targetAmount.toLocaleString() : '-') + '</td>' +
+              '<td>' + m.actualAmount.toLocaleString() + '</td>' +
+              '<td>' + rateBadgeHtml(m.achievementRate) + '</td>' +
+              '<td class="readonly-cell">' + escapeAttr(m.note) + '</td>' +
+              drillCell;
+          }
           tbody.appendChild(tr);
         });
 
-        document.getElementById('profit-rate-input').value = plan.targetProfitRate;
-        renderFixedCostResult(plan);
+        if (monthlyEditing) {
+          tbody.querySelectorAll('.cell-input').forEach(function (input) {
+            input.addEventListener('input', function () {
+              monthlyData[Number(input.dataset.i)][input.dataset.field] = input.value;
+              monthlyDirty = true;
+            });
+          });
+        }
+        tbody.querySelectorAll('.drill-link').forEach(function (link) {
+          link.addEventListener('click', function (event) {
+            event.preventDefault();
+            goToDailyMonth(link.dataset.month);
+          });
+        });
       }
 
-      function saveFixedCostRow(item, row) {
-        var name = row.querySelector('[data-field="Name"]').value;
-        var amount = row.querySelector('[data-field="Amount"]').value;
-        if (!name.trim()) { return; }
-        google.script.run
-          .withSuccessHandler(function (plan) { flashSaved(); item.Amount = amount; renderFixedCostResult(plan); })
-          .withFailureHandler(function (error) { document.getElementById('load-error').textContent = '保存に失敗しました：' + error.message; })
-          .saveFixedCostItem({ FixedCostId: item.FixedCostId, Name: name, Amount: amount });
+      // 月別予算設定の行から、その月を選択した状態で日別予算設定タブへ遷移する
+      function goToDailyMonth(yearMonth) {
+        guardNavigation(monthlyDirty || dailyDirty, function () {
+          exitMonthlyEditing();
+          exitDailyEditing();
+          document.querySelectorAll('#budget-tabs .toggle-tab').forEach(function (b) { b.classList.remove('active'); });
+          document.querySelector('#budget-tabs .toggle-tab[data-tab="daily"]').classList.add('active');
+          document.getElementById('panel-monthly').classList.remove('active');
+          document.getElementById('panel-daily').classList.add('active');
+          document.getElementById('load-error').textContent = '';
+          dailyMonth = yearMonth;
+          dailyLoadedOnce = true;
+          loadDaily();
+        });
       }
 
-      document.getElementById('fixedcost-add-btn').addEventListener('click', function () {
+      function exitMonthlyEditing() {
+        if (!monthlyEditing) { return; }
+        monthlyEditing = false;
+        monthlyDirty = false;
+        document.getElementById('monthly-view-actions').style.display = '';
+        document.getElementById('monthly-edit-actions').style.display = 'none';
+        loadMonthly();
+      }
+      document.getElementById('monthly-edit-btn').addEventListener('click', function () {
+        monthlyEditing = true;
+        monthlyDirty = false;
+        document.getElementById('monthly-view-actions').style.display = 'none';
+        document.getElementById('monthly-edit-actions').style.display = '';
+        renderMonthly();
+      });
+      document.getElementById('monthly-cancel-btn').addEventListener('click', exitMonthlyEditing);
+      document.getElementById('monthly-bulk-btn').addEventListener('click', function () {
+        document.getElementById('bulk-amount-input').value = '';
+        document.getElementById('bulk-modal').classList.add('show');
+      });
+      document.getElementById('bulk-modal-close').addEventListener('click', function () {
+        document.getElementById('bulk-modal').classList.remove('show');
+      });
+      document.getElementById('bulk-modal-confirm').addEventListener('click', function () {
+        var amount = document.getElementById('bulk-amount-input').value;
+        if (amount === '' || Number(amount) < 0) {
+          return;
+        }
+        monthlyData.forEach(function (m) { m.targetAmount = amount; });
+        monthlyDirty = true;
+        document.getElementById('bulk-modal').classList.remove('show');
+        renderMonthly();
+      });
+      function saveMonthlyAndThen(onSuccess, onFailure) {
+        document.getElementById('load-error').textContent = '';
+        setMonthlyLoading(true);
         google.script.run
-          .withSuccessHandler(function (plan) { renderFixedCostPlan(plan); })
-          .withFailureHandler(function (error) { document.getElementById('load-error').textContent = '追加に失敗しました：' + error.message; })
-          .saveFixedCostItem({ Name: '新しい項目', Amount: 0 });
+          .withSuccessHandler(function (months) {
+            setMonthlyLoading(false);
+            monthlyEditing = false;
+            monthlyDirty = false;
+            document.getElementById('monthly-view-actions').style.display = '';
+            document.getElementById('monthly-edit-actions').style.display = 'none';
+            monthlyData = months;
+            renderMonthly();
+            flashSaved('save-flash-monthly');
+            if (onSuccess) { onSuccess(); }
+          })
+          .withFailureHandler(function (error) {
+            setMonthlyLoading(false);
+            document.getElementById('load-error').textContent = '保存に失敗しました：' + error.message;
+            if (onFailure) { onFailure(error); }
+          })
+          .saveBudgetTargetsForYear(monthlyYear, monthlyData.map(function (m) {
+            return { targetMonth: m.targetMonth, targetAmount: m.targetAmount, note: m.note };
+          }));
+      }
+      document.getElementById('monthly-save-btn').addEventListener('click', function () { saveMonthlyAndThen(); });
+      document.getElementById('year-prev').addEventListener('click', function () {
+        guardNavigation(monthlyDirty, function () {
+          monthlyYear--;
+          if (monthlyEditing) { exitMonthlyEditing(); } else { loadMonthly(); }
+        });
+      });
+      document.getElementById('year-next').addEventListener('click', function () {
+        guardNavigation(monthlyDirty, function () {
+          monthlyYear++;
+          if (monthlyEditing) { exitMonthlyEditing(); } else { loadMonthly(); }
+        });
       });
 
-      document.getElementById('profit-rate-input').addEventListener('blur', function () {
-        google.script.run
-          .withSuccessHandler(function (plan) { flashSaved(); renderFixedCostResult(plan); })
-          .withFailureHandler(function (error) { document.getElementById('load-error').textContent = '保存に失敗しました：' + error.message; })
-          .saveTargetProfitRate(this.value);
-      });
+      /* ================= 日別予算設定 ================= */
+      var dailyMonth = currentYearMonth_();
+      var dailyPlan = null;   // サーバーから取得した最新の確定データ
+      var dailyDays = [];     // 編集中のローカル状態（[{date, day, targetAmount}]、targetAmountはnull=未設定）
+      var dailyEditing = false;
+      var dailyDirty = false; // 編集モードに入っただけでなく、実際に値を変更したかどうか
+      var dailyLoadedOnce = false;
 
-      function renderFixedCostResult(plan) {
-        document.getElementById('result-fixed-total').textContent = '¥' + plan.totalFixedCost.toLocaleString();
-        document.getElementById('result-cost-rate').textContent = plan.costRatePercent + '%';
-        var targetEl = document.getElementById('result-target');
-        var noteEl = document.getElementById('result-note');
-        if (plan.suggestedTargetAmount === null) {
-          targetEl.textContent = '計算不可';
-          noteEl.style.display = '';
-        } else {
-          targetEl.textContent = '¥' + plan.suggestedTargetAmount.toLocaleString();
-          noteEl.style.display = 'none';
+      function currentYearMonth_() {
+        var d = new Date();
+        return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2);
+      }
+      function shiftYearMonth_(value, direction) {
+        var parts = value.split('-');
+        var d = new Date(Number(parts[0]), Number(parts[1]) - 1 + direction, 1);
+        return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2);
+      }
+
+      function setDailyLoading(isLoading) {
+        document.getElementById('daily-body').classList.toggle('loading-target', isLoading);
+        document.getElementById('daily-loading-wrap').classList.toggle('is-loading', isLoading);
+      }
+
+      // 年プルダウン×12マスの月選択ポップオーバー。pickerYearは表示中のdailyMonthの年に依存せず、
+      // ポップオーバーを開いている間だけ独立して前後の年へ移動できる（月を選ぶまでdailyMonthは変えない）
+      var pickerYear = null;
+
+      function refreshDailyMonthButton() {
+        var parts = dailyMonth.split('-');
+        document.getElementById('daily-month-btn').textContent = parts[0] + '年' + Number(parts[1]) + '月';
+      }
+
+      function renderMonthPickerGrid() {
+        document.getElementById('daily-picker-year-label').textContent = pickerYear + '年';
+        var grid = document.getElementById('daily-picker-grid');
+        grid.innerHTML = '';
+        for (var m = 1; m <= 12; m++) {
+          var mm = ('0' + m).slice(-2);
+          var value = pickerYear + '-' + mm;
+          var btn = document.createElement('button');
+          btn.type = 'button';
+          btn.textContent = m + '月';
+          if (value === dailyMonth) { btn.className = 'current'; }
+          btn.addEventListener('click', function () {
+            var newMonth = this.dataset.value;
+            closeMonthPicker();
+            guardNavigation(dailyDirty, function () { leaveDailyMonth(); dailyMonth = newMonth; loadDaily(); });
+          });
+          btn.dataset.value = value;
+          grid.appendChild(btn);
         }
       }
+
+      function openMonthPicker() {
+        pickerYear = Number(dailyMonth.split('-')[0]);
+        renderMonthPickerGrid();
+        document.getElementById('daily-month-popover').classList.add('open');
+      }
+      function closeMonthPicker() {
+        document.getElementById('daily-month-popover').classList.remove('open');
+      }
+      document.getElementById('daily-month-btn').addEventListener('click', function (event) {
+        event.stopPropagation();
+        var popover = document.getElementById('daily-month-popover');
+        if (popover.classList.contains('open')) { closeMonthPicker(); } else { openMonthPicker(); }
+      });
+      document.getElementById('daily-picker-year-prev').addEventListener('click', function () { pickerYear--; renderMonthPickerGrid(); });
+      document.getElementById('daily-picker-year-next').addEventListener('click', function () { pickerYear++; renderMonthPickerGrid(); });
+      document.addEventListener('click', function (event) {
+        var wrap = document.getElementById('daily-month-btn').closest('.month-picker-wrap');
+        if (!wrap.contains(event.target)) { closeMonthPicker(); }
+      });
+
+      function loadDaily() {
+        document.getElementById('load-error').textContent = '';
+        refreshDailyMonthButton();
+        setDailyLoading(true);
+        google.script.run
+          .withSuccessHandler(function (plan) {
+            setDailyLoading(false);
+            dailyLoadedOnce = true;
+            dailyPlan = plan;
+            resetDailyLocalState();
+            renderDaily();
+          })
+          .withFailureHandler(function (error) {
+            setDailyLoading(false);
+            document.getElementById('load-error').textContent = 'データの取得に失敗しました：' + error.message;
+          })
+          .getDailyTargetsForMonth(dailyMonth);
+      }
+
+      function resetDailyLocalState() {
+        dailyDays = dailyPlan.days.map(function (d) { return { date: d.date, day: d.day, targetAmount: d.targetAmount, isHoliday: d.isHoliday }; });
+      }
+
+      function fallbackDayAmount() {
+        return dailyPlan.hasMonthTarget ? Math.round(dailyPlan.monthTargetAmount / dailyPlan.daysInMonth) : null;
+      }
+
+      function updateDailySummary() {
+        document.getElementById('daily-no-target-alert').style.display = dailyPlan.hasMonthTarget ? 'none' : '';
+        document.getElementById('daily-summary-row').style.display = dailyPlan.hasMonthTarget ? '' : 'none';
+        if (!dailyPlan.hasMonthTarget) {
+          return;
+        }
+        var fallback = fallbackDayAmount();
+        var dailyTotal = dailyDays.reduce(function (sum, d) {
+          return sum + (d.targetAmount !== null && d.targetAmount !== '' ? Number(d.targetAmount) : fallback);
+        }, 0);
+        var diff = dailyTotal - dailyPlan.monthTargetAmount;
+        document.getElementById('daily-summary-month-target').textContent = '¥' + dailyPlan.monthTargetAmount.toLocaleString();
+        document.getElementById('daily-summary-per-day').textContent = '日割り目安：¥' + fallback.toLocaleString() + '/日';
+        document.getElementById('daily-summary-total').textContent = '¥' + dailyTotal.toLocaleString();
+        var diffEl = document.getElementById('daily-summary-diff');
+        diffEl.textContent = '月間目標比：' + (diff > 0 ? '+' : diff < 0 ? '−' : '') + '¥' + Math.abs(diff).toLocaleString();
+        diffEl.className = 'kpi-sub ' + (diff === 0 ? 'diff-zero' : diff > 0 ? 'diff-up' : 'diff-down');
+      }
+
+      function renderDaily() {
+        updateDailySummary();
+
+        var grid = document.getElementById('daily-cal-grid');
+        grid.innerHTML = '';
+
+        var startWeekday = new Date(dailyDays[0].date + 'T00:00:00').getDay();
+        for (var i = 0; i < startWeekday; i++) {
+          var pad = document.createElement('div');
+          pad.className = 'cal-cell empty';
+          grid.appendChild(pad);
+        }
+
+        dailyDays.forEach(function (d, i) {
+          var weekday = new Date(d.date + 'T00:00:00').getDay();
+          var cellClass = 'cal-cell' + (d.isHoliday ? ' holiday' : weekday === 0 ? ' sun' : weekday === 6 ? ' sat' : '');
+          var cell = document.createElement('div');
+          cell.className = cellClass;
+          var num = document.createElement('div');
+          num.className = 'cal-day-num';
+          num.textContent = d.day;
+          cell.appendChild(num);
+
+          if (dailyEditing) {
+            var fb = fallbackDayAmount();
+            var input = document.createElement('input');
+            input.type = 'number';
+            input.min = '0';
+            input.step = '1000';
+            input.inputMode = 'numeric';
+            if (fb !== null) { input.placeholder = String(fb); }
+            input.value = d.targetAmount === null ? '' : d.targetAmount;
+            input.addEventListener('input', function () {
+              dailyDays[i].targetAmount = input.value === '' ? null : input.value;
+              dailyDirty = true;
+              updateDailySummary();
+            });
+            cell.appendChild(input);
+          } else {
+            var amt = document.createElement('div');
+            if (d.targetAmount !== null) {
+              amt.className = 'cal-amount';
+              amt.textContent = d.targetAmount.toLocaleString();
+            } else {
+              var fbv = fallbackDayAmount();
+              amt.className = 'cal-amount fallback';
+              amt.textContent = fbv !== null ? fbv.toLocaleString() : '-';
+            }
+            cell.appendChild(amt);
+          }
+          grid.appendChild(cell);
+        });
+      }
+
+      function exitDailyEditing() {
+        if (!dailyEditing) { return; }
+        dailyEditing = false;
+        dailyDirty = false;
+        document.getElementById('daily-view-actions').style.display = '';
+        document.getElementById('daily-edit-actions').style.display = 'none';
+        resetDailyLocalState();
+        renderDaily();
+      }
+      document.getElementById('daily-edit-btn').addEventListener('click', function () {
+        dailyEditing = true;
+        dailyDirty = false;
+        document.getElementById('daily-view-actions').style.display = 'none';
+        document.getElementById('daily-edit-actions').style.display = '';
+        renderDaily();
+      });
+      document.getElementById('daily-cancel-btn').addEventListener('click', exitDailyEditing);
+      // 店休日（0を入力済みの日）は対象外にして残りの日数で均等割付する。
+      // 店休日という別概念は持たず、「0を入力済みの日は除外する」というルールだけで実現している
+      document.getElementById('daily-fill-btn').addEventListener('click', function () {
+        if (!dailyPlan.hasMonthTarget) {
+          document.getElementById('load-error').textContent = 'この月の月目標が未設定のため均等割付できません。先に月別予算設定タブで登録してください。';
+          return;
+        }
+        // 「店休日」判定は明示的に0が入力された日のみ対象にする。未入力（null）はNumber(null)===0に
+        // なりJavaScript的には0と区別できないため、null／空文字を先に除外してから0判定する
+        var isExplicitlyClosed = function (d) {
+          return d.targetAmount !== null && d.targetAmount !== '' && Number(d.targetAmount) === 0;
+        };
+        var openDays = dailyDays.filter(function (d) { return !isExplicitlyClosed(d); });
+        var divisor = openDays.length > 0 ? openDays.length : dailyDays.length;
+        var even = Math.round(dailyPlan.monthTargetAmount / divisor);
+        openDays.forEach(function (d) { d.targetAmount = even; });
+        dailyDirty = true;
+        renderDaily();
+      });
+      function saveDailyAndThen(onSuccess, onFailure) {
+        document.getElementById('load-error').textContent = '';
+        setDailyLoading(true);
+        google.script.run
+          .withSuccessHandler(function (plan) {
+            setDailyLoading(false);
+            dailyEditing = false;
+            dailyDirty = false;
+            document.getElementById('daily-view-actions').style.display = '';
+            document.getElementById('daily-edit-actions').style.display = 'none';
+            dailyPlan = plan;
+            resetDailyLocalState();
+            renderDaily();
+            flashSaved('save-flash-daily');
+            if (onSuccess) { onSuccess(); }
+          })
+          .withFailureHandler(function (error) {
+            setDailyLoading(false);
+            document.getElementById('load-error').textContent = '保存に失敗しました：' + error.message;
+            if (onFailure) { onFailure(error); }
+          })
+          .saveDailyTargetsForMonth(dailyMonth, dailyDays.map(function (d) {
+            return { date: d.date, targetAmount: d.targetAmount };
+          }));
+      }
+      document.getElementById('daily-save-btn').addEventListener('click', function () { saveDailyAndThen(); });
+      function leaveDailyMonth() {
+        dailyEditing = false;
+        dailyDirty = false;
+        document.getElementById('daily-view-actions').style.display = '';
+        document.getElementById('daily-edit-actions').style.display = 'none';
+      }
+      document.getElementById('daily-month-prev').addEventListener('click', function () {
+        guardNavigation(dailyDirty, function () { leaveDailyMonth(); dailyMonth = shiftYearMonth_(dailyMonth, -1); loadDaily(); });
+      });
+      document.getElementById('daily-month-next').addEventListener('click', function () {
+        guardNavigation(dailyDirty, function () { leaveDailyMonth(); dailyMonth = shiftYearMonth_(dailyMonth, 1); loadDaily(); });
+      });
+
+
+      // サイドバー等でページ自体を離れる場合も、編集中なら未保存の変更がある旨をブラウザ標準の
+      // 離脱確認ダイアログで知らせる（これはGASの警告と紛らわしいalert/confirmとは別の、ブラウザ本体の機能）
+      window.addEventListener('beforeunload', function (event) {
+        if (monthlyDirty || dailyDirty) {
+          event.preventDefault();
+          event.returnValue = '';
+        }
+      });
 
       loadMonthly();
     </script>

@@ -40,5 +40,28 @@ var SheetUtil = {
         sheet.deleteRow(i + 1);
       }
     }
+  },
+
+  // predicate(rowObject)がtrueを返す行を全て物理削除する（年単位の一括置き換え等、単純な列一致では
+  // 表現できない条件で削除したい場合に使う）
+  deleteRowsByPredicate: function (sheet, predicate) {
+    var values = sheet.getDataRange().getValues();
+    var objects = this.rowsToObjects(values);
+    for (var i = objects.length - 1; i >= 0; i--) {
+      if (predicate(objects[i])) {
+        sheet.deleteRow(i + 2); // +1はヘッダー行、+1は1始まり
+      }
+    }
+  },
+
+  // "2026-07"のような文字列をシートに書き込んでも、Googleスプレッドシートが自動的に日付型に
+  // 変換して保存することがある（セルの表示は元の文字列のように見えても、Apps Scriptからは
+  // Dateオブジェクトとして返ってくる）。yyyy-MM／yyyy-MM-dd形式の文字列をキーとして扱う列
+  // （TargetMonth, TargetDate等）はこれで正規化してから使う
+  normalizeDateKey: function (value, format) {
+    if (Object.prototype.toString.call(value) === '[object Date]') {
+      return Utilities.formatDate(value, Session.getScriptTimeZone(), format);
+    }
+    return String(value);
   }
 };
