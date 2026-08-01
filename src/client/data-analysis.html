@@ -5,8 +5,6 @@
     <base target="_top">
     <?!= include('client/shared/stylesheet') ?>
     <style>
-      #analysis-body.loading { opacity: 0.5; pointer-events: none; transition: opacity 0.15s; }
-
       /* ===== トグルタブ（会計処理・ダッシュボードと同じデザイン） ===== */
       .toggle-tabs { display: inline-flex; background: var(--surface-2); border-radius: 999px; padding: 3px; flex-wrap: wrap; }
       .toggle-tab { border: none; background: none; border-radius: 999px; padding: 7px 14px; font-weight: 700; font-size: 0.9em; color: var(--ink-muted); }
@@ -122,6 +120,17 @@
               <span id="ref-date-label"></span>
               <input type="date" id="ref-date-input" title="基準日を選択">
             </span>
+            <div class="month-picker-wrap" id="ref-month-wrap" style="display:none;">
+              <button type="button" class="month-select" id="ref-month-btn"></button>
+              <div class="month-picker-popover" id="ref-month-popover">
+                <div class="month-picker-year-row">
+                  <button type="button" class="icon-btn" id="ref-month-picker-year-prev"><svg class="icon"><use href="#icon-chevron-left"></use></svg></button>
+                  <span id="ref-month-picker-year-label"></span>
+                  <button type="button" class="icon-btn" id="ref-month-picker-year-next"><svg class="icon"><use href="#icon-chevron-right"></use></svg></button>
+                </div>
+                <div class="month-picker-grid" id="ref-month-picker-grid"></div>
+              </div>
+            </div>
             <button type="button" class="icon-btn" id="ref-date-next"><svg class="icon"><use href="#icon-chevron-right"></use></svg></button>
           </div>
           <div class="custom-range-row" id="custom-range-row">
@@ -129,7 +138,8 @@
           </div>
         </div>
 
-        <div id="analysis-body">
+        <div class="loading-wrap" id="analysis-loading-wrap">
+        <div class="loading-target" id="analysis-body">
           <!-- ABC分析 -->
           <div class="view active" id="view-abc">
             <div class="sub-toggle-row">
@@ -264,6 +274,8 @@
             </div>
           </div>
         </div>
+        <div class="loading-overlay"><div class="loading-overlay-pill"><span class="loading-spinner"></span><span>読み込み中...</span></div></div>
+        </div>
       </main>
     </div>
 
@@ -293,13 +305,32 @@
         return d.getFullYear() + '-' + mm + '-01';
       }
 
+      // 年×12マスの月選択ポップオーバー（共通部品。shared/javascript.html参照）。月次選択時のみ表示する
+      var refMonthPicker = createMonthPicker({
+        btnId: 'ref-month-btn',
+        popoverId: 'ref-month-popover',
+        yearLabelId: 'ref-month-picker-year-label',
+        gridId: 'ref-month-picker-grid',
+        yearPrevId: 'ref-month-picker-year-prev',
+        yearNextId: 'ref-month-picker-year-next',
+        getCurrentMonth: function () { return referenceDate.slice(0, 7); },
+        onSelect: function (newMonth) {
+          referenceDate = newMonth + '-01';
+          renderRefDateNav();
+          loadActiveTab();
+        }
+      });
+
       // 読み込み完了前の暫定ラベル。実際の表示はrenderXxx()でサーバーのperiodLabelに置き換わる
       function renderRefDateNav() {
+        document.getElementById('ref-date-wrap').style.display = currentPeriod === 'month' ? 'none' : '';
+        document.getElementById('ref-month-wrap').style.display = currentPeriod === 'month' ? '' : 'none';
+        if (currentPeriod === 'month') {
+          refMonthPicker.refreshLabel();
+          return;
+        }
         document.getElementById('ref-date-input').value = referenceDate;
-        var parts = referenceDate.split('-');
-        document.getElementById('ref-date-label').textContent = currentPeriod === 'month'
-          ? parts[0] + '年' + parts[1] + '月'
-          : formatFullDateWithWeekday(referenceDate);
+        document.getElementById('ref-date-label').textContent = formatFullDateWithWeekday(referenceDate);
       }
 
       function activatePeriodTab(period) {
@@ -376,7 +407,7 @@
       });
 
       function setLoading(isLoading) {
-        document.getElementById('analysis-body').classList.toggle('loading', isLoading);
+        document.getElementById('analysis-loading-wrap').classList.toggle('is-loading', isLoading);
       }
 
       function currentRangeParams() {

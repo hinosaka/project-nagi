@@ -55,6 +55,27 @@
       #seat-panel h2 {
         margin-top: 0;
       }
+      .seat-legend {
+        display: flex;
+        gap: var(--space-md);
+        font-size: 0.85em;
+        color: var(--ink-muted);
+        margin-bottom: var(--space-sm);
+      }
+      .seat-legend-swatch {
+        display: inline-block;
+        width: 14px;
+        height: 14px;
+        border-radius: 3px;
+        border: 1px solid var(--border);
+        margin-right: 4px;
+        vertical-align: -2px;
+        background: var(--surface);
+      }
+      .seat-legend-swatch.inactive {
+        background: var(--surface-2);
+        border-color: var(--surface-2);
+      }
     </style>
   </head>
   <body data-page="<?= currentPage ?>">
@@ -63,15 +84,26 @@
       <?!= include('client/shared/sidebar', {baseUrl: baseUrl}) ?>
       <main class="main-content">
         <p>座席をクリックすると使用可否の切替メニューが開きます。</p>
-
-        <div class="card floor-plan">
-          <div class="tables-row" id="tables-row"></div>
-          <div class="counter-seats" id="counter-seats"></div>
+        <div class="seat-legend">
+          <span><span class="seat-legend-swatch"></span>使用可</span>
+          <span><span class="seat-legend-swatch inactive"></span>使用不可</span>
         </div>
 
-        <div id="others-section" class="card" style="display:none;">
-          <h2>レイアウト外の座席</h2>
-          <div class="counter-seats" id="others-list"></div>
+        <p id="load-error" class="error"></p>
+
+        <div class="loading-wrap" id="seat-loading-wrap">
+        <div class="loading-target">
+          <div class="card floor-plan">
+            <div class="tables-row" id="tables-row"></div>
+            <div class="counter-seats" id="counter-seats"></div>
+          </div>
+
+          <div id="others-section" class="card" style="display:none;">
+            <h2>レイアウト外の座席</h2>
+            <div class="counter-seats" id="others-list"></div>
+          </div>
+        </div>
+        <div class="loading-overlay"><div class="loading-overlay-pill"><span class="loading-spinner"></span><span id="seat-loading-text">読み込み中...</span></div></div>
         </div>
 
         <div id="seat-panel" class="card" style="display:none;">
@@ -90,8 +122,24 @@
       var currentSeats = {};
       var editingSeatId = null;
 
+      function setLoading(isLoading, text) {
+        document.getElementById('seat-loading-wrap').classList.toggle('is-loading', isLoading);
+        if (text) { document.getElementById('seat-loading-text').textContent = text; }
+      }
+
       function loadSeatList() {
-        google.script.run.withSuccessHandler(renderSeatList).getSeatList();
+        document.getElementById('load-error').textContent = '';
+        setLoading(true, '読み込み中...');
+        google.script.run
+          .withSuccessHandler(function (seatList) {
+            setLoading(false);
+            renderSeatList(seatList);
+          })
+          .withFailureHandler(function (error) {
+            setLoading(false);
+            document.getElementById('load-error').textContent = 'データの取得に失敗しました：' + error.message;
+          })
+          .getSeatList();
       }
 
       function renderSeatList(seatList) {
@@ -168,10 +216,17 @@
       });
 
       document.getElementById('toggle-active').addEventListener('click', function () {
-        google.script.run.withSuccessHandler(function () {
-          closePanel();
-          loadSeatList();
-        }).toggleSeatActive(editingSeatId);
+        setLoading(true, '適用中...');
+        google.script.run
+          .withSuccessHandler(function () {
+            closePanel();
+            loadSeatList();
+          })
+          .withFailureHandler(function (error) {
+            setLoading(false);
+            document.getElementById('load-error').textContent = '更新に失敗しました：' + error.message;
+          })
+          .toggleSeatActive(editingSeatId);
       });
 
       loadSeatList();

@@ -160,7 +160,8 @@
 
         <h2>顧客一覧</h2>
         <p id="list-error" class="error"></p>
-        <div class="table-scroll">
+        <div class="loading-wrap" id="customer-loading-wrap">
+        <div class="table-scroll loading-target">
           <table id="customer-table">
             <thead>
               <tr>
@@ -180,6 +181,8 @@
             </thead>
             <tbody></tbody>
           </table>
+        </div>
+        <div class="loading-overlay"><div class="loading-overlay-pill"><span class="loading-spinner"></span><span>読み込み中...</span></div></div>
         </div>
       </main>
     </div>
@@ -222,11 +225,20 @@
     <script>
       var currentCustomers = {};
 
+      function setLoading(isLoading) {
+        document.getElementById('customer-loading-wrap').classList.toggle('is-loading', isLoading);
+      }
+
       function loadCustomerList() {
         document.getElementById('list-error').textContent = '';
+        setLoading(true);
         google.script.run
-          .withSuccessHandler(renderCustomerList)
+          .withSuccessHandler(function (customerList) {
+            setLoading(false);
+            renderCustomerList(customerList);
+          })
           .withFailureHandler(function (error) {
+            setLoading(false);
             document.getElementById('list-error').textContent = '一覧の取得に失敗しました：' + error.message;
           })
           .getCustomerList();
