@@ -280,9 +280,11 @@
         document.getElementById('analysis-loading-wrap').classList.toggle('is-loading', isLoading);
       }
 
+      var loadRequestId = 0;
       function loadAnalysis() {
         setLoadError('load-error', '');
         setLoading(true);
+        var requestId = ++loadRequestId;
         var periodType, referenceDateStr = '', startDateStr = '', endDateStr = '';
 
         if (currentUnit === 'period') {
@@ -303,7 +305,9 @@
 
         google.script.run
           .withSuccessHandler(function (data) {
+            if (requestId !== loadRequestId) { return; }
             setLoading(false);
+            setLoadError('load-error', '');
             lastData = data;
             try {
               renderPieAndTable();
@@ -312,8 +316,9 @@
             }
           })
           .withFailureHandler(function (error) {
+            if (requestId !== loadRequestId) { return; }
             setLoading(false);
-            setLoadError('load-error', 'データの取得に失敗しました：' + error.message);
+            setLoadError('load-error', 'データの取得に失敗しました：' + error.message, loadAnalysis);
           })
           .getProductAnalysisData(periodType, referenceDateStr, startDateStr, endDateStr);
       }

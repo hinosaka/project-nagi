@@ -235,11 +235,12 @@
         google.script.run
           .withSuccessHandler(function (customerList) {
             setLoading(false);
+            setLoadError('list-error', '');
             renderCustomerList(customerList);
           })
           .withFailureHandler(function (error) {
             setLoading(false);
-            setLoadError('list-error', '一覧の取得に失敗しました：' + error.message);
+            setLoadError('list-error', '一覧の取得に失敗しました：' + error.message, loadCustomerList);
           })
           .getCustomerList();
       }

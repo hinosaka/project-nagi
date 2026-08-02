@@ -10,28 +10,31 @@ function getSalesEntryData(salesDateStr) {
     customerById[c.CustomerId] = c;
   });
 
-  var activeCustomers = allCustomers
-    .filter(function (c) { return c.IsActive; })
-    .sort(function (a, b) {
-      return new Date(b.LastVisitDate) - new Date(a.LastVisitDate);
-    });
-
   var businessDayRow = BusinessDayRepository.findByDate(salesDate);
 
   return {
     menuList: MenuRepository.findAll().filter(function (m) { return m.IsActive; }),
     seatList: SeatRepository.findAll().filter(function (s) { return s.IsActive; }),
-    customerList: activeCustomers.map(function (c) {
+    customerList: buildActiveCustomerList_(allCustomers),
+    businessDay: businessDayRow ? { Weather: businessDayRow.Weather, DayOfWeek: businessDayRow.DayOfWeek } : null,
+    salesList: buildSalesListForDate_(salesDate, customerById),
+    subCategoriesByLarge: buildSubCategoriesByLarge_()
+  };
+}
+
+// 顧客一覧（アクティブのみ、最終来店日が新しい順）。伝票入力の顧客オートコンプリート・
+// 会計管理の伝票一覧表示（顧客名）で使う形
+function buildActiveCustomerList_(allCustomers) {
+  return allCustomers
+    .filter(function (c) { return c.IsActive; })
+    .sort(function (a, b) { return new Date(b.LastVisitDate) - new Date(a.LastVisitDate); })
+    .map(function (c) {
       return {
         CustomerId: c.CustomerId,
         CustomerName: c.CustomerName,
         LastVisitDate: DateUtil.formatDisplay(c.LastVisitDate)
       };
-    }),
-    businessDay: businessDayRow ? { Weather: businessDayRow.Weather, DayOfWeek: businessDayRow.DayOfWeek } : null,
-    salesList: buildSalesListForDate_(salesDate, customerById),
-    subCategoriesByLarge: buildSubCategoriesByLarge_()
-  };
+    });
 }
 
 // 大分類名（"ドリンク"等）ごとの中分類名一覧（SortOrder順）。
@@ -119,8 +122,27 @@ function saveSalesEntry(input) {
 
   recalcCustomerVisitStats_(oldCustomerId);
   recalcCustomerVisitStats_(customerId);
+
+  var allCustomers = CustomerRepository.findAll();
+  var savedCustomer = customerId ? allCustomers.filter(function (c) { return c.CustomerId === customerId; })[0] : null;
+
+  return {
+    item: {
+      SalesId: salesId,
+      PartySize: Number(input.PartySize),
+      SeatId: input.SeatId || '',
+      CustomerId: customerId,
+      CustomerName: savedCustomer ? savedCustomer.CustomerName : '',
+      TotalAmount: totalAmount,
+      Note: input.Note || '',
+      details: detailRows
+    },
+    customerList: buildActiveCustomerList_(allCustomers)
+  };
 }
 
+// 会計管理画面：伝票削除後、日別一覧を丸ごと再取得せずに済むよう、削除対象のSalesIdと
+// 顧客一覧（来店統計が変わるため）だけを返す
 function deleteSalesEntry(salesId) {
   var existing = findSalesById_(salesId);
   if (!existing) {
@@ -129,6 +151,11 @@ function deleteSalesEntry(salesId) {
   SalesDetailRepository.deleteBySalesId(salesId);
   SalesRepository.deleteById(salesId);
   recalcCustomerVisitStats_(existing.CustomerId);
+
+  return {
+    deletedSalesId: salesId,
+    customerList: buildActiveCustomerList_(CustomerRepository.findAll())
+  };
 }
 
 function buildSalesListForDate_(salesDate, customerById) {

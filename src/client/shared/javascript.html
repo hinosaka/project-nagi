@@ -99,16 +99,26 @@
   }
 
   // 画面上部のエラーバナー（アイコン＋背景色）の表示・非表示。elementIdは.load-errorクラスを持つ要素のid。
-  // messageが空ならバナーを隠す
-  function setLoadError(elementId, message) {
+  // messageが空ならバナーを隠す。onRetryを渡すと「再読み込み」ボタンを併せて表示する
+  function setLoadError(elementId, message, onRetry) {
     var el = document.getElementById(elementId);
     el.classList.toggle('show', !!message);
     el.innerHTML = '';
     if (!message) { return; }
     el.insertAdjacentHTML('afterbegin', iconSvg('alert-triangle'));
     var span = document.createElement('span');
+    span.className = 'load-error-text';
     span.textContent = message;
     el.appendChild(span);
+    if (onRetry) {
+      var retryBtn = document.createElement('button');
+      retryBtn.type = 'button';
+      retryBtn.className = 'load-error-retry';
+      retryBtn.title = '再読み込み';
+      retryBtn.innerHTML = iconSvg('refresh-cw');
+      retryBtn.addEventListener('click', onRetry);
+      el.appendChild(retryBtn);
+    }
   }
 
   function formatDateForInput(d) {

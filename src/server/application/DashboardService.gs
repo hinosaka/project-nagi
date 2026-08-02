@@ -2,8 +2,9 @@
 // google.script.runの制約により、クライアント公開分はトップレベル関数として定義する
 //
 // 期間は本日／昨日／過去7日間／当月／期間指定（custom）の5種類。
-// 差分基準（前日比／前週同曜日比／前月同日比）は単日のときのみ適用し、複数日の期間は常に
-// 「直前の同じ長さの期間」と比較する（ユーザーとの合意事項。UI.md 4.5参照）
+// 比較対象は期間タブごとに固定（本日・昨日：前日比、過去7日間：前週比、当月：前月比）で
+// 選択式ではない。期間指定（custom）は比較対象が定まらないため比較を行わない
+// （ユーザーとの合意事項。UI.md 4.5参照）
 
 var DASHBOARD_KPI_LABELS_ = {
   totalAmount: '売上高',
@@ -13,17 +14,22 @@ var DASHBOARD_KPI_LABELS_ = {
   turnoverRate: '客席回転率'
 };
 
-function getDashboardData(periodType, referenceDateStr, startDateStr, endDateStr, compareBasis) {
+function getDashboardData(periodType, referenceDateStr, startDateStr, endDateStr) {
   var allSales = SalesRepository.findAll();
   var allDetails = SalesDetailRepository.findAll();
   var activeSeatCount = SeatRepository.findAll().filter(function (s) { return s.IsActive; }).length;
 
   var range = calcDashboardPeriodRange_(periodType, referenceDateStr, startDateStr, endDateStr);
-  var compareRange = calcDashboardComparePeriodRange_(range, compareBasis);
-
   var current = summarizeDashboardPeriod_(allSales, allDetails, range, activeSeatCount);
-  var compare = summarizeDashboardPeriod_(allSales, allDetails, compareRange, activeSeatCount);
-  var kpis = buildDashboardKpiDiffs_(current, compare);
+
+  var kpis;
+  if (periodType === 'custom') {
+    kpis = buildDashboardKpiValuesOnly_(current);
+  } else {
+    var compareRange = calcDashboardComparePeriodRange_(range);
+    var compare = summarizeDashboardPeriod_(allSales, allDetails, compareRange, activeSeatCount);
+    kpis = buildDashboardKpiDiffs_(current, compare);
+  }
   kpis.visitCount.breakdown = calcDashboardNewRepeatCounts_(allSales, range);
 
   var graphRange = buildDashboardGraphRange_(periodType, range);
@@ -31,7 +37,6 @@ function getDashboardData(periodType, referenceDateStr, startDateStr, endDateStr
 
   return {
     periodLabel: buildDashboardPeriodLabel_(periodType, range),
-    isSingleDay: range.dayCount === 1,
     kpis: kpis,
     graph: buildDashboardGraphData_(allSales, graphRange),
     ranking: ranking,
@@ -97,19 +102,15 @@ function calcDashboardPeriodRange_(periodType, referenceDateStr, startDateStr, e
   return { start: start, end: end, dayCount: dayCount };
 }
 
-// 単日のときのみcompareBasisに従ってシフトする。複数日のときは常に「直前の同じ長さの期間」と比較する
-function calcDashboardComparePeriodRange_(range, compareBasis) {
+// 単日（本日・昨日）：前日と比較。複数日（過去7日間・当月）：直前の同じ長さの期間と比較
+// （過去7日間なら実質「前週比」、当月なら実質「前月比」になる）
+function calcDashboardComparePeriodRange_(range) {
   var start;
   var end;
 
   if (range.dayCount === 1) {
-    if (compareBasis === 'prevMonth') {
-      start = new Date(range.start.getFullYear(), range.start.getMonth() - 1, range.start.getDate());
-    } else {
-      var shiftDays = compareBasis === 'prevWeek' ? 7 : 1;
-      start = new Date(range.start);
-      start.setDate(start.getDate() - shiftDays);
-    }
+    start = new Date(range.start);
+    start.setDate(start.getDate() - 1);
     end = new Date(start);
   } else {
     end = new Date(range.start);
@@ -223,6 +224,17 @@ function buildDashboardKpiDiffs_(current, compare) {
   });
   kpis.foodAmount = { value: current.foodAmount, diffAmount: dashboardDiffAmount_(current.foodAmount, compare.foodAmount), diffPercent: dashboardPctDiff_(current.foodAmount, compare.foodAmount) };
   kpis.drinkAmount = { value: current.drinkAmount, diffAmount: dashboardDiffAmount_(current.drinkAmount, compare.drinkAmount), diffPercent: dashboardPctDiff_(current.drinkAmount, compare.drinkAmount) };
+  return kpis;
+}
+
+// 期間指定（custom）は比較対象が定まらないため、値のみを返し差分は常に「-」表示にする
+function buildDashboardKpiValuesOnly_(current) {
+  var kpis = {};
+  Object.keys(DASHBOARD_KPI_LABELS_).forEach(function (key) {
+    kpis[key] = { value: current[key], diffAmount: null, diffPercent: null };
+  });
+  kpis.foodAmount = { value: current.foodAmount, diffAmount: null, diffPercent: null };
+  kpis.drinkAmount = { value: current.drinkAmount, diffAmount: null, diffPercent: null };
   return kpis;
 }
 

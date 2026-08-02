@@ -267,12 +267,16 @@
         document.querySelectorAll('#unit-tabs .toggle-tab').forEach(function (btn) { btn.disabled = isLoading; });
       }
 
+      var loadRequestId = 0;
       function load() {
         setLoadError('load-error', '');
         setLoading(true);
+        var requestId = ++loadRequestId;
         google.script.run
           .withSuccessHandler(function (data) {
+            if (requestId !== loadRequestId) { return; }
             setLoading(false);
+            setLoadError('load-error', '');
             try {
               render(data);
             } catch (e) {
@@ -280,8 +284,9 @@
             }
           })
           .withFailureHandler(function (error) {
+            if (requestId !== loadRequestId) { return; }
             setLoading(false);
-            setLoadError('load-error', 'データの取得に失敗しました：' + error.message);
+            setLoadError('load-error', 'データの取得に失敗しました：' + error.message, load);
           })
           .getSalesStatsData(currentUnit, periodKeyForUnit());
       }

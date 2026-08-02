@@ -133,11 +133,12 @@
         google.script.run
           .withSuccessHandler(function (seatList) {
             setLoading(false);
+            setLoadError('load-error', '');
             renderSeatList(seatList);
           })
           .withFailureHandler(function (error) {
             setLoading(false);
-            setLoadError('load-error', 'データの取得に失敗しました：' + error.message);
+            setLoadError('load-error', 'データの取得に失敗しました：' + error.message, loadSeatList);
           })
           .getSeatList();
       }

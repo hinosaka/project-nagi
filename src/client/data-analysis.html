@@ -430,6 +430,7 @@
             return function (data) {
               if (requestId !== loadRequestId) { return; }
               setLoading(false);
+              setLoadError('load-error', '');
               try {
                 renderFn(data);
               } catch (e) {
@@ -441,7 +442,7 @@
             return function (error) {
               if (requestId !== loadRequestId) { return; }
               setLoading(false);
-              setLoadError('load-error', 'データの取得に失敗しました：' + error.message);
+              setLoadError('load-error', 'データの取得に失敗しました：' + error.message, loadActiveTab);
             };
           }
         };

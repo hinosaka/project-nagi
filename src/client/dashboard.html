@@ -27,10 +27,6 @@
       /* ===== 集計対象日 ＋ 差分基準（単日選択時のみ表示、右寄せ・同じ行） ===== */
       .period-info-row { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: var(--space-sm); margin-bottom: var(--space-md); }
       .period-basis-wrap { margin-left: auto; }
-      .basis-row { display: flex; align-items: center; gap: var(--space-md); font-size: 0.88em; color: var(--ink-muted); flex-wrap: wrap; justify-content: flex-end; }
-      .basis-row.hidden { display: none; }
-      .basis-row label { display: flex; align-items: center; gap: 4px; cursor: pointer; }
-      .basis-row input[type="radio"] { accent-color: var(--ai); }
       .basis-note { display: none; font-size: 0.85em; color: var(--ink-muted); text-align: right; margin: 0; }
       .basis-note.show { display: block; }
 
@@ -139,12 +135,7 @@
             <button type="button" class="icon-btn" id="ref-date-next"><svg class="icon"><use href="#icon-chevron-right"></use></svg></button>
           </div>
           <div class="period-basis-wrap">
-            <div class="basis-row" id="basis-row">
-              <label><input type="radio" name="basis" value="prevDay" checked>前日比</label>
-              <label><input type="radio" name="basis" value="prevWeek">前週同曜日比</label>
-              <label><input type="radio" name="basis" value="prevMonth">前月同日比</label>
-            </div>
-            <p class="basis-note" id="basis-note">※直前の同じ長さの期間と比較しています</p>
+            <p class="basis-note" id="basis-note"></p>
           </div>
         </div>
 
@@ -237,10 +228,25 @@
         }
       });
 
+      // 比較対象は期間タブごとに固定（本日／昨日：前日比、過去7日間：前週比、当月：前月比、
+      // 期間指定：比較なし）。選択式ではないため、注記として表示するだけでよい
+      function basisNoteText() {
+        if (currentPeriod === 'last7') { return '前週比'; }
+        if (currentPeriod === 'month') { return '前月比'; }
+        if (currentPeriod === 'custom') { return ''; }
+        return '前日比';
+      }
+
       // 読み込み完了前の暫定ラベル。実際の表示はrenderDashboard()でサーバーのperiodLabelに置き換わる
       function renderRefDateNav() {
         document.getElementById('ref-date-wrap').style.display = currentPeriod === 'month' ? 'none' : '';
         document.getElementById('ref-month-wrap').style.display = currentPeriod === 'month' ? '' : 'none';
+
+        var noteText = basisNoteText();
+        var noteEl = document.getElementById('basis-note');
+        noteEl.textContent = noteText;
+        noteEl.classList.toggle('show', !!noteText);
+
         if (currentPeriod === 'month') {
           dashboardMonthPicker.refreshLabel();
           return;
@@ -283,15 +289,6 @@
       document.getElementById('custom-end').addEventListener('change', function () {
         if (currentPeriod === 'custom') { scheduleLoadDashboard(); }
       });
-      document.querySelectorAll('input[name="basis"]').forEach(function (radio) {
-        radio.addEventListener('change', scheduleLoadDashboard);
-      });
-
-      function currentCompareBasis() {
-        var checked = document.querySelector('input[name="basis"]:checked');
-        return checked ? checked.value : 'prevDay';
-      }
-
       var loadRequestId = 0;
 
       function setLoading(isLoading) {
@@ -333,6 +330,7 @@
             isLoadInFlight = false;
             if (requestId !== loadRequestId) { checkPendingReload_(); return; }
             setLoading(false);
+            setLoadError('load-error', '');
             renderDashboard(data);
             checkPendingReload_();
           })
@@ -340,10 +338,10 @@
             isLoadInFlight = false;
             if (requestId !== loadRequestId) { checkPendingReload_(); return; }
             setLoading(false);
-            setLoadError('load-error', 'データの取得に失敗しました：' + error.message);
+            setLoadError('load-error', 'データの取得に失敗しました：' + error.message, loadDashboard);
             checkPendingReload_();
           })
-          .getDashboardData(currentPeriod, referenceDate, startDateStr, endDateStr, currentCompareBasis());
+          .getDashboardData(currentPeriod, referenceDate, startDateStr, endDateStr);
       }
 
       function checkPendingReload_() {
@@ -521,8 +519,6 @@
 
       function renderDashboard(data) {
         document.getElementById('ref-date-label').textContent = data.periodLabel;
-        document.getElementById('basis-row').classList.toggle('hidden', !data.isSingleDay);
-        document.getElementById('basis-note').classList.toggle('show', !data.isSingleDay);
 
         renderKpis(data);
         renderBarChart(data.graph);

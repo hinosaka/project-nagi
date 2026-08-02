@@ -529,6 +529,31 @@
     flex-shrink: 0;
     margin-top: 1px;
   }
+  .load-error-text {
+    flex: 1;
+  }
+  .load-error-retry {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.8em;
+    height: 1.8em;
+    padding: 0;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--bad);
+    background: var(--surface);
+    color: var(--bad);
+  }
+  .load-error-retry svg {
+    width: 1.1em;
+    height: 1.1em;
+    margin: 0;
+  }
+  .load-error-retry:hover {
+    background: var(--bad);
+    color: #fff;
+  }
 
   /* ===== タブ切り替え ===== */
   .tabs {

@@ -82,6 +82,8 @@
       @media (max-width: 600px) { .product-panes { grid-template-columns: 1fr; } }
       .category-col { display: flex; flex-direction: column; gap: 4px; }
       .category-btn { text-align: left; border: 1px solid transparent; background: none; padding: 8px 10px; border-radius: var(--radius-sm); color: var(--ink-muted); }
+      .category-btn.large { margin-top: var(--space-sm); }
+      .category-btn.large:first-child { margin-top: 0; }
       .category-btn.large.active { color: var(--ai); font-weight: 700; }
       .category-btn.medium { font-size: 0.9em; padding-left: 18px; }
       .category-btn.medium.active { background: var(--ai-soft); color: var(--ai); font-weight: 700; }
@@ -508,20 +510,30 @@
       }
 
       /* ===================== 会計管理：一覧の読み込み・表示 ===================== */
+      // 日付を素早く連続で切り替えた場合、古いリクエストが後から返ってきて新しい状態を
+      // 上書きしてしまわないよう、その時点の最新リクエストの結果だけを反映する
+      var manageLoadRequestId = 0;
       function loadManageData() {
         setLoadError('manage-error', '');
         closeCreateView();
+        // 読み込み中は前の日付の伝票情報が残っていると誤認しやすいため、要求直後に一旦クリアする
+        renderTicketList([]);
+        renderWeather(null);
         document.getElementById('manage-loading-wrap').classList.add('is-loading');
+        var requestId = ++manageLoadRequestId;
         google.script.run
           .withSuccessHandler(function (data) {
+            if (requestId !== manageLoadRequestId) { return; }
             document.getElementById('manage-loading-wrap').classList.remove('is-loading');
+            setLoadError('manage-error', '');
             masterData = data;
             renderWeather(data.businessDay);
             renderTicketList(data.salesList);
           })
           .withFailureHandler(function (error) {
+            if (requestId !== manageLoadRequestId) { return; }
             document.getElementById('manage-loading-wrap').classList.remove('is-loading');
-            setLoadError('manage-error', 'データの取得に失敗しました：' + error.message);
+            setLoadError('manage-error', 'データの取得に失敗しました：' + error.message, loadManageData);
           })
           .getSalesEntryData(manageDate);
       }
@@ -555,7 +567,10 @@
             showConfirmModal('この伝票を削除しますか？', function () {
               document.getElementById('manage-loading-wrap').classList.add('is-loading');
               google.script.run
-                .withSuccessHandler(loadManageData)
+                .withSuccessHandler(function (result) {
+                  document.getElementById('manage-loading-wrap').classList.remove('is-loading');
+                  applyDeletedTicket_(result);
+                })
                 .withFailureHandler(function (error) {
                   document.getElementById('manage-loading-wrap').classList.remove('is-loading');
                   setLoadError('manage-error', error.message);
@@ -565,6 +580,29 @@
           });
           list.appendChild(card);
         });
+      }
+
+      // 伝票を作成・編集して確定した際、その日の伝票一覧を丸ごと再取得せず、保存された1件だけを
+      // ローカルの一覧に反映する（連続で伝票を作成する際の待ち時間を減らすため）
+      function applySavedTicket_(result) {
+        masterData.customerList = result.customerList;
+        var list = masterData.salesList;
+        var index = -1;
+        for (var i = 0; i < list.length; i++) {
+          if (list[i].SalesId === result.item.SalesId) { index = i; break; }
+        }
+        if (index === -1) {
+          list.push(result.item);
+        } else {
+          list[index] = result.item;
+        }
+        renderTicketList(list);
+      }
+
+      function applyDeletedTicket_(result) {
+        masterData.customerList = result.customerList;
+        masterData.salesList = masterData.salesList.filter(function (s) { return s.SalesId !== result.deletedSalesId; });
+        renderTicketList(masterData.salesList);
       }
 
       /* ===================== カテゴリツリー ===================== */
@@ -584,6 +622,15 @@
             large[l].mediumOrder.push(m);
           }
           large[l].items[m].push(menu);
+        });
+
+        // 中分類の並び順はカテゴリー管理で設定した順（masterData.subCategoriesByLarge）に揃える。
+        // そこに無い値（想定外データ）は末尾に元の出現順で残す
+        Object.keys(large).forEach(function (l) {
+          var sortOrder = (masterData.subCategoriesByLarge && masterData.subCategoriesByLarge[l]) || [];
+          var ordered = sortOrder.filter(function (m) { return large[l].items[m]; });
+          var leftover = large[l].mediumOrder.filter(function (m) { return ordered.indexOf(m) === -1; });
+          large[l].mediumOrder = ordered.concat(leftover);
         });
 
         var priorityOrder = ['ドリンク', 'フード'];
@@ -613,9 +660,11 @@
           });
         }
 
+        // 初期表示はドリンクの中で1つめのサブカテゴリーのみ（ドリンクが無い場合は先頭の大分類の
+        // 1つめのサブカテゴリー）。カテゴリー一覧自体は大分類・中分類を常時すべて展開して表示する
         var tree = buildCategoryTree();
-        currentLarge = tree.categories[0] || '';
-        currentMedium = null;
+        currentLarge = tree.large['ドリンク'] ? 'ドリンク' : (tree.categories[0] || '');
+        currentMedium = (tree.large[currentLarge] && tree.large[currentLarge].mediumOrder[0]) || null;
 
         document.getElementById('ticket-list-view').classList.add('hidden-on-mobile');
         var pane = document.getElementById('ticket-create-view');
@@ -707,6 +756,7 @@
         list.style.display = '';
       }
 
+      // 大分類（ドリンク・フード）は常にすべて展開して表示する（クリックでの開閉はしない）
       function renderCategoryCol() {
         var tree = buildCategoryTree();
         var col = document.getElementById('category-col');
@@ -714,7 +764,7 @@
         tree.categories.forEach(function (large) {
           var largeBtn = document.createElement('button');
           largeBtn.type = 'button';
-          largeBtn.className = 'category-btn large' + (large === currentLarge ? ' active' : '');
+          largeBtn.className = 'category-btn large' + (large === currentLarge && !currentMedium ? ' active' : '');
           largeBtn.textContent = large;
           largeBtn.addEventListener('click', function () {
             currentLarge = large;
@@ -724,20 +774,19 @@
           });
           col.appendChild(largeBtn);
 
-          if (large === currentLarge) {
-            tree.large[large].mediumOrder.forEach(function (medium) {
-              var mediumBtn = document.createElement('button');
-              mediumBtn.type = 'button';
-              mediumBtn.className = 'category-btn medium' + (medium === currentMedium ? ' active' : '');
-              mediumBtn.textContent = medium;
-              mediumBtn.addEventListener('click', function () {
-                currentMedium = medium;
-                renderCategoryCol();
-                renderProductGrid();
-              });
-              col.appendChild(mediumBtn);
+          tree.large[large].mediumOrder.forEach(function (medium) {
+            var mediumBtn = document.createElement('button');
+            mediumBtn.type = 'button';
+            mediumBtn.className = 'category-btn medium' + (large === currentLarge && medium === currentMedium ? ' active' : '');
+            mediumBtn.textContent = medium;
+            mediumBtn.addEventListener('click', function () {
+              currentLarge = large;
+              currentMedium = medium;
+              renderCategoryCol();
+              renderProductGrid();
             });
-          }
+            col.appendChild(mediumBtn);
+          });
         });
       }
 
@@ -956,10 +1005,10 @@
         submitBtn.textContent = '保存中…';
         document.getElementById('confirm-error').textContent = '';
         google.script.run
-          .withSuccessHandler(function () {
+          .withSuccessHandler(function (result) {
             closeConfirmModal();
             closeCreateView();
-            loadManageData();
+            applySavedTicket_(result);
           })
           .withFailureHandler(function (error) {
             submitBtn.disabled = false;
@@ -993,17 +1042,33 @@
         loadSettleData();
       });
 
+      // 読み込み中は前の日付の数値が残っていると誤認しやすいため、要求直後に一旦クリアする
+      function clearSettlePanel_() {
+        document.getElementById('settle-total').textContent = '¥0';
+        document.getElementById('settle-count').textContent = '0組';
+        document.getElementById('starting-cash').value = '';
+        document.getElementById('settle-cash-sales').textContent = '¥0';
+        document.getElementById('settle-expected').textContent = '¥0';
+        document.getElementById('close-history').innerHTML = '';
+      }
+
+      var settleLoadRequestId = 0;
       function loadSettleData() {
         setLoadError('settle-error', '');
+        clearSettlePanel_();
         document.getElementById('settle-loading-wrap').classList.add('is-loading');
+        var requestId = ++settleLoadRequestId;
         google.script.run
           .withSuccessHandler(function (data) {
+            if (requestId !== settleLoadRequestId) { return; }
             document.getElementById('settle-loading-wrap').classList.remove('is-loading');
+            setLoadError('settle-error', '');
             renderSettleData(data);
           })
           .withFailureHandler(function (error) {
+            if (requestId !== settleLoadRequestId) { return; }
             document.getElementById('settle-loading-wrap').classList.remove('is-loading');
-            setLoadError('settle-error', 'データの取得に失敗しました：' + error.message);
+            setLoadError('settle-error', 'データの取得に失敗しました：' + error.message, loadSettleData);
           })
           .getCashRegisterData(settleDate);
       }

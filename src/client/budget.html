@@ -310,12 +310,13 @@
         google.script.run
           .withSuccessHandler(function (months) {
             setMonthlyLoading(false);
+            setLoadError('load-error', '');
             monthlyData = months;
             renderMonthly();
           })
           .withFailureHandler(function (error) {
             setMonthlyLoading(false);
-            setLoadError('load-error', 'データの取得に失敗しました：' + error.message);
+            setLoadError('load-error', 'データの取得に失敗しました：' + error.message, loadMonthly);
           })
           .getBudgetDataForYear(monthlyYear);
       }
@@ -425,6 +426,7 @@
         google.script.run
           .withSuccessHandler(function (months) {
             setMonthlyLoading(false);
+            setLoadError('load-error', '');
             monthlyEditing = false;
             monthlyDirty = false;
             document.getElementById('monthly-view-actions').style.display = '';
@@ -501,6 +503,7 @@
         google.script.run
           .withSuccessHandler(function (plan) {
             setDailyLoading(false);
+            setLoadError('load-error', '');
             dailyLoadedOnce = true;
             dailyPlan = plan;
             resetDailyLocalState();
@@ -508,7 +511,7 @@
           })
           .withFailureHandler(function (error) {
             setDailyLoading(false);
-            setLoadError('load-error', 'データの取得に失敗しました：' + error.message);
+            setLoadError('load-error', 'データの取得に失敗しました：' + error.message, loadDaily);
           })
           .getDailyTargetsForMonth(dailyMonth);
       }
@@ -636,6 +639,7 @@
         google.script.run
           .withSuccessHandler(function (plan) {
             setDailyLoading(false);
+            setLoadError('load-error', '');
             dailyEditing = false;
             dailyDirty = false;
             document.getElementById('daily-view-actions').style.display = '';

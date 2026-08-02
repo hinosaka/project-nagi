@@ -237,6 +237,7 @@
           .withSuccessHandler(function (data) {
             if (requestId !== loadRequestId) { return; }
             setLoading(false);
+            setLoadError('load-error', '');
             allMenus = data.menus;
             categories = data.categories;
             subCategories = data.subCategories;
@@ -251,7 +252,7 @@
           .withFailureHandler(function (error) {
             if (requestId !== loadRequestId) { return; }
             setLoading(false);
-            setLoadError('load-error', 'データの取得に失敗しました：' + error.message);
+            setLoadError('load-error', 'データの取得に失敗しました：' + error.message, loadAll);
           })
           .getMenuManagementData();
       }
