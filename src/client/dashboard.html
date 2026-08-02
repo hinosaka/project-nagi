@@ -6,16 +6,6 @@
     <?!= include('client/shared/stylesheet') ?>
     <style>
       /* ===== 一言アドバイス（最上位）。内容の良し悪しで配色を変える ===== */
-      .advice-card { display: flex; align-items: flex-start; gap: var(--space-sm); }
-      .advice-card svg { width: 1.3em; height: 1.3em; flex-shrink: 0; margin-top: 2px; }
-      .advice-card p { margin: 0; color: var(--ink); }
-      .advice-card.up { background: var(--good-soft); border-color: var(--good-soft); }
-      .advice-card.up svg { color: var(--good); }
-      .advice-card.down { background: var(--bad-soft); border-color: var(--bad-soft); }
-      .advice-card.down svg { color: var(--bad); }
-      .advice-card.neutral { background: var(--ai-soft); border-color: var(--ai-soft); }
-      .advice-card.neutral svg { color: var(--ai); }
-
       /* ===== 期間タブ（会計処理と同じトグルデザイン） ===== */
       .toggle-tabs { display: inline-flex; background: var(--surface-2); border-radius: 999px; padding: 3px; margin-bottom: var(--space-md); flex-wrap: wrap; }
       .toggle-tab { border: none; background: none; border-radius: 999px; padding: 7px 14px; font-weight: 700; font-size: 0.9em; color: var(--ink-muted); }
@@ -113,12 +103,6 @@
     <div class="app-shell">
       <?!= include('client/shared/sidebar', {baseUrl: baseUrl}) ?>
       <main class="main-content">
-        <!-- 一言アドバイス -->
-        <div class="card advice-card" id="advice-card">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.7V17h8v-2.3A7 7 0 0 0 12 2Z"/></svg>
-          <p id="advice-text"></p>
-        </div>
-
         <!-- 期間タブ + 期間指定 -->
         <div class="toggle-tabs" id="period-tabs">
           <button type="button" class="toggle-tab active" data-period="today">本日</button>
@@ -517,11 +501,6 @@
         document.getElementById('ref-date-label').textContent = data.periodLabel;
         document.getElementById('basis-row').classList.toggle('hidden', !data.isSingleDay);
         document.getElementById('basis-note').classList.toggle('show', !data.isSingleDay);
-
-        var adviceCard = document.getElementById('advice-card');
-        adviceCard.classList.remove('up', 'down', 'neutral');
-        adviceCard.classList.add(data.advice.sentiment || 'neutral');
-        document.getElementById('advice-text').textContent = data.advice.text;
 
         renderKpis(data);
         renderBarChart(data.graph);
