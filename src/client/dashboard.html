@@ -131,7 +131,7 @@
           <input type="date" id="custom-start"> 〜 <input type="date" id="custom-end">
         </div>
 
-        <p id="load-error" class="error"></p>
+        <div id="load-error" class="load-error"></div>
 
         <!-- 集計対象日（前後移動＋タップでカレンダー） ＋ 差分基準／複数日選択時の注記（右寄せ、同じ行） -->
         <div class="period-info-row" id="period-nav-row">
@@ -328,7 +328,7 @@
       }
 
       function loadDashboard() {
-        document.getElementById('load-error').textContent = '';
+        setLoadError('load-error', '');
         setLoading(true);
         var requestId = ++loadRequestId;
         var startDateStr = document.getElementById('custom-start').value;
@@ -342,7 +342,7 @@
           .withFailureHandler(function (error) {
             if (requestId !== loadRequestId) { return; }
             setLoading(false);
-            document.getElementById('load-error').textContent = 'データの取得に失敗しました：' + error.message;
+            setLoadError('load-error', 'データの取得に失敗しました：' + error.message);
           })
           .getDashboardData(currentPeriod, referenceDate, startDateStr, endDateStr, currentCompareBasis());
       }

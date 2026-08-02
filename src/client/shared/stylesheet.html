@@ -508,6 +508,28 @@
     color: var(--bad);
   }
 
+  /* ===== 画面上部のエラーバナー（アイコン＋背景色。データ取得失敗等の通知用） ===== */
+  .load-error {
+    display: none;
+    align-items: flex-start;
+    gap: var(--space-sm);
+    background: var(--bad-soft);
+    color: var(--bad);
+    padding: 10px 14px;
+    border-radius: var(--radius-sm);
+    font-size: 0.9em;
+    margin-bottom: var(--space-md);
+  }
+  .load-error.show {
+    display: flex;
+  }
+  .load-error svg {
+    width: 1.2em;
+    height: 1.2em;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+
   /* ===== タブ切り替え ===== */
   .tabs {
     display: flex;

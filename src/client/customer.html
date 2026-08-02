@@ -159,7 +159,7 @@
         </div>
 
         <h2>顧客一覧</h2>
-        <p id="list-error" class="error"></p>
+        <div id="list-error" class="load-error"></div>
         <div class="loading-wrap" id="customer-loading-wrap">
         <div class="table-scroll loading-target">
           <table id="customer-table">
@@ -230,7 +230,7 @@
       }
 
       function loadCustomerList() {
-        document.getElementById('list-error').textContent = '';
+        setLoadError('list-error', '');
         setLoading(true);
         google.script.run
           .withSuccessHandler(function (customerList) {
@@ -239,7 +239,7 @@
           })
           .withFailureHandler(function (error) {
             setLoading(false);
-            document.getElementById('list-error').textContent = '一覧の取得に失敗しました：' + error.message;
+            setLoadError('list-error', '一覧の取得に失敗しました：' + error.message);
           })
           .getCustomerList();
       }

@@ -96,7 +96,7 @@
     <div class="app-shell">
       <?!= include('client/shared/sidebar', {baseUrl: baseUrl}) ?>
       <main class="main-content">
-        <p id="load-error" class="error"></p>
+        <div id="load-error" class="load-error"></div>
 
         <div class="content-tabs-row">
           <div class="toggle-tabs" id="content-tabs">
@@ -415,7 +415,7 @@
       }
 
       function loadActiveTab() {
-        document.getElementById('load-error').textContent = '';
+        setLoadError('load-error', '');
         if (currentTab === 'abc') { loadAbc(); }
         else if (currentTab === 'day') { loadDay(); }
         else if (currentTab === 'weather') { loadWeather(); }
@@ -433,7 +433,7 @@
               try {
                 renderFn(data);
               } catch (e) {
-                document.getElementById('load-error').textContent = '表示処理でエラーが発生しました：' + e.message;
+                setLoadError('load-error', '表示処理でエラーが発生しました：' + e.message);
               }
             };
           },
@@ -441,7 +441,7 @@
             return function (error) {
               if (requestId !== loadRequestId) { return; }
               setLoading(false);
-              document.getElementById('load-error').textContent = 'データの取得に失敗しました：' + error.message;
+              setLoadError('load-error', 'データの取得に失敗しました：' + error.message);
             };
           }
         };

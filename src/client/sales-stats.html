@@ -120,7 +120,7 @@
           <div class="period-range-note" id="year-range-note"></div>
         </div>
 
-        <p id="load-error" class="error"></p>
+        <div id="load-error" class="load-error"></div>
 
         <div class="loading-wrap" id="stats-loading-wrap">
         <div class="stats-body loading-target" id="stats-body">
@@ -268,7 +268,7 @@
       }
 
       function load() {
-        document.getElementById('load-error').textContent = '';
+        setLoadError('load-error', '');
         setLoading(true);
         google.script.run
           .withSuccessHandler(function (data) {
@@ -276,12 +276,12 @@
             try {
               render(data);
             } catch (e) {
-              document.getElementById('load-error').textContent = '表示処理でエラーが発生しました：' + (e && e.message ? e.message : e);
+              setLoadError('load-error', '表示処理でエラーが発生しました：' + (e && e.message ? e.message : e));
             }
           })
           .withFailureHandler(function (error) {
             setLoading(false);
-            document.getElementById('load-error').textContent = 'データの取得に失敗しました：' + error.message;
+            setLoadError('load-error', 'データの取得に失敗しました：' + error.message);
           })
           .getSalesStatsData(currentUnit, periodKeyForUnit());
       }

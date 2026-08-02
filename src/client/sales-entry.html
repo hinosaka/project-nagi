@@ -165,7 +165,7 @@
             <div class="date-total" id="manage-date-total">¥0</div>
           </div>
 
-          <p id="manage-error" class="error"></p>
+          <div id="manage-error" class="load-error"></div>
 
           <div class="loading-wrap" id="manage-loading-wrap">
             <div class="manage-panes loading-target">
@@ -193,7 +193,7 @@
             </div>
           </div>
 
-          <p id="settle-error" class="error"></p>
+          <div id="settle-error" class="load-error"></div>
 
           <div class="loading-wrap" id="settle-loading-wrap">
             <div class="loading-target">
@@ -433,7 +433,7 @@
         btn.addEventListener('click', function () {
           google.script.run
             .withSuccessHandler(renderWeather)
-            .withFailureHandler(function (error) { document.getElementById('manage-error').textContent = error.message; })
+            .withFailureHandler(function (error) { setLoadError('manage-error', error.message); })
             .saveBusinessDayWeatherAndGetData(manageDate, btn.dataset.weather);
         });
       });
@@ -445,7 +445,7 @@
 
       /* ===================== 会計管理：一覧の読み込み・表示 ===================== */
       function loadManageData() {
-        document.getElementById('manage-error').textContent = '';
+        setLoadError('manage-error', '');
         closeCreateView();
         document.getElementById('manage-loading-wrap').classList.add('is-loading');
         google.script.run
@@ -457,7 +457,7 @@
           })
           .withFailureHandler(function (error) {
             document.getElementById('manage-loading-wrap').classList.remove('is-loading');
-            document.getElementById('manage-error').textContent = 'データの取得に失敗しました：' + error.message;
+            setLoadError('manage-error', 'データの取得に失敗しました：' + error.message);
           })
           .getSalesEntryData(manageDate);
       }
@@ -494,7 +494,7 @@
                 .withSuccessHandler(loadManageData)
                 .withFailureHandler(function (error) {
                   document.getElementById('manage-loading-wrap').classList.remove('is-loading');
-                  document.getElementById('manage-error').textContent = error.message;
+                  setLoadError('manage-error', error.message);
                 })
                 .deleteSalesEntry(sales.SalesId);
             });
@@ -928,7 +928,7 @@
       });
 
       function loadSettleData() {
-        document.getElementById('settle-error').textContent = '';
+        setLoadError('settle-error', '');
         document.getElementById('settle-loading-wrap').classList.add('is-loading');
         google.script.run
           .withSuccessHandler(function (data) {
@@ -937,7 +937,7 @@
           })
           .withFailureHandler(function (error) {
             document.getElementById('settle-loading-wrap').classList.remove('is-loading');
-            document.getElementById('settle-error').textContent = 'データの取得に失敗しました：' + error.message;
+            setLoadError('settle-error', 'データの取得に失敗しました：' + error.message);
           })
           .getCashRegisterData(settleDate);
       }
@@ -969,7 +969,7 @@
       }
 
       document.getElementById('starting-cash').addEventListener('change', function () {
-        document.getElementById('settle-error').textContent = '';
+        setLoadError('settle-error', '');
         document.getElementById('settle-loading-wrap').classList.add('is-loading');
         google.script.run
           .withSuccessHandler(function (data) {
@@ -978,14 +978,14 @@
           })
           .withFailureHandler(function (error) {
             document.getElementById('settle-loading-wrap').classList.remove('is-loading');
-            document.getElementById('settle-error').textContent = error.message;
+            setLoadError('settle-error', error.message);
           })
           .saveStartingCash(settleDate, this.value);
       });
 
       document.getElementById('btn-close-register').addEventListener('click', function () {
         showConfirmModal('レジクローズを実行しますか？（会計データはロックされません）', function () {
-          document.getElementById('settle-error').textContent = '';
+          setLoadError('settle-error', '');
           document.getElementById('settle-loading-wrap').classList.add('is-loading');
           google.script.run
             .withSuccessHandler(function (data) {
@@ -994,7 +994,7 @@
             })
             .withFailureHandler(function (error) {
               document.getElementById('settle-loading-wrap').classList.remove('is-loading');
-              document.getElementById('settle-error').textContent = error.message;
+              setLoadError('settle-error', error.message);
             })
             .closeRegister(settleDate);
         });

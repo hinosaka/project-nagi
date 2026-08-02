@@ -98,6 +98,19 @@
     return { refreshLabel: refreshLabel, close: close };
   }
 
+  // 画面上部のエラーバナー（アイコン＋背景色）の表示・非表示。elementIdは.load-errorクラスを持つ要素のid。
+  // messageが空ならバナーを隠す
+  function setLoadError(elementId, message) {
+    var el = document.getElementById(elementId);
+    el.classList.toggle('show', !!message);
+    el.innerHTML = '';
+    if (!message) { return; }
+    el.insertAdjacentHTML('afterbegin', iconSvg('alert-triangle'));
+    var span = document.createElement('span');
+    span.textContent = message;
+    el.appendChild(span);
+  }
+
   function formatDateForInput(d) {
     var mm = ('0' + (d.getMonth() + 1)).slice(-2);
     var dd = ('0' + d.getDate()).slice(-2);

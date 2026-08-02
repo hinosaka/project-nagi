@@ -87,7 +87,7 @@
           <button type="button" class="toggle-tab" data-tab="daily">日別予算設定</button>
         </div>
 
-        <p id="load-error" class="error"></p>
+        <div id="load-error" class="load-error"></div>
 
         <div class="tab-panel active" id="panel-monthly">
           <div class="toolbar-row">
@@ -286,7 +286,7 @@
             var tab = btn.dataset.tab;
             document.getElementById('panel-monthly').classList.toggle('active', tab === 'monthly');
             document.getElementById('panel-daily').classList.toggle('active', tab === 'daily');
-            document.getElementById('load-error').textContent = '';
+            setLoadError('load-error', '');
             if (tab === 'daily' && !dailyLoadedOnce) { loadDaily(); }
           });
         });
@@ -304,7 +304,7 @@
       }
 
       function loadMonthly() {
-        document.getElementById('load-error').textContent = '';
+        setLoadError('load-error', '');
         document.getElementById('year-label').textContent = monthlyYear + '年';
         setMonthlyLoading(true);
         google.script.run
@@ -315,7 +315,7 @@
           })
           .withFailureHandler(function (error) {
             setMonthlyLoading(false);
-            document.getElementById('load-error').textContent = 'データの取得に失敗しました：' + error.message;
+            setLoadError('load-error', 'データの取得に失敗しました：' + error.message);
           })
           .getBudgetDataForYear(monthlyYear);
       }
@@ -379,7 +379,7 @@
           document.querySelector('#budget-tabs .toggle-tab[data-tab="daily"]').classList.add('active');
           document.getElementById('panel-monthly').classList.remove('active');
           document.getElementById('panel-daily').classList.add('active');
-          document.getElementById('load-error').textContent = '';
+          setLoadError('load-error', '');
           dailyMonth = yearMonth;
           dailyLoadedOnce = true;
           loadDaily();
@@ -420,7 +420,7 @@
         renderMonthly();
       });
       function saveMonthlyAndThen(onSuccess, onFailure) {
-        document.getElementById('load-error').textContent = '';
+        setLoadError('load-error', '');
         setMonthlyLoading(true);
         google.script.run
           .withSuccessHandler(function (months) {
@@ -436,7 +436,7 @@
           })
           .withFailureHandler(function (error) {
             setMonthlyLoading(false);
-            document.getElementById('load-error').textContent = '保存に失敗しました：' + error.message;
+            setLoadError('load-error', '保存に失敗しました：' + error.message);
             if (onFailure) { onFailure(error); }
           })
           .saveBudgetTargetsForYear(monthlyYear, monthlyData.map(function (m) {
@@ -495,7 +495,7 @@
       });
 
       function loadDaily() {
-        document.getElementById('load-error').textContent = '';
+        setLoadError('load-error', '');
         dailyMonthPicker.refreshLabel();
         setDailyLoading(true);
         google.script.run
@@ -508,7 +508,7 @@
           })
           .withFailureHandler(function (error) {
             setDailyLoading(false);
-            document.getElementById('load-error').textContent = 'データの取得に失敗しました：' + error.message;
+            setLoadError('load-error', 'データの取得に失敗しました：' + error.message);
           })
           .getDailyTargetsForMonth(dailyMonth);
       }
@@ -615,7 +615,7 @@
       // 店休日という別概念は持たず、「0を入力済みの日は除外する」というルールだけで実現している
       document.getElementById('daily-fill-btn').addEventListener('click', function () {
         if (!dailyPlan.hasMonthTarget) {
-          document.getElementById('load-error').textContent = 'この月の月目標が未設定のため均等割付できません。先に月別予算設定タブで登録してください。';
+          setLoadError('load-error', 'この月の月目標が未設定のため均等割付できません。先に月別予算設定タブで登録してください。');
           return;
         }
         // 「店休日」判定は明示的に0が入力された日のみ対象にする。未入力（null）はNumber(null)===0に
@@ -631,7 +631,7 @@
         renderDaily();
       });
       function saveDailyAndThen(onSuccess, onFailure) {
-        document.getElementById('load-error').textContent = '';
+        setLoadError('load-error', '');
         setDailyLoading(true);
         google.script.run
           .withSuccessHandler(function (plan) {
@@ -648,7 +648,7 @@
           })
           .withFailureHandler(function (error) {
             setDailyLoading(false);
-            document.getElementById('load-error').textContent = '保存に失敗しました：' + error.message;
+            setLoadError('load-error', '保存に失敗しました：' + error.message);
             if (onFailure) { onFailure(error); }
           })
           .saveDailyTargetsForMonth(dailyMonth, dailyDays.map(function (d) {

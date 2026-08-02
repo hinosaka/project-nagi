@@ -83,7 +83,7 @@
     <div class="app-shell">
       <?!= include('client/shared/sidebar', {baseUrl: baseUrl}) ?>
       <main class="main-content">
-        <p id="load-error" class="error"></p>
+        <div id="load-error" class="load-error"></div>
 
         <div class="loading-wrap" id="menu-loading-wrap">
         <div class="loading-target" id="menu-body">
@@ -230,7 +230,7 @@
       }
 
       function loadAll() {
-        document.getElementById('load-error').textContent = '';
+        setLoadError('load-error', '');
         setLoading(true);
         var requestId = ++loadRequestId;
         google.script.run
@@ -251,7 +251,7 @@
           .withFailureHandler(function (error) {
             if (requestId !== loadRequestId) { return; }
             setLoading(false);
-            document.getElementById('load-error').textContent = 'データの取得に失敗しました：' + error.message;
+            setLoadError('load-error', 'データの取得に失敗しました：' + error.message);
           })
           .getMenuManagementData();
       }
@@ -338,7 +338,7 @@
             onReorder: function (orderedIds) {
               google.script.run
                 .withFailureHandler(function (error) {
-                  document.getElementById('load-error').textContent = '並び替えに失敗しました：' + error.message;
+                  setLoadError('load-error', '並び替えに失敗しました：' + error.message);
                   loadAll();
                 })
                 .reorderMenus(categoryLarge, key, orderedIds);
@@ -425,7 +425,7 @@
         if (newValue === oldValue) {
           return;
         }
-        document.getElementById('load-error').textContent = '';
+        setLoadError('load-error', '');
 
         var menuInput = {
           MenuId: menu.MenuId,
@@ -443,7 +443,7 @@
           })
           .withFailureHandler(function (error) {
             inputEl.value = oldValue;
-            document.getElementById('load-error').textContent = '更新に失敗しました：' + error.message;
+            setLoadError('load-error', '更新に失敗しました：' + error.message);
           })
           .saveMenu(menuInput);
       }
@@ -455,7 +455,7 @@
           .withFailureHandler(function (error) {
             setLoading(false);
             checkboxEl.checked = !checked;
-            document.getElementById('load-error').textContent = '更新に失敗しました：' + error.message;
+            setLoadError('load-error', '更新に失敗しました：' + error.message);
           });
         if (checked) {
           runner.reactivateMenu(menuId);
@@ -510,7 +510,7 @@
               onReorder: function (orderedIds) {
                 google.script.run
                   .withFailureHandler(function (error) {
-                    document.getElementById('load-error').textContent = '並び替えに失敗しました：' + error.message;
+                    setLoadError('load-error', '並び替えに失敗しました：' + error.message);
                     loadAll();
                   })
                   .reorderSubCategories(cat.CategoryId, orderedIds);
