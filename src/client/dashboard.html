@@ -311,7 +311,18 @@
         }, 250);
       }
 
+      // 同時に複数のリクエストがGASへ飛ぶと（比較対象・期間を短時間で連続切替した場合等）、
+      // サーバー側の同時実行が重なり不安定になることがあるため、実行中は新規リクエストを開始せず、
+      // 完了後に「その時点で最新の条件」で1回だけ追いかけて読み込む
+      var isLoadInFlight = false;
+      var pendingReload = false;
+
       function loadDashboard() {
+        if (isLoadInFlight) {
+          pendingReload = true;
+          return;
+        }
+        isLoadInFlight = true;
         setLoadError('load-error', '');
         setLoading(true);
         var requestId = ++loadRequestId;
@@ -319,16 +330,27 @@
         var endDateStr = document.getElementById('custom-end').value;
         google.script.run
           .withSuccessHandler(function (data) {
-            if (requestId !== loadRequestId) { return; }
+            isLoadInFlight = false;
+            if (requestId !== loadRequestId) { checkPendingReload_(); return; }
             setLoading(false);
             renderDashboard(data);
+            checkPendingReload_();
           })
           .withFailureHandler(function (error) {
-            if (requestId !== loadRequestId) { return; }
+            isLoadInFlight = false;
+            if (requestId !== loadRequestId) { checkPendingReload_(); return; }
             setLoading(false);
             setLoadError('load-error', 'データの取得に失敗しました：' + error.message);
+            checkPendingReload_();
           })
           .getDashboardData(currentPeriod, referenceDate, startDateStr, endDateStr, currentCompareBasis());
+      }
+
+      function checkPendingReload_() {
+        if (pendingReload) {
+          pendingReload = false;
+          loadDashboard();
+        }
       }
 
       // 矢印＋実数（符号付き）｜%（符号付き）の形式で差分を表示する

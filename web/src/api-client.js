@@ -20,12 +20,14 @@
   // Content-Typeをtext/plainにする（application/jsonだとブラウザがCORSプリフライト(OPTIONS)を
   // 送るが、GAS Webアプリはプリフライトに正しく応答できずエラーになるため）
   //
-  // ページ遷移直後の1回目の呼び出しに限って、ブラウザ側のTypeError: Failed to fetch
-  // （GAS側のエラーではなくネットワーク層の一過性の失敗）が発生することがあるため、
-  // その場合のみ1回だけ再試行する
+  // ブラウザ側のTypeError: Failed to fetch（ネットワーク層の一過性の失敗）に加えて、GASの
+  // doPost実行結果への302リダイレクト先（script.googleusercontent.com/macros/echo）が
+  // Google Drive側の一過性の不具合で「現在、ファイルを開くことができません」のようなHTMLを
+  // 返すことがあり、その場合はJSONとして正しくparseできない。どちらも一過性の失敗として
+  // 1回だけ再試行する
   function postJson(payload) {
     return doFetch().catch(function (error) {
-      if (error instanceof TypeError) {
+      if (error instanceof TypeError || error.isInvalidJsonResponse) {
         return doFetch();
       }
       throw error;
@@ -37,7 +39,15 @@
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify(payload)
       }).then(function (res) {
-        return res.json();
+        return res.text();
+      }).then(function (text) {
+        try {
+          return JSON.parse(text);
+        } catch (e) {
+          var error = new Error('サーバーから予期しない応答がありました（一時的な問題の可能性があります）');
+          error.isInvalidJsonResponse = true;
+          throw error;
+        }
       });
     }
   }

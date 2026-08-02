@@ -64,9 +64,14 @@
       .form-inline-row input, .form-inline-row select { width: 140px; }
       .form-inline-row .field.wide input { width: 200px; }
 
-      .suggestions { list-style: none; margin: 0; padding: 0; border: 1px solid var(--border); border-radius: var(--radius-sm); width: 200px; background: var(--surface); position: absolute; top: 100%; left: 0; z-index: 10; }
-      .suggestions li { padding: 4px 8px; cursor: pointer; font-size: 0.9em; }
-      .suggestions li:hover { background: var(--ai-soft); }
+      .suggestions { list-style: none; margin: 0; padding: 4px; border: 1px solid var(--ai-soft); border-radius: var(--radius-sm); width: 200px; background: var(--ai-soft); position: absolute; top: 100%; left: 0; z-index: 10; box-shadow: 0 4px 12px rgba(0,0,0,0.12); }
+      .suggestions li { padding: 4px 8px; border-radius: var(--radius-sm); cursor: pointer; font-size: 0.78em; color: var(--ink); }
+      .suggestions li:hover { background: var(--surface); }
+
+      /* ===== その他商品：直近の入力履歴（ワンタップ入力用） ===== */
+      .history-chip-row { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: var(--space-sm); }
+      .history-chip { font-size: 0.8em; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface); color: var(--ink); }
+      .history-chip:hover { border-color: var(--ai); background: var(--ai-soft); color: var(--ai); }
 
       .other-add-row { display: flex; gap: var(--space-sm); margin-bottom: var(--space-sm); }
       .other-add-row button { font-size: 0.85em; padding: 5px 10px; }
@@ -113,7 +118,14 @@
       .confirm-row .c-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       .confirm-row .c-price { width: 60px; text-align: right; color: var(--ink-muted); font-variant-numeric: tabular-nums; }
       .confirm-row .c-price-input { width: 72px; text-align: right; font-variant-numeric: tabular-nums; }
-      .confirm-footer { display: flex; align-items: center; justify-content: space-between; margin-top: var(--space-md); }
+
+      /* 明細一覧だけをスクロールさせ、合計点数・合計金額は常に見える位置に固定する */
+      .confirm-box { display: flex; flex-direction: column; overflow: hidden; }
+      .confirm-box #confirm-rows { overflow-y: auto; flex: 1 1 auto; min-height: 0; }
+      .confirm-box .confirm-footer { flex-shrink: 0; }
+
+      .confirm-footer { display: flex; align-items: center; justify-content: space-between; margin-top: var(--space-md); padding-top: var(--space-md); border-top: 1px solid var(--border); }
+      .confirm-totals { display: flex; gap: var(--space-md); }
       .confirm-total .label { font-size: 0.8em; color: var(--ink-muted); }
       .confirm-total .value { font-size: 1.3em; font-weight: 700; font-variant-numeric: tabular-nums; }
 
@@ -228,13 +240,16 @@
 
     <!-- 確認モーダル -->
     <div class="modal-overlay" id="confirm-modal" style="display:none;">
-      <div class="modal-box">
+      <div class="modal-box confirm-box">
         <button type="button" class="icon-btn modal-close" id="confirm-close">✕</button>
         <h3 style="margin-top:0;">明細の確認</h3>
         <div id="confirm-rows"></div>
         <p id="confirm-error" class="error"></p>
         <div class="confirm-footer">
-          <div class="confirm-total"><div class="label">合計</div><div class="value" id="confirm-total">¥0</div></div>
+          <div class="confirm-totals">
+            <div class="confirm-total"><div class="label">点数</div><div class="value" id="confirm-count">0点</div></div>
+            <div class="confirm-total"><div class="label">合計</div><div class="value" id="confirm-total">¥0</div></div>
+          </div>
           <button type="button" class="btn-primary" id="confirm-submit">確定</button>
         </div>
       </div>
@@ -255,16 +270,17 @@
     <div class="modal-overlay" id="other-item-modal" style="display:none;">
       <div class="modal-box small-modal">
         <h3 style="margin-top:0;" id="other-item-title">その他商品を追加</h3>
+        <div class="history-chip-row" id="other-item-history" style="display:none;"></div>
         <div class="form-row">
           <label for="other-item-name">商品名</label>
           <input type="text" id="other-item-name">
         </div>
         <div class="form-row">
           <label for="other-item-price">単価（円）</label>
-          <input type="number" id="other-item-price" min="0" inputmode="numeric">
+          <input type="number" id="other-item-price" min="0" step="10" inputmode="numeric">
         </div>
         <div class="form-row">
-          <label for="other-item-subcategory">中分類（任意）</label>
+          <label for="other-item-subcategory">サブカテゴリー</label>
           <select id="other-item-subcategory"></select>
         </div>
         <p id="other-item-error" class="error"></p>
@@ -359,7 +375,50 @@
         }
       });
 
+      // その他商品の直近入力履歴（ブラウザのlocalStorageに大分類ごとに保存し、次回以降ワンタップで再入力できるようにする）
+      var OTHER_ITEM_HISTORY_KEY_ = 'posOtherItemHistory';
+      var OTHER_ITEM_HISTORY_LIMIT_ = 8;
+      function loadOtherItemHistory_(categoryLarge) {
+        try {
+          var all = JSON.parse(localStorage.getItem(OTHER_ITEM_HISTORY_KEY_) || '{}');
+          return all[categoryLarge] || [];
+        } catch (e) {
+          return [];
+        }
+      }
+      function saveOtherItemHistory_(categoryLarge, entry) {
+        var all;
+        try {
+          all = JSON.parse(localStorage.getItem(OTHER_ITEM_HISTORY_KEY_) || '{}');
+        } catch (e) {
+          all = {};
+        }
+        var list = (all[categoryLarge] || []).filter(function (h) { return h.name !== entry.name; });
+        list.unshift(entry);
+        all[categoryLarge] = list.slice(0, OTHER_ITEM_HISTORY_LIMIT_);
+        localStorage.setItem(OTHER_ITEM_HISTORY_KEY_, JSON.stringify(all));
+      }
+      function renderOtherItemHistory_(categoryLarge) {
+        var wrap = document.getElementById('other-item-history');
+        var history = loadOtherItemHistory_(categoryLarge);
+        wrap.innerHTML = '';
+        wrap.style.display = history.length === 0 ? 'none' : '';
+        history.forEach(function (h) {
+          var chip = document.createElement('button');
+          chip.type = 'button';
+          chip.className = 'history-chip';
+          chip.textContent = h.name + '（¥' + Number(h.price).toLocaleString() + '）';
+          chip.addEventListener('click', function () {
+            document.getElementById('other-item-name').value = h.name;
+            document.getElementById('other-item-price').value = h.price;
+            if (h.subCategory) { document.getElementById('other-item-subcategory').value = h.subCategory; }
+          });
+          wrap.appendChild(chip);
+        });
+      }
+
       var otherItemCallback = null;
+      var otherItemCategory = null;
       function showOtherItemModal(categoryLarge, onAdd) {
         document.getElementById('other-item-title').textContent = (categoryLarge === 'ドリンク' ? 'その他ドリンク' : 'その他フード') + 'を追加';
         document.getElementById('other-item-name').value = '';
@@ -370,13 +429,16 @@
         subSelect.innerHTML = '<option value="">未選択</option>' + subOptions.map(function (name) {
           return '<option value="' + name + '">' + name + '</option>';
         }).join('');
+        renderOtherItemHistory_(categoryLarge);
         document.getElementById('other-item-modal').style.display = 'flex';
         otherItemCallback = onAdd;
+        otherItemCategory = categoryLarge;
         document.getElementById('other-item-name').focus();
       }
       function closeOtherItemModal() {
         document.getElementById('other-item-modal').style.display = 'none';
         otherItemCallback = null;
+        otherItemCategory = null;
       }
       document.getElementById('other-item-cancel').addEventListener('click', closeOtherItemModal);
       document.getElementById('other-item-modal').addEventListener('click', function (event) {
@@ -396,6 +458,8 @@
         }
         var subCategory = document.getElementById('other-item-subcategory').value;
         var callback = otherItemCallback;
+        var categoryLarge = otherItemCategory;
+        saveOtherItemHistory_(categoryLarge, { name: name, price: price, subCategory: subCategory });
         closeOtherItemModal();
         callback(name, price, subCategory);
       });
@@ -811,7 +875,7 @@
           row.className = 'confirm-row';
           row.innerHTML =
             '<span class="c-name">' + d.MenuName + '</span>' +
-            '<input type="number" class="c-price-input" min="0" inputmode="numeric" value="' + d.UnitPrice + '" title="価格を修正（メニュー価格改定後の伝票処理用）">' +
+            '<input type="number" class="c-price-input" min="0" step="10" inputmode="numeric" value="' + d.UnitPrice + '" title="価格を修正（メニュー価格改定後の伝票処理用）">' +
             '<div class="qty-control" style="margin-left:0;">' +
             '<button type="button" class="circle-btn minus">' + iconSvg('minus') + '</button>' +
             '<span class="qty-num">' + d.Quantity + '</span>' +
@@ -848,7 +912,9 @@
       }
 
       function updateConfirmTotal() {
+        var count = currentDetails.reduce(function (sum, d) { return sum + d.Quantity; }, 0);
         var total = currentDetails.reduce(function (sum, d) { return sum + d.Quantity * d.UnitPrice; }, 0);
+        document.getElementById('confirm-count').textContent = count + '点';
         document.getElementById('confirm-total').textContent = '¥' + total.toLocaleString();
       }
 
