@@ -589,7 +589,8 @@
 
   /* ===== 読み込み中演出 ===== */
   .loading-wrap { position: relative; }
-  .loading-target { opacity: 0.5; pointer-events: none; transition: opacity 0.15s; }
+  .loading-target { transition: opacity 0.15s; }
+  .loading-wrap.is-loading .loading-target { opacity: 0.5; pointer-events: none; }
   .loading-overlay { display: none; position: absolute; inset: 0; align-items: center; justify-content: center; z-index: 5; }
   .loading-wrap.is-loading .loading-overlay { display: flex; }
   .loading-overlay-pill { display: flex; align-items: center; gap: 8px; background: var(--surface); padding: 8px 16px; border-radius: 999px; border: 1px solid var(--border); box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
