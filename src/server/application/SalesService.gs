@@ -125,10 +125,14 @@ function saveSalesEntry(input) {
     SalesDetailRepository.saveAll(detailRows);
   });
 
-  recalcCustomerVisitStats_(oldCustomerId);
-  recalcCustomerVisitStats_(customerId);
-
+  // 来店統計の再計算（新旧顧客の最大2件分）は、保存直後のSales/Customerを1回ずつ読み込んで
+  // 使い回す（recalcCustomerVisitStats_を呼ぶたびに毎回findAll()し直すと、Sales/Customer全件の
+  // 読み込みが最大3回ずつ発生していたため）
+  var allSales = SalesRepository.findAll();
   var allCustomers = CustomerRepository.findAll();
+  recalcCustomerVisitStats_(oldCustomerId, allSales, allCustomers);
+  recalcCustomerVisitStats_(customerId, allSales, allCustomers);
+
   var savedCustomer = customerId ? allCustomers.filter(function (c) { return c.CustomerId === customerId; })[0] : null;
 
   return {
@@ -155,11 +159,14 @@ function deleteSalesEntry(salesId) {
   }
   SalesDetailRepository.deleteBySalesId(salesId);
   SalesRepository.deleteById(salesId);
-  recalcCustomerVisitStats_(existing.CustomerId);
+
+  var allSales = SalesRepository.findAll();
+  var allCustomers = CustomerRepository.findAll();
+  recalcCustomerVisitStats_(existing.CustomerId, allSales, allCustomers);
 
   return {
     deletedSalesId: salesId,
-    customerList: buildActiveCustomerList_(CustomerRepository.findAll())
+    customerList: buildActiveCustomerList_(allCustomers)
   };
 }
 
@@ -236,15 +243,18 @@ function resolveCustomerId_(input) {
   return '';
 }
 
-function recalcCustomerVisitStats_(customerId) {
+// allSales/allCustomersは呼び出し側が読み込み済みの全件配列（呼び出しのたびに毎回
+// findAll()し直さないよう、SalesService内で1回だけ読み込んだものを使い回す）
+function recalcCustomerVisitStats_(customerId, allSales, allCustomers) {
   if (!customerId) {
     return;
   }
-  var customer = findCustomerById_(customerId);
+  var customer = allCustomers.filter(function (c) { return c.CustomerId === customerId; })[0];
   if (!customer) {
     return;
   }
-  var stats = VisitStatsCalculator.calc(SalesRepository.findByCustomerId(customerId));
+  var salesForCustomer = allSales.filter(function (s) { return s.CustomerId === customerId; });
+  var stats = VisitStatsCalculator.calc(salesForCustomer);
   customer.VisitCount = stats.VisitCount;
   customer.FirstVisitDate = stats.FirstVisitDate || customer.FirstVisitDate;
   customer.LastVisitDate = stats.LastVisitDate || customer.FirstVisitDate;
