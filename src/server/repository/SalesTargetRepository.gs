@@ -21,13 +21,6 @@ var SalesTargetRepository = {
 
   save: function (target) {
     var sheet = SpreadsheetConfig.getSheet('SalesTarget');
-    var row = SheetUtil.objectToRow(this.HEADERS, target);
-    var rowIndex = SheetUtil.findRowIndexById(sheet, 'SalesTargetId', target.SalesTargetId);
-
-    if (rowIndex === -1) {
-      sheet.appendRow(row);
-    } else {
-      sheet.getRange(rowIndex, 1, 1, row.length).setValues([row]);
-    }
+    SheetUtil.upsertByRow(sheet, this.HEADERS, 'SalesTargetId', target.SalesTargetId, target);
   }
 };

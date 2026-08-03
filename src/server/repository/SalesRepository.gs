@@ -31,14 +31,7 @@ var SalesRepository = {
 
   save: function (sales) {
     var sheet = SpreadsheetConfig.getSheet('Sales');
-    var row = SheetUtil.objectToRow(this.HEADERS, sales);
-    var rowIndex = SheetUtil.findRowIndexById(sheet, 'SalesId', sales.SalesId);
-
-    if (rowIndex === -1) {
-      sheet.appendRow(row);
-    } else {
-      sheet.getRange(rowIndex, 1, 1, row.length).setValues([row]);
-    }
+    SheetUtil.upsertByRow(sheet, this.HEADERS, 'SalesId', sales.SalesId, sales);
     RepositoryCache.invalidate(this.CACHE_KEY_);
   },
 

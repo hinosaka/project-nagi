@@ -16,13 +16,6 @@ var BusinessDayRepository = {
 
   save: function (businessDay) {
     var sheet = SpreadsheetConfig.getSheet('BusinessDay');
-    var row = SheetUtil.objectToRow(this.HEADERS, businessDay);
-    var rowIndex = SheetUtil.findRowIndexById(sheet, 'BusinessDayId', businessDay.BusinessDayId);
-
-    if (rowIndex === -1) {
-      sheet.appendRow(row);
-    } else {
-      sheet.getRange(rowIndex, 1, 1, row.length).setValues([row]);
-    }
+    SheetUtil.upsertByRow(sheet, this.HEADERS, 'BusinessDayId', businessDay.BusinessDayId, businessDay);
   }
 };

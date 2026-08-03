@@ -11,14 +11,7 @@ var SubCategoryRepository = {
 
   save: function (subCategory) {
     var sheet = SpreadsheetConfig.getSheet('SubCategory');
-    var row = SheetUtil.objectToRow(this.HEADERS, subCategory);
-    var rowIndex = SheetUtil.findRowIndexById(sheet, 'SubCategoryId', subCategory.SubCategoryId);
-
-    if (rowIndex === -1) {
-      sheet.appendRow(row);
-    } else {
-      sheet.getRange(rowIndex, 1, 1, row.length).setValues([row]);
-    }
+    SheetUtil.upsertByRow(sheet, this.HEADERS, 'SubCategoryId', subCategory.SubCategoryId, subCategory);
   },
 
   deleteById: function (subCategoryId) {

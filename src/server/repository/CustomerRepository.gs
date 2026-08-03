@@ -10,13 +10,6 @@ var CustomerRepository = {
 
   save: function (customer) {
     var sheet = SpreadsheetConfig.getSheet('Customer');
-    var row = SheetUtil.objectToRow(this.HEADERS, customer);
-    var rowIndex = SheetUtil.findRowIndexById(sheet, 'CustomerId', customer.CustomerId);
-
-    if (rowIndex === -1) {
-      sheet.appendRow(row);
-    } else {
-      sheet.getRange(rowIndex, 1, 1, row.length).setValues([row]);
-    }
+    SheetUtil.upsertByRow(sheet, this.HEADERS, 'CustomerId', customer.CustomerId, customer);
   }
 };

@@ -30,6 +30,18 @@ var SheetUtil = {
     return -1;
   },
 
+  // マスタ系リポジトリのsave()共通処理：idColumnNameの値でidValueと一致する行を探し、
+  // あれば上書き、なければ追記する。ほぼ全リポジトリのsave()が同じ形だったため、ここに集約した
+  upsertByRow: function (sheet, headers, idColumnName, idValue, obj) {
+    var row = this.objectToRow(headers, obj);
+    var rowIndex = this.findRowIndexById(sheet, idColumnName, idValue);
+    if (rowIndex === -1) {
+      sheet.appendRow(row);
+    } else {
+      sheet.getRange(rowIndex, 1, 1, row.length).setValues([row]);
+    }
+  },
+
   // 指定列の値が一致する行を全て物理削除する（Sales/SalesDetailなど実削除を許可するデータ用）
   deleteRowsByColumnValue: function (sheet, columnName, value) {
     var values = sheet.getDataRange().getValues();
