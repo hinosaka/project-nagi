@@ -344,28 +344,22 @@
       }
 
       function buildDonutSvg(items) {
-        var total = items.reduce(function (s, it) { return s + it.amount; }, 0);
-        var cx = 21, cy = 21, ringR = 15.9155, lineOuterR = 19.5, lineEndR = 25;
-        var svg = '<circle cx="' + cx + '" cy="' + cy + '" r="' + ringR + '" fill="transparent" stroke="var(--surface-2)" stroke-width="5"></circle>';
-        var labels = '';
-        var cumulative = 0;
-        items.forEach(function (it) {
-          var pct = total > 0 ? (it.amount / total) * 100 : 0;
-          var offset = 25 - cumulative;
-          svg += '<circle cx="' + cx + '" cy="' + cy + '" r="' + ringR + '" fill="transparent" stroke="' + it.color + '" stroke-width="5" ' +
-            'stroke-dasharray="' + pct.toFixed(2) + ' ' + (100 - pct).toFixed(2) + '" stroke-dashoffset="' + offset.toFixed(2) + '"></circle>';
+        var lineOuterR = 19.5, lineEndR = 25;
+        var d = buildDonutSegments(items, 5);
+        var svg = d.track + d.segments.map(function (seg) { return seg.circle; }).join('');
 
-          if (pct >= 3) {
-            var midAngle = (cumulative + pct / 2) / 100 * 360;
-            var p1 = polarToXY(cx, cy, lineOuterR, midAngle);
-            var p2 = polarToXY(cx, cy, lineEndR, midAngle);
-            var normalizedAngle = ((midAngle % 360) + 360) % 360;
-            var textAnchor = (normalizedAngle > 5 && normalizedAngle < 175) ? 'start' : (normalizedAngle > 185 && normalizedAngle < 355) ? 'end' : 'middle';
-            var dx = textAnchor === 'start' ? 1 : (textAnchor === 'end' ? -1 : 0);
-            labels += '<line x1="' + p1.x.toFixed(2) + '" y1="' + p1.y.toFixed(2) + '" x2="' + p2.x.toFixed(2) + '" y2="' + p2.y.toFixed(2) + '"></line>';
-            labels += '<text x="' + (p2.x + dx).toFixed(2) + '" y="' + p2.y.toFixed(2) + '" text-anchor="' + textAnchor + '" dominant-baseline="middle">' + Math.round(pct) + '%</text>';
+        var labels = '';
+        d.segments.forEach(function (seg) {
+          if (seg.pct < 3) {
+            return;
           }
-          cumulative += pct;
+          var p1 = polarToXY(d.cx, d.cy, lineOuterR, seg.midAngle);
+          var p2 = polarToXY(d.cx, d.cy, lineEndR, seg.midAngle);
+          var normalizedAngle = ((seg.midAngle % 360) + 360) % 360;
+          var textAnchor = (normalizedAngle > 5 && normalizedAngle < 175) ? 'start' : (normalizedAngle > 185 && normalizedAngle < 355) ? 'end' : 'middle';
+          var dx = textAnchor === 'start' ? 1 : (textAnchor === 'end' ? -1 : 0);
+          labels += '<line x1="' + p1.x.toFixed(2) + '" y1="' + p1.y.toFixed(2) + '" x2="' + p2.x.toFixed(2) + '" y2="' + p2.y.toFixed(2) + '"></line>';
+          labels += '<text x="' + (p2.x + dx).toFixed(2) + '" y="' + p2.y.toFixed(2) + '" text-anchor="' + textAnchor + '" dominant-baseline="middle">' + Math.round(seg.pct) + '%</text>';
         });
         return svg + labels;
       }

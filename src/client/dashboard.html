@@ -470,17 +470,8 @@
       }
 
       function buildDonut(items) {
-        var total = items.reduce(function (s, it) { return s + it.amount; }, 0);
-        var circumference = 100;
-        var offset = 25;
-        var circles = '<circle class="donut-track" cx="21" cy="21" r="15.9155" fill="transparent" stroke="var(--surface-2)" stroke-width="4"></circle>';
-        items.forEach(function (it) {
-          var pct = total > 0 ? (it.amount / total) * 100 : 0;
-          circles += '<circle cx="21" cy="21" r="15.9155" fill="transparent" stroke="' + it.color + '" stroke-width="4" ' +
-            'stroke-dasharray="' + pct.toFixed(2) + ' ' + (circumference - pct).toFixed(2) + '" ' +
-            'stroke-dashoffset="' + offset.toFixed(2) + '"></circle>';
-          offset -= pct;
-        });
+        var d = buildDonutSegments(items, 4);
+        var circles = d.track + d.segments.map(function (seg) { return seg.circle; }).join('');
         return '<svg class="donut-svg" viewBox="0 0 42 42">' + circles + '</svg>';
       }
 

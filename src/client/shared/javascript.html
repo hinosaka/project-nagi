@@ -127,6 +127,30 @@
     return d.getFullYear() + '-' + mm + '-' + dd;
   }
 
+  // ドーナツグラフの各セグメント（<circle>のstroke-dasharray/dashoffset）を組み立てる共通処理。
+  // ダッシュボード（ラベルなし）・商品統計（引き出し線％表示あり）で、セグメントの角度計算
+  // 自体は同じ数式のため共通化した（ラベル描画の有無・stroke-widthは呼び出し側の見た目に委ねる）。
+  // items: [{name, amount, color}]。戻り値のsegments[i].midAngleは、そのセグメントの中央の角度
+  // （0度=12時位置、時計回り）で、引き出し線などラベル描画が必要な場合に使う
+  function buildDonutSegments(items, strokeWidth) {
+    var cx = 21, cy = 21, r = 15.9155;
+    var total = items.reduce(function (s, it) { return s + it.amount; }, 0);
+    var track = '<circle cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="transparent" stroke="var(--surface-2)" stroke-width="' + strokeWidth + '"></circle>';
+
+    var cumulative = 0;
+    var segments = items.map(function (it) {
+      var pct = total > 0 ? (it.amount / total) * 100 : 0;
+      var offset = 25 - cumulative;
+      var circle = '<circle cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="transparent" stroke="' + it.color + '" stroke-width="' + strokeWidth + '" ' +
+        'stroke-dasharray="' + pct.toFixed(2) + ' ' + (100 - pct).toFixed(2) + '" stroke-dashoffset="' + offset.toFixed(2) + '"></circle>';
+      var midAngle = (cumulative + pct / 2) / 100 * 360;
+      cumulative += pct;
+      return { circle: circle, pct: pct, midAngle: midAngle };
+    });
+
+    return { cx: cx, cy: cy, track: track, segments: segments };
+  }
+
   // 日付表示欄の見出し用（例：2026年07月31日(金)）。dateStrは"yyyy-MM-dd"形式。
   // new Date("yyyy-MM-dd")はUTC0時として解釈されるため、getUTC系で取り出してローカルの日付ズレを防ぐ
   function formatFullDateWithWeekday(dateStr) {
