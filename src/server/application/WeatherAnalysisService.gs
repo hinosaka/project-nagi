@@ -12,11 +12,19 @@ function getWeatherAnalysisData(periodType, referenceDateStr, startDateStr, endD
     return d >= range.start && d <= range.end;
   });
 
+  // BusinessDayは日付ごとに1回だけ全件読み込み、対象日ごとの照合はJS側のMapで行う
+  // （salesInRangeの件数分だけBusinessDayRepository.findByDateを呼ぶと、都度シート全体を
+  // 読み直すことになり件数に対して遅くなるため）
+  var businessDayByDate = {};
+  BusinessDayRepository.findAll().forEach(function (b) {
+    businessDayByDate[DateUtil.formatYmd(b.SalesDate)] = b;
+  });
+
   var totals = {};
   var order = [];
   var weatherBySalesId = {};
   salesInRange.forEach(function (s) {
-    var businessDay = BusinessDayRepository.findByDate(s.SalesDate);
+    var businessDay = businessDayByDate[DateUtil.formatYmd(s.SalesDate)];
     var weather = (businessDay && businessDay.Weather) ? businessDay.Weather : '未記録';
     weatherBySalesId[s.SalesId] = weather;
     if (!totals[weather]) {

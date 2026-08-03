@@ -68,16 +68,19 @@ function closeRegister(salesDateStr) {
   var salesDate = new Date(salesDateStr);
   var data = getCashRegisterData(salesDateStr);
 
-  var existingIds = RegisterCloseLogRepository.findAll().map(function (r) { return r.RegisterCloseLogId; });
-  var registerCloseLogId = DailyIdRule.generateNext('RC', salesDate, existingIds);
+  // ID採番〜保存までを排他化する（SalesService.saveSalesEntryと同じ理由。LockUtil.gs参照）
+  LockUtil.withLock(function () {
+    var existingIds = RegisterCloseLogRepository.findAll().map(function (r) { return r.RegisterCloseLogId; });
+    var registerCloseLogId = DailyIdRule.generateNext('RC', salesDate, existingIds);
 
-  RegisterCloseLogRepository.append({
-    RegisterCloseLogId: registerCloseLogId,
-    SalesDate: salesDate,
-    StartingCash: data.startingCash,
-    CashSalesAmount: data.cashSalesAmount,
-    ExpectedCashBalance: data.expectedCashBalance,
-    ClosedAt: new Date()
+    RegisterCloseLogRepository.append({
+      RegisterCloseLogId: registerCloseLogId,
+      SalesDate: salesDate,
+      StartingCash: data.startingCash,
+      CashSalesAmount: data.cashSalesAmount,
+      ExpectedCashBalance: data.expectedCashBalance,
+      ClosedAt: new Date()
+    });
   });
 
   return getCashRegisterData(salesDateStr);

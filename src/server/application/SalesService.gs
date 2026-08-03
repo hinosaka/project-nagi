@@ -81,44 +81,49 @@ function saveSalesEntry(input) {
   var salesDate = new Date(input.SalesDate);
   var details = buildDetailRows_(input.details);
   var totalAmount = SalesCalculator.calcTotalAmount(details);
+  var customerId = resolveCustomerId_(input);
 
   var oldCustomerId = '';
   var salesId = input.SalesId;
   var registeredAt = new Date();
+  var detailRows;
 
-  if (salesId) {
-    var existingSales = findSalesById_(salesId);
-    if (!existingSales) {
-      throw new Error('対象の会計が見つかりません：' + salesId);
+  // ID採番（既存ID一覧から次番号を決める）〜保存までを排他化する。ここをロックしないと、
+  // 2人以上のスタッフがほぼ同時に新規会計を保存した際に同じSalesIdが生成され、
+  // 後から保存した側が先の会計データを上書き消失させる事故になりうる（LockUtil.gs参照）
+  LockUtil.withLock(function () {
+    if (salesId) {
+      var existingSales = findSalesById_(salesId);
+      if (!existingSales) {
+        throw new Error('対象の会計が見つかりません：' + salesId);
+      }
+      oldCustomerId = existingSales.CustomerId;
+      registeredAt = existingSales.RegisteredAt;
+      SalesDetailRepository.deleteBySalesId(salesId);
+    } else {
+      var existingIds = SalesRepository.findAll().map(function (s) { return s.SalesId; });
+      salesId = SalesIdRule.generateNext(salesDate, existingIds);
     }
-    oldCustomerId = existingSales.CustomerId;
-    registeredAt = existingSales.RegisteredAt;
-    SalesDetailRepository.deleteBySalesId(salesId);
-  } else {
-    var existingIds = SalesRepository.findAll().map(function (s) { return s.SalesId; });
-    salesId = SalesIdRule.generateNext(salesDate, existingIds);
-  }
 
-  var customerId = resolveCustomerId_(input);
+    SalesRepository.save({
+      SalesId: salesId,
+      SalesDate: salesDate,
+      CustomerId: customerId,
+      SeatId: input.SeatId || '',
+      PartySize: Number(input.PartySize),
+      TotalAmount: totalAmount,
+      Note: input.Note || '',
+      RegisteredAt: registeredAt
+    });
 
-  SalesRepository.save({
-    SalesId: salesId,
-    SalesDate: salesDate,
-    CustomerId: customerId,
-    SeatId: input.SeatId || '',
-    PartySize: Number(input.PartySize),
-    TotalAmount: totalAmount,
-    Note: input.Note || '',
-    RegisteredAt: registeredAt
+    detailRows = details.map(function (d, i) {
+      d.SalesDetailId = salesId + '-' + (i + 1);
+      d.SalesId = salesId;
+      d.CustomerId = customerId;
+      return d;
+    });
+    SalesDetailRepository.saveAll(detailRows);
   });
-
-  var detailRows = details.map(function (d, i) {
-    d.SalesDetailId = salesId + '-' + (i + 1);
-    d.SalesId = salesId;
-    d.CustomerId = customerId;
-    return d;
-  });
-  SalesDetailRepository.saveAll(detailRows);
 
   recalcCustomerVisitStats_(oldCustomerId);
   recalcCustomerVisitStats_(customerId);

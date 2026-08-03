@@ -1,11 +1,20 @@
 // データアクセス層：Salesシートの読み書き。会計は登録・修正・削除のたびに実データを直接更新する（論理削除ではない）
 var SalesRepository = {
   HEADERS: ['SalesId', 'SalesDate', 'CustomerId', 'SeatId', 'PartySize', 'TotalAmount', 'Note', 'RegisteredAt'],
+  CACHE_KEY_: 'repo:Sales:findAll',
 
+  // ダッシュボード・各分析画面から同一データへ短時間に何度もアクセスされるため、
+  // RepositoryCacheで60秒だけ結果をキャッシュする（save/deleteById時に破棄する。RepositoryCache.gs参照）
   findAll: function () {
+    var cached = RepositoryCache.get(this.CACHE_KEY_);
+    if (cached) {
+      return cached;
+    }
     var sheet = SpreadsheetConfig.getSheet('Sales');
     var values = sheet.getDataRange().getValues();
-    return SheetUtil.rowsToObjects(values);
+    var rows = SheetUtil.rowsToObjects(values);
+    RepositoryCache.put(this.CACHE_KEY_, rows);
+    return rows;
   },
 
   findByDate: function (salesDate) {
@@ -30,10 +39,12 @@ var SalesRepository = {
     } else {
       sheet.getRange(rowIndex, 1, 1, row.length).setValues([row]);
     }
+    RepositoryCache.invalidate(this.CACHE_KEY_);
   },
 
   deleteById: function (salesId) {
     var sheet = SpreadsheetConfig.getSheet('Sales');
     SheetUtil.deleteRowsByColumnValue(sheet, 'SalesId', salesId);
+    RepositoryCache.invalidate(this.CACHE_KEY_);
   }
 };

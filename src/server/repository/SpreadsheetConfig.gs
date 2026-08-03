@@ -21,12 +21,22 @@ var SHEET_DISPLAY_NAMES_ = {
 };
 
 var SpreadsheetConfig = {
+  // Spreadsheet／シートオブジェクトを1回の実行（1回のdoGet/doPost呼び出し）の中でのみ使い回す。
+  // 実行が終わるとグローバル変数ごと破棄されるため、次回実行に古い状態を持ち越すことはない。
+  // これが無いと、1リクエストで複数リポジトリを呼ぶ画面ほどPropertiesService.getProperty()と
+  // SpreadsheetApp.openById()を毎回繰り返すことになる
+  spreadsheetCache_: null,
+  sheetCache_: {},
+
   getSpreadsheet: function () {
-    var id = PropertiesService.getScriptProperties().getProperty('SPREADSHEET_ID');
-    if (!id) {
-      throw new Error('SPREADSHEET_IDが未設定です。setupDatabase()を実行してください。');
+    if (!this.spreadsheetCache_) {
+      var id = PropertiesService.getScriptProperties().getProperty('SPREADSHEET_ID');
+      if (!id) {
+        throw new Error('SPREADSHEET_IDが未設定です。setupDatabase()を実行してください。');
+      }
+      this.spreadsheetCache_ = SpreadsheetApp.openById(id);
     }
-    return SpreadsheetApp.openById(id);
+    return this.spreadsheetCache_;
   },
 
   // sheetNameはコード上の識別子（例：'Menu'）。実際のタブ名（表示名）に変換する
@@ -35,11 +45,15 @@ var SpreadsheetConfig = {
   },
 
   getSheet: function (sheetName) {
+    if (this.sheetCache_[sheetName]) {
+      return this.sheetCache_[sheetName];
+    }
     var displayName = this.displayName(sheetName);
     var sheet = this.getSpreadsheet().getSheetByName(displayName);
     if (!sheet) {
       throw new Error('シートが見つかりません：' + displayName);
     }
+    this.sheetCache_[sheetName] = sheet;
     return sheet;
   }
 };
