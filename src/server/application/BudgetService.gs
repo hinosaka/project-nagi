@@ -7,7 +7,7 @@ function getBudgetData(targetMonth) {
   var note = target ? (target.Note || '') : '';
 
   var actualAmount = SalesRepository.findAll()
-    .filter(function (s) { return formatYearMonth_(s.SalesDate) === targetMonth; })
+    .filter(function (s) { return DateUtil.formatYm(s.SalesDate) === targetMonth; })
     .reduce(function (sum, s) { return sum + (Number(s.TotalAmount) || 0); }, 0);
 
   var achievementRate = targetAmount > 0 ? Math.round((actualAmount / targetAmount) * 100) : null;
@@ -32,7 +32,7 @@ function getBudgetDataForYear(year) {
 
   var amountByMonth = {};
   SalesRepository.findAll().forEach(function (s) {
-    var ym = formatYearMonth_(s.SalesDate);
+    var ym = DateUtil.formatYm(s.SalesDate);
     amountByMonth[ym] = (amountByMonth[ym] || 0) + (Number(s.TotalAmount) || 0);
   });
 
@@ -87,10 +87,6 @@ function saveBudgetTargetsForYear(year, months) {
     });
   });
   return getBudgetDataForYear(year);
-}
-
-function formatYearMonth_(date) {
-  return Utilities.formatDate(new Date(date), Session.getScriptTimeZone(), 'yyyy-MM');
 }
 
 var JAPAN_HOLIDAY_CALENDAR_ID_ = 'ja.japanese#holiday@group.v.calendar.google.com';
