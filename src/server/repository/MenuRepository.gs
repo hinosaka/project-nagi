@@ -18,5 +18,10 @@ var MenuRepository = {
     } else {
       sheet.getRange(rowIndex, 1, 1, row.length).setValues([row]);
     }
+  },
+
+  deleteById: function (menuId) {
+    var sheet = SpreadsheetConfig.getSheet('Menu');
+    SheetUtil.deleteRowsByColumnValue(sheet, 'MenuId', menuId);
   }
 };

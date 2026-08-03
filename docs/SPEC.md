@@ -40,7 +40,7 @@
 | REQ-003 | 販売を終了した商品を一覧から非表示にできる（データは保持し、過去の売上明細には影響しない） | Should | Menu.IsActive |
 | REQ-004 | 商品の一覧を閲覧できる | Must | Menu |
 | REQ-026 | 商品ごとに原価（概算値）を登録できる | Should | Menu.Cost。粗利益・原価率（REQ-029）の前提 |
-| REQ-042 | 商品の大分類・中分類を、商品登録に依存せず独立したカテゴリーとして作成・名称変更・並び替え（中分類のみ）できる | Should | Category, SubCategory。名称変更時は該当する`Menu.CategoryLarge`/`CategoryMedium`を新しい名称に一括更新する（過去の`SalesDetail`のスナップショットには影響しない） |
+| REQ-042 | 商品の中分類を、商品登録に依存せず独立したサブカテゴリーとして作成・名称変更・並び替え・削除できる。大分類（カテゴリー）は初期構築時に定義された固定の分類とし、名称変更のみ可能（追加・削除機能は分析軸を一定に保つため提供しない） | Should | Category, SubCategory。名称変更時は該当する`Menu.CategoryLarge`/`CategoryMedium`を新しい名称に一括更新する（過去の`SalesDetail`のスナップショットには影響しない）。SubCategoryの削除は物理削除（Menu.CategoryMediumは文字列スナップショットのため、削除しても既存商品のデータは壊れない） |
 
 ### 3.2 会計処理（売上登録・レジ締め）
 

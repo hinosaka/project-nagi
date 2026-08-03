@@ -19,5 +19,10 @@ var SubCategoryRepository = {
     } else {
       sheet.getRange(rowIndex, 1, 1, row.length).setValues([row]);
     }
+  },
+
+  deleteById: function (subCategoryId) {
+    var sheet = SpreadsheetConfig.getSheet('SubCategory');
+    SheetUtil.deleteRowsByColumnValue(sheet, 'SubCategoryId', subCategoryId);
   }
 };

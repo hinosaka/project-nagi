@@ -13,23 +13,6 @@ function getSubCategoryList() {
   return SubCategoryRepository.findAll();
 }
 
-function createCategory(categoryName) {
-  var name = (categoryName || '').trim();
-  if (!name) {
-    throw new Error('カテゴリー名を入力してください');
-  }
-  var categories = CategoryRepository.findAll();
-  if (categories.some(function (c) { return c.CategoryName === name; })) {
-    throw new Error('同じ名前のカテゴリーが既にあります');
-  }
-
-  var existingIds = categories.map(function (c) { return c.CategoryId; });
-  CategoryRepository.save({
-    CategoryId: SequentialIdRule.generateNext('CAT', existingIds),
-    CategoryName: name
-  });
-}
-
 function renameCategory(categoryId, newName) {
   var name = (newName || '').trim();
   if (!name) {
@@ -72,12 +55,14 @@ function createSubCategory(categoryId, subCategoryName) {
 
   var maxOrder = scoped.reduce(function (max, s) { return Math.max(max, Number(s.SortOrder) || 0); }, 0);
   var existingIds = subCategories.map(function (s) { return s.SubCategoryId; });
+  var subCategoryId = SequentialIdRule.generateNext('SCT', existingIds);
   SubCategoryRepository.save({
-    SubCategoryId: SequentialIdRule.generateNext('SCT', existingIds),
+    SubCategoryId: subCategoryId,
     CategoryId: categoryId,
     SubCategoryName: name,
     SortOrder: maxOrder + 1
   });
+  return subCategoryId;
 }
 
 function renameSubCategory(subCategoryId, newName) {
@@ -111,6 +96,17 @@ function renameSubCategory(subCategoryId, newName) {
       }
     });
   }
+}
+
+// SubCategoryは論理削除（IsActive）を持たないため物理削除する（Menuの商品削除と同じ考え方）。
+// Menu.CategoryMediumはSubCategoryへの外部キーではなく文字列スナップショットのため、
+// 削除してもこのサブカテゴリーに属していた商品自体は壊れず残る（分類名は保持される）
+function deleteSubCategory(subCategoryId) {
+  var target = SubCategoryRepository.findAll().filter(function (s) { return s.SubCategoryId === subCategoryId; })[0];
+  if (!target) {
+    throw new Error('対象のサブカテゴリーが見つかりません：' + subCategoryId);
+  }
+  SubCategoryRepository.deleteById(subCategoryId);
 }
 
 // directionは-1（上へ）または1（下へ）。同じ大分類内での並び順を入れ替えたうえで、

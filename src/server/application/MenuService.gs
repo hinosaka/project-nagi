@@ -18,16 +18,23 @@ function getMenuManagementData() {
 function saveMenu(menuInput) {
   validateMenuInput_(menuInput);
 
+  var trimmedName = (menuInput.MenuName || '').trim();
+  var allMenus = MenuRepository.findAll();
+  var isDuplicateName = allMenus.some(function (m) {
+    return m.MenuName === trimmedName && m.MenuId !== menuInput.MenuId;
+  });
+  if (isDuplicateName) {
+    throw new Error('同じ商品名の商品が既に登録されています');
+  }
+
   var menu = {
-    MenuName: menuInput.MenuName,
+    MenuName: trimmedName,
     Price: Number(menuInput.Price),
     // 原価が未入力の場合は0を既定値とする（他画面の粗利計算・グラフ化が空文字でエラーになるため）
     Cost: menuInput.Cost === '' || menuInput.Cost === null || menuInput.Cost === undefined ? 0 : Number(menuInput.Cost),
     CategoryLarge: menuInput.CategoryLarge,
     CategoryMedium: menuInput.CategoryMedium
   };
-
-  var allMenus = MenuRepository.findAll();
 
   if (menuInput.MenuId) {
     var existing = findMenuById_(menuInput.MenuId);
@@ -50,6 +57,7 @@ function saveMenu(menuInput) {
   }
 
   MenuRepository.save(menu);
+  return menu.MenuId;
 }
 
 function nextMenuSortOrder_(allMenus, categoryLarge, categoryMedium) {
@@ -83,6 +91,17 @@ function deactivateMenu(menuId) {
   }
   existing.IsActive = false;
   MenuRepository.save(existing);
+}
+
+// Menuマスタから完全に削除する（販売終了＝IsActive falseとは別の、取り消しのきかない操作）。
+// SalesDetailは登録時点の商品名・単価をスナップショットとして保持しており、Menuを都度参照しないため、
+// 過去の会計データには影響しない
+function deleteMenu(menuId) {
+  var existing = findMenuById_(menuId);
+  if (!existing) {
+    throw new Error('対象の商品が見つかりません：' + menuId);
+  }
+  MenuRepository.deleteById(menuId);
 }
 
 function reactivateMenu(menuId) {

@@ -3,6 +3,7 @@
 <html>
   <head>
     <base target="_top">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <?!= include('client/shared/stylesheet') ?>
     <style>
       /* ===== 画面切り替え ===== */
@@ -14,11 +15,20 @@
       .top-actions button { flex: 1; justify-content: center; font-weight: 600; }
 
       /* ===== 商品一覧の中身（1商品1行の表形式） ===== */
-      #product-table { border-collapse: collapse; width: 100%; margin-top: var(--space-sm); }
+      #product-table { border-collapse: collapse; width: 100%; margin-top: var(--space-sm); table-layout: fixed; }
       #product-table th, #product-table td { border: none; border-bottom: 1px solid var(--border); padding: 8px; text-align: left; }
       #product-table th { color: var(--ink-muted); font-weight: normal; font-size: 0.85em; background: var(--paper); }
       #product-table td.num { font-variant-numeric: tabular-nums; text-align: right; }
       #product-table tbody tr:nth-child(even) { background: none; }
+      .col-drag { width: 2.6em; }
+      .col-name { width: auto; }
+      .col-price, .col-cost { width: 6em; }
+      .col-status { width: 7.2em; }
+      .col-delete { width: 3em; }
+      /* 数値入力のスピナー矢印を非表示にして、その分数字の表示幅を確保する */
+      .num-input::-webkit-outer-spin-button, .num-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+      .num-input { -moz-appearance: textfield; }
+      .reorder-static, .cell-input { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       .group-header td { color: var(--ink-muted); font-weight: 700; font-size: 0.88em; background: var(--paper); }
       .status-wrap { display: flex; align-items: center; gap: 6px; justify-content: flex-end; }
       .status-text { font-size: 0.78em; color: var(--ink-muted); width: 3.4em; text-align: right; }
@@ -60,11 +70,23 @@
       .subcat-empty { color: var(--ink-muted); font-size: 0.85em; padding: 4px 2px 4px var(--space-md); }
       .empty-note { color: var(--ink-muted); font-size: 0.9em; padding: var(--space-md) 2px; text-align: center; }
 
-      /* ===== 並び替え（商品一覧・サブカテゴリー一覧で共通） ===== */
+      /* ===== 並び替え（カテゴリー管理のサブカテゴリー一覧） ===== */
       .drag-handle { display: flex; align-items: center; justify-content: center; width: 1.4em; height: 1.4em; color: var(--ink-muted); cursor: grab; touch-action: none; flex-shrink: 0; }
       .drag-handle:active { cursor: grabbing; }
       .drag-item.dragging { opacity: 0.5; background: var(--ai-soft); }
-      #product-table td.drag-col { width: 1.8em; padding-right: 0; }
+
+      /* 編集モード：名前の編集・並び替えとも、ドロップ・入力のたびに保存せず「保存」ボタンで
+         一括確定する（都度保存すると通信のたびに重くなるため） */
+      .list-toolbar { display: flex; align-items: center; gap: var(--space-sm); }
+      .list-toolbar .tabs { flex: 1; margin-bottom: 0; }
+      .edit-bar { display: none; align-items: center; justify-content: space-between; gap: var(--space-sm); background: var(--ai-soft); color: var(--ai); border-radius: var(--radius-sm); padding: 8px 10px; margin: var(--space-sm) 0; font-size: 0.88em; }
+      .edit-bar.show { display: flex; }
+      .edit-bar-actions { display: flex; gap: var(--space-sm); flex-shrink: 0; }
+      .reorder-static { padding: 3px 4px; display: block; }
+      .reorder-static.num { text-align: right; }
+      #btn-product-edit-toggle.active, #btn-category-edit-toggle.active { background: var(--ai-soft); color: var(--ai); border-radius: var(--radius-sm); }
+      .cat-name-input, .subcat-name-input { font-weight: 700; }
+      .subcat-name-input { font-weight: 400; }
 
       /* ===== 商品追加／編集フォーム ===== */
       .hint { color: var(--ink-muted); font-size: 0.85em; margin-top: 4px; }
@@ -76,6 +98,16 @@
       .modal-box.product-form-box { max-width: 420px; max-height: 85vh; overflow-y: auto; }
       .modal-box h3 { margin: 0 0 var(--space-md); }
       .modal-actions { display: flex; justify-content: flex-end; gap: var(--space-sm); margin-top: var(--space-md); }
+      .confirm-modal-header { display: flex; align-items: center; gap: var(--space-sm); }
+      .confirm-modal-header h3 { margin: 0; }
+      .confirm-modal-icon { width: 1.4em; height: 1.4em; color: var(--warn); flex-shrink: 0; }
+      #generic-confirm-message { white-space: pre-line; line-height: 1.6; }
+
+      /* ===== グループ最下行の「＋」ボタン（編集モードでのサブカテゴリー・カテゴリー追加） ===== */
+      .add-row-btn { display: flex; align-items: center; gap: 6px; color: var(--ai); font-weight: 700; font-size: 0.88em; padding: 6px 4px; width: 100%; text-align: left; }
+      .add-row-btn:hover { background: var(--ai-soft); border-radius: var(--radius-sm); }
+      .row-delete-btn { color: var(--ink-muted); }
+      .row-delete-btn:hover { color: var(--bad); background: var(--bad-soft); border-radius: var(--radius-sm); }
     </style>
   </head>
   <body data-page="<?= currentPage ?>">
@@ -89,35 +121,40 @@
         <div class="loading-target" id="menu-body">
           <!-- 商品一覧 -->
           <div class="view active" id="view-list">
-            <div class="top-actions">
+            <div class="top-actions" id="product-top-actions">
               <button type="button" onclick="showView('category')"><svg class="icon"><use href="#icon-tag"></use></svg>商品カテゴリー</button>
-              <button type="button" class="btn-primary" onclick="openProductForm(null)"><svg class="icon"><use href="#icon-plus"></use></svg>商品追加</button>
             </div>
 
             <h2>商品一覧</h2>
             <div class="card">
-              <div class="tabs" id="product-tabs"></div>
-              <div class="table-scroll">
-                <table id="product-table">
-                  <thead>
-                    <tr><th></th><th>商品名</th><th class="num">価格</th><th class="num">原価</th><th></th><th></th></tr>
-                  </thead>
-                </table>
+              <div class="list-toolbar">
+                <div class="tabs" id="product-tabs"></div>
+                <button type="button" class="icon-btn" id="btn-product-edit-toggle" title="編集" onclick="toggleProductEditMode()"><svg class="icon"><use href="#icon-edit"></use></svg></button>
               </div>
-
-              <div class="bottom-actions">
-                <button type="button" id="btn-add-subcategory" onclick="openSubCategoryModal()"><svg class="icon"><use href="#icon-plus"></use></svg>サブカテゴリー作成</button>
-                <button type="button" onclick="openProductForm(null)"><svg class="icon"><use href="#icon-plus"></use></svg>商品を追加する</button>
+              <div class="edit-bar" id="product-edit-bar">
+                <div class="edit-bar-actions">
+                  <button type="button" onclick="cancelProductEdit()">キャンセル</button>
+                  <button type="button" class="btn-primary" onclick="saveProductEdit()">編集結果を保存</button>
+                </div>
+              </div>
+              <div class="table-scroll">
+                <table id="product-table"></table>
               </div>
             </div>
           </div>
 
           <!-- カテゴリー管理 -->
           <div class="view" id="view-category">
-            <div class="sub-header">
+            <div class="sub-header" id="category-sub-header">
               <button type="button" class="icon-btn" onclick="showView('list')"><svg class="icon"><use href="#icon-chevron-left"></use></svg></button>
               <h3>カテゴリー管理</h3>
-              <button type="button" class="btn-primary" onclick="openCategoryModal()"><svg class="icon"><use href="#icon-plus"></use></svg>作成する</button>
+              <button type="button" class="icon-btn" id="btn-category-edit-toggle" title="編集" onclick="toggleCategoryEditMode()"><svg class="icon"><use href="#icon-edit"></use></svg></button>
+            </div>
+            <div class="edit-bar" id="category-edit-bar">
+              <div class="edit-bar-actions">
+                <button type="button" onclick="cancelCategoryEdit()">キャンセル</button>
+                <button type="button" class="btn-primary" onclick="saveCategoryEdit()">編集結果を保存</button>
+              </div>
             </div>
             <div class="card" id="category-list"></div>
           </div>
@@ -140,7 +177,7 @@
           <div class="form-row">
             <label>サブカテゴリー</label>
             <select id="pf-subcategory" required></select>
-            <p class="hint" id="pf-subcategory-hint" style="display:none;">このカテゴリーにはまだサブカテゴリーがありません。商品一覧の「サブカテゴリー作成」から追加してください。</p>
+            <p class="hint" id="pf-subcategory-hint" style="display:none;">このカテゴリーにはまだサブカテゴリーがありません。カテゴリー管理の編集モードから追加してください。</p>
           </div>
           <div class="form-row">
             <label for="pf-name">商品名</label>
@@ -148,10 +185,10 @@
           </div>
           <div class="form-row">
             <label for="pf-price">価格</label>
-            <input type="number" id="pf-price" min="0" inputmode="numeric" required>
+            <input type="number" id="pf-price" min="0" step="10" inputmode="numeric" required>
           </div>
           <div class="form-row">
-            <label for="pf-cost">原価（任意・未入力は0）</label>
+            <label for="pf-cost">原価</label>
             <input type="number" id="pf-cost" min="0" inputmode="numeric">
           </div>
           <p id="product-form-error" class="error"></p>
@@ -160,22 +197,6 @@
             <button type="submit" id="pf-submit" class="btn-primary">保存する</button>
           </div>
         </form>
-      </div>
-    </div>
-
-    <!-- カテゴリー作成／編集モーダル（共用） -->
-    <div class="modal-overlay" id="modal-category">
-      <div class="modal-box">
-        <h3 id="category-modal-title">カテゴリーを作成</h3>
-        <div class="form-row">
-          <label>カテゴリー名</label>
-          <input type="text" id="new-category-name" placeholder="例：デザート">
-        </div>
-        <p class="error" id="category-modal-error"></p>
-        <div class="modal-actions">
-          <button type="button" onclick="closeModal('modal-category')">閉じる</button>
-          <button type="button" class="btn-primary" onclick="saveCategoryModal()">保存する</button>
-        </div>
       </div>
     </div>
 
@@ -196,21 +217,113 @@
       </div>
     </div>
 
+    <!-- 汎用確認モーダル（未保存の変更・削除確認で共用） -->
+    <div class="modal-overlay" id="generic-confirm-modal">
+      <div class="modal-box">
+        <div class="confirm-modal-header">
+          <svg class="icon confirm-modal-icon"><use href="#icon-alert-triangle"></use></svg>
+          <h3 id="generic-confirm-title"></h3>
+        </div>
+        <p id="generic-confirm-message"></p>
+        <div class="modal-actions">
+          <button type="button" id="generic-confirm-secondary"></button>
+          <button type="button" class="btn-primary" id="generic-confirm-primary"></button>
+        </div>
+      </div>
+    </div>
+
     <?!= include('client/shared/javascript') ?>
     <script>
       var allMenus = [];
       var categories = [];
       var subCategories = [];
       var currentTab = 'all';
-      var editingCategoryId = null;
-      var editingSubCategoryId = null;
       var editingSubCategoryTargetId = null;
-      var editingMenuId = null;
       var loadRequestId = 0;
+
+      // 編集モード：入力・ドロップのたびにサーバーへ保存すると通信が重なって重くなるため、
+      // モード中はローカルの下書きとしてのみ変更を保持し、保存ボタンでまとめて確定する。
+      // 編集モード中に「＋」から追加したカテゴリー・サブカテゴリー・商品も同様に、
+      // 実際にサーバーへ作成するのは保存ボタンを押した時点にする（一次的にローカルにのみ保持する）
+      var productEditMode = false;
+      var productDraftEdits = {}; // key: MenuId -> { MenuName?, Price?, Cost? }（変更のあったフィールドのみ）
+      var pendingProductGroups = {}; // key: CategoryLarge + ' ' + CategoryMedium -> { categoryLarge, categoryMedium, orderedIds }（並び替え結果そのものを保持し、再描画で失われないようにする）
+      var pendingNewProducts = []; // 編集モード中に「＋」で追加した、まだサーバーに存在しない商品の下書き
+
+      var categoryEditMode = false;
+      var categoryDraftNames = {}; // key: CategoryId -> 新しいカテゴリー名
+      var subDraftNames = {}; // key: SubCategoryId -> 新しいサブカテゴリー名
+      var pendingSubGroups = {}; // key: CategoryId -> orderedIds（並び替え結果そのものを保持し、再描画で失われないようにする）
+      var pendingNewSubCategories = []; // 編集モード中に「＋」で追加した、まだサーバーに存在しないサブカテゴリーの下書き
+
+      var tempIdSeq_ = 0;
+      // サーバー未作成の下書き用の仮ID。並び替え・削除ボタンのdata-id等、実IDと同じ扱いができるよう文字列にする
+      function nextTempId_(prefix) {
+        tempIdSeq_ += 1;
+        return prefix + '-tmp-' + tempIdSeq_;
+      }
 
       function categoryName(id) {
         var c = categories.filter(function (x) { return x.CategoryId === id; })[0];
         return c ? c.CategoryName : '';
+      }
+
+      function allProductsForRender_() {
+        return allMenus.concat(pendingNewProducts);
+      }
+
+      // tasksを並行実行し、全て完了（成功・失敗問わず）したらonAllDoneを呼ぶ
+      function runParallel_(tasks, onAllDone) {
+        if (tasks.length === 0) { onAllDone(); return; }
+        var remaining = tasks.length;
+        function finishOne(error) {
+          if (error) { setLoadError('load-error', '保存に失敗しました：' + error.message); }
+          remaining--;
+          if (remaining === 0) { onAllDone(); }
+        }
+        tasks.forEach(function (task) {
+          var runner = google.script.run
+            .withSuccessHandler(function () { finishOne(null); })
+            .withFailureHandler(function (error) { finishOne(error); });
+          runner[task.action].apply(runner, task.args);
+        });
+      }
+
+      // items配列を1件ずつ順番に処理する（worker内でnext()を呼ぶまで次に進まない）。
+      // 新規カテゴリー作成→そのIDを使うサブカテゴリー作成のように、前段の結果に依存する処理向け
+      function runSequential_(items, worker, onAllDone) {
+        var i = 0;
+        function next() {
+          if (i >= items.length) { onAllDone(); return; }
+          var item = items[i];
+          i++;
+          worker(item, next);
+        }
+        next();
+      }
+
+      // 汎用確認モーダル（ブラウザ標準のconfirm()は「script.google.comが表示しています」のような
+      // 見た目になりGoogleからの警告と誤認されるおそれがあるため使わない）。
+      // config: { title, message, secondaryLabel, secondaryAction, primaryLabel, primaryAction, primaryClass }
+      function showGenericConfirm(config) {
+        document.getElementById('generic-confirm-title').textContent = config.title;
+        document.getElementById('generic-confirm-message').textContent = config.message;
+        var secondaryBtn = document.getElementById('generic-confirm-secondary');
+        var primaryBtn = document.getElementById('generic-confirm-primary');
+        secondaryBtn.textContent = config.secondaryLabel;
+        primaryBtn.textContent = config.primaryLabel;
+        primaryBtn.className = config.primaryClass || 'btn-primary';
+
+        function cleanup() {
+          document.getElementById('generic-confirm-modal').classList.remove('show');
+          secondaryBtn.removeEventListener('click', onSecondary);
+          primaryBtn.removeEventListener('click', onPrimary);
+        }
+        function onSecondary() { cleanup(); if (config.secondaryAction) { config.secondaryAction(); } }
+        function onPrimary() { cleanup(); if (config.primaryAction) { config.primaryAction(); } }
+        secondaryBtn.addEventListener('click', onSecondary);
+        primaryBtn.addEventListener('click', onPrimary);
+        document.getElementById('generic-confirm-modal').classList.add('show');
       }
 
       function setLoading(isLoading) {
@@ -218,6 +331,33 @@
       }
 
       function showView(name) {
+        // 編集モード中（商品一覧・カテゴリー管理どちらか）に画面を切り替えると、編集中の状態が
+        // 分かりにくくなるため、必ず確認ポップアップで「破棄する」か「保存して移動」かを選んでもらう
+        var leavingProduct = name !== 'list' && productEditMode;
+        var leavingCategory = name !== 'category' && categoryEditMode;
+        if (leavingProduct || leavingCategory) {
+          showGenericConfirm({
+            title: '編集中の内容があります',
+            message: (leavingProduct ? '商品一覧' : 'カテゴリー管理') + 'の編集を終了しますか？保存していない内容は失われます。',
+            secondaryLabel: '破棄する',
+            secondaryAction: function () {
+              if (leavingProduct) { cancelProductEdit(); }
+              if (leavingCategory) { cancelCategoryEdit(); }
+              proceedShowView(name);
+            },
+            primaryLabel: '保存して移動',
+            primaryAction: function () {
+              if (leavingProduct) { saveProductEdit(function () { proceedShowView(name); }); }
+              else if (leavingCategory) { saveCategoryEdit(function () { proceedShowView(name); }); }
+            }
+          });
+          return;
+        }
+        proceedShowView(name);
+      }
+
+      function proceedShowView(name) {
+        setLoadError('load-error', '');
         ['list', 'category'].forEach(function (v) {
           document.getElementById('view-' + v).classList.toggle('active', v === name);
         });
@@ -229,7 +369,7 @@
         }
       }
 
-      function loadAll() {
+      function loadAll(onDone) {
         setLoadError('load-error', '');
         setLoading(true);
         var requestId = ++loadRequestId;
@@ -248,6 +388,7 @@
             if (document.getElementById('view-category').classList.contains('active')) {
               renderCategoryList();
             }
+            if (onDone) { onDone(); }
           })
           .withFailureHandler(function (error) {
             if (requestId !== loadRequestId) { return; }
@@ -262,15 +403,16 @@
         var container = document.getElementById('product-tabs');
         container.innerHTML = '';
 
+        var allProducts = allProductsForRender_();
         var allBtn = document.createElement('button');
         allBtn.type = 'button';
         allBtn.className = 'tab' + (currentTab === 'all' ? ' active' : '');
-        allBtn.textContent = 'すべて (' + allMenus.length + ')';
+        allBtn.textContent = 'すべて (' + allProducts.length + ')';
         allBtn.addEventListener('click', function () { currentTab = 'all'; renderTabs(); });
         container.appendChild(allBtn);
 
         categories.forEach(function (cat) {
-          var count = allMenus.filter(function (m) { return m.CategoryLarge === cat.CategoryName; }).length;
+          var count = allProducts.filter(function (m) { return m.CategoryLarge === cat.CategoryName; }).length;
           var btn = document.createElement('button');
           btn.type = 'button';
           btn.className = 'tab' + (currentTab === cat.CategoryId ? ' active' : '');
@@ -280,19 +422,186 @@
         });
 
         renderProductList();
-        document.getElementById('btn-add-subcategory').disabled = (currentTab === 'all');
+        document.getElementById('product-edit-bar').classList.toggle('show', productEditMode);
+        document.getElementById('btn-product-edit-toggle').classList.toggle('active', productEditMode);
+        document.getElementById('btn-product-edit-toggle').style.display = productEditMode ? 'none' : '';
+      }
+
+      function toggleProductEditMode() {
+        productEditMode = true;
+        productDraftEdits = {};
+        pendingProductGroups = {};
+        pendingNewProducts = [];
+        renderTabs();
+      }
+
+      // 保存せずに編集前の状態に戻して編集モードを終了する。「＋」で追加した商品はまだサーバーに
+      // 作成していない下書きのため、単に破棄するだけでよい（サーバーとの通信は発生しない）
+      function cancelProductEdit() {
+        productEditMode = false;
+        productDraftEdits = {};
+        pendingProductGroups = {};
+        pendingNewProducts = [];
+        renderTabs();
+      }
+
+      function saveProductEdit(onDone) {
+        var menuIds = Object.keys(productDraftEdits);
+        var tasks = [];
+        menuIds.forEach(function (menuId) {
+          var menu = allMenus.filter(function (m) { return m.MenuId === menuId; })[0];
+          if (!menu) { return; }
+          var draft = productDraftEdits[menuId];
+          if (draft.MenuName !== undefined || draft.Price !== undefined || draft.Cost !== undefined) {
+            tasks.push({
+              action: 'saveMenu',
+              args: [{
+                MenuId: menuId,
+                MenuName: draft.MenuName !== undefined ? draft.MenuName : menu.MenuName,
+                Price: draft.Price !== undefined ? draft.Price : menu.Price,
+                Cost: draft.Cost !== undefined ? draft.Cost : menu.Cost,
+                CategoryLarge: menu.CategoryLarge,
+                CategoryMedium: menu.CategoryMedium
+              }]
+            });
+          }
+          // 販売中／販売終了はsaveMenuとは別の専用関数（reactivateMenu/deactivateMenu）で保存する
+          if (draft.IsActive !== undefined && draft.IsActive !== menu.IsActive) {
+            tasks.push({ action: draft.IsActive ? 'reactivateMenu' : 'deactivateMenu', args: [menuId] });
+          }
+        });
+
+        var newProducts = pendingNewProducts.slice();
+
+        function finish() {
+          productEditMode = false;
+          productDraftEdits = {};
+          pendingProductGroups = {};
+          pendingNewProducts = [];
+        }
+
+        if (tasks.length === 0 && newProducts.length === 0 && Object.keys(pendingProductGroups).length === 0) {
+          finish();
+          renderTabs();
+          if (onDone) { onDone(); }
+          return;
+        }
+
+        setLoading(true);
+        // 並び替え情報には、まだ実IDを持たない下書き商品（仮ID）が含まれている場合があるため、
+        // 先に下書き商品を作成して仮ID→実MenuIdの対応表を作ってから、並び替えタスクを組み立てる
+        // （そうしないと並び替え時に仮IDがサーバー側で認識されず、位置情報が失われるため）
+        var tempIdMap = {};
+        runSequential_(newProducts, function (draftMenu, next) {
+          google.script.run
+            .withSuccessHandler(function (realId) {
+              tempIdMap[draftMenu.MenuId] = realId;
+              next();
+            })
+            .withFailureHandler(function (error) {
+              setLoadError('load-error', '保存に失敗しました：' + error.message);
+              next();
+            })
+            .saveMenu({
+              MenuId: '',
+              MenuName: draftMenu.MenuName,
+              Price: draftMenu.Price,
+              Cost: draftMenu.Cost,
+              CategoryLarge: draftMenu.CategoryLarge,
+              CategoryMedium: draftMenu.CategoryMedium
+            });
+        }, function () {
+          Object.keys(pendingProductGroups).forEach(function (key) {
+            var pending = pendingProductGroups[key];
+            var orderedIds = pending.orderedIds.map(function (id) { return tempIdMap[id] || id; });
+            tasks.push({ action: 'reorderMenus', args: [pending.categoryLarge, pending.categoryMedium, orderedIds] });
+          });
+          runParallel_(tasks, function () {
+            setLoading(false);
+            finish();
+            loadAll(onDone);
+          });
+        });
+      }
+
+      function confirmDeleteMenu(menu) {
+        showGenericConfirm({
+          title: '商品を削除しますか？',
+          message: '「' + menu.MenuName + '」を削除します。\nこの操作は取り消せません。',
+          secondaryLabel: 'キャンセル',
+          primaryLabel: '削除する',
+          primaryClass: 'btn-danger',
+          primaryAction: function () {
+            setLoading(true);
+            google.script.run
+              .withSuccessHandler(function () {
+                delete productDraftEdits[menu.MenuId];
+                loadAll();
+              })
+              .withFailureHandler(function (error) {
+                setLoading(false);
+                setLoadError('load-error', '削除に失敗しました：' + error.message);
+              })
+              .deleteMenu(menu.MenuId);
+          }
+        });
+      }
+
+      function renderProductTableHead(colCount) {
+        var table = document.getElementById('product-table');
+        var oldColgroup = table.querySelector('colgroup');
+        if (oldColgroup) { oldColgroup.remove(); }
+        var oldThead = table.querySelector('thead');
+        if (oldThead) { oldThead.remove(); }
+
+        var colgroup = document.createElement('colgroup');
+        var colClasses = productEditMode
+          ? ['col-drag', 'col-name', 'col-price', 'col-cost', 'col-status', 'col-delete']
+          : ['col-name', 'col-price', 'col-cost', 'col-status'];
+        colClasses.forEach(function (cls) {
+          var col = document.createElement('col');
+          col.className = cls;
+          colgroup.appendChild(col);
+        });
+        table.appendChild(colgroup);
+
+        var thead = document.createElement('thead');
+        var headerLabels = productEditMode
+          ? ['', '商品名', '価格', '原価', '販売中', '']
+          : ['商品名', '価格', '原価', '販売中'];
+        var numIndexes = productEditMode ? [2, 3] : [1, 2];
+        var tr = document.createElement('tr');
+        headerLabels.forEach(function (label, i) {
+          var th = document.createElement('th');
+          if (numIndexes.indexOf(i) !== -1) { th.className = 'num'; }
+          th.textContent = label;
+          tr.appendChild(th);
+        });
+        thead.appendChild(tr);
+        table.appendChild(thead);
       }
 
       function renderProductList() {
         var table = document.getElementById('product-table');
         table.querySelectorAll('tbody').forEach(function (tb) { tb.remove(); });
 
-        var currentCategoryName = currentTab === 'all' ? null : categoryName(currentTab);
-        var filtered = currentTab === 'all' ? allMenus : allMenus.filter(function (m) { return m.CategoryLarge === currentCategoryName; });
+        var colCount = productEditMode ? 6 : 4;
+        renderProductTableHead(colCount);
 
-        if (filtered.length === 0) {
+        var allProducts = allProductsForRender_();
+        var currentCategoryName = currentTab === 'all' ? null : categoryName(currentTab);
+        var filtered = currentTab === 'all' ? allProducts : allProducts.filter(function (m) { return m.CategoryLarge === currentCategoryName; });
+
+        // グループの並び順はサブカテゴリーマスタのSortOrder（カテゴリー管理での並び替え結果）に従う。
+        // マスタに無い値（想定外データ）は末尾にアイウエオ順で追加し、商品が表示から漏れないようにする
+        var scopedSub = currentTab === 'all'
+          ? []
+          : subCategories.filter(function (s) { return s.CategoryId === currentTab; })
+            .sort(function (a, b) { return (Number(a.SortOrder) || 0) - (Number(b.SortOrder) || 0); });
+
+        if (filtered.length === 0 && scopedSub.length === 0) {
           var emptyBody = document.createElement('tbody');
-          emptyBody.innerHTML = '<tr><td colspan="6"><p class="empty-note">このカテゴリーの商品はまだありません</p></td></tr>';
+          emptyBody.innerHTML = '<tr><td colspan="' + colCount + '"><p class="empty-note">このカテゴリーの商品はまだありません</p></td></tr>';
           table.appendChild(emptyBody);
           return;
         }
@@ -304,72 +613,138 @@
           groups[key].push(m);
         });
 
-        // グループの並び順はサブカテゴリーマスタのSortOrder（カテゴリー管理での並び替え結果）に従う。
-        // マスタに無い値（想定外データ）は末尾にアイウエオ順で追加し、商品が表示から漏れないようにする
-        var scopedSub = currentTab === 'all'
-          ? []
-          : subCategories.filter(function (s) { return s.CategoryId === currentTab; })
-            .sort(function (a, b) { return (Number(a.SortOrder) || 0) - (Number(b.SortOrder) || 0); });
-        var orderedKeys = scopedSub.map(function (s) { return s.SubCategoryName; }).filter(function (key) { return groups[key]; });
+        // サブカテゴリーは商品が0件でもグループ自体は表示する（編集モードの「＋」で最初の商品を
+        // 追加できるようにするため。商品が無いというだけでグループが消えると追加する手段が無くなる）
+        var orderedKeys = scopedSub.map(function (s) { return s.SubCategoryName; });
         var leftoverKeys = Object.keys(groups).filter(function (key) { return orderedKeys.indexOf(key) === -1; })
           .sort(function (a, b) { return a.localeCompare(b, 'ja'); });
         var order = orderedKeys.concat(leftoverKeys);
 
-        // グループ（大分類・中分類）ごとに独立した<tbody>にする。ドラッグ並び替えを
-        // グループ内に限定するため（<tbody>は仕切りとして描画上の見た目には影響しない）
         order.forEach(function (key) {
           var groupBody = document.createElement('tbody');
-          groupBody.className = 'drag-group';
+
+          var groupLarge = currentTab !== 'all' ? currentCategoryName : ((groups[key] || [])[0] ? groups[key][0].CategoryLarge : null);
+          var groupMedium = key;
+          var reorderKey = groupLarge + ' ' + groupMedium;
+          var pendingReorder = pendingProductGroups[reorderKey];
+
+          var items;
+          if (pendingReorder) {
+            // 並び替え直後に別のグループを再描画する等で一覧が再構築されても、ドラッグした順序を
+            // 見た目にも維持する（保存前提のドラッグ結果をDOMの再構築で失わないようにするため）
+            var byId = {};
+            (groups[key] || []).forEach(function (m) { byId[m.MenuId] = m; });
+            items = pendingReorder.orderedIds.map(function (id) { return byId[id]; }).filter(function (m) { return !!m; });
+            (groups[key] || []).forEach(function (m) { if (items.indexOf(m) === -1) { items.push(m); } });
+          } else {
+            items = (groups[key] || []).slice().sort(function (a, b) { return (Number(a.SortOrder) || 0) - (Number(b.SortOrder) || 0); });
+          }
 
           var header = document.createElement('tr');
           header.className = 'group-header';
-          header.innerHTML = '<td colspan="6">' + key + '（' + groups[key].length + '）</td>';
+          header.innerHTML = '<td colspan="' + colCount + '">' + key + '（' + items.length + '）</td>';
           groupBody.appendChild(header);
 
-          var items = groups[key].slice().sort(function (a, b) { return (Number(a.SortOrder) || 0) - (Number(b.SortOrder) || 0); });
           items.forEach(function (m) {
             groupBody.appendChild(buildMenuRow(m));
           });
+
+          var addRow = null;
+          if (productEditMode) {
+            addRow = document.createElement('tr');
+            var addCell = document.createElement('td');
+            addCell.colSpan = colCount;
+            var addBtn = document.createElement('button');
+            addBtn.type = 'button';
+            addBtn.className = 'add-row-btn';
+            addBtn.innerHTML = '<svg class="icon"><use href="#icon-plus"></use></svg>商品追加';
+            addBtn.addEventListener('click', function () { openProductForm(groupLarge, groupMedium); });
+            addCell.appendChild(addBtn);
+            addRow.appendChild(addCell);
+            groupBody.appendChild(addRow);
+          }
+
           table.appendChild(groupBody);
 
-          var categoryLarge = items[0].CategoryLarge;
-          enableDragReorder(groupBody, {
-            itemSelector: '.drag-item',
-            getId: function (el) { return el.dataset.id; },
-            onReorder: function (orderedIds) {
-              google.script.run
-                .withFailureHandler(function (error) {
-                  setLoadError('load-error', '並び替えに失敗しました：' + error.message);
-                  loadAll();
-                })
-                .reorderMenus(categoryLarge, key, orderedIds);
-            }
-          });
+          if (productEditMode) {
+            enableDragReorder(groupBody, {
+              itemSelector: '.drag-item',
+              beforeEl: addRow,
+              getId: function (el) { return el.dataset.id; },
+              onReorder: function (orderedIds) {
+                pendingProductGroups[reorderKey] = { categoryLarge: groupLarge, categoryMedium: groupMedium, orderedIds: orderedIds };
+              }
+            });
+          }
         });
       }
 
       function buildMenuRow(menu) {
+        var isDraft = !!menu.__isDraft;
         var row = document.createElement('tr');
-        row.className = 'drag-item';
         row.dataset.id = menu.MenuId;
-        row.innerHTML =
-          '<td class="drag-col"><span class="drag-handle" title="ドラッグで並び替え"><svg class="icon"><use href="#icon-grip-vertical"></use></svg></span></td>' +
-          '<td><input type="text" class="cell-input" data-field="MenuName" value="' + escapeAttr(menu.MenuName) + '"></td>' +
-          '<td class="num"><input type="number" min="0" inputmode="numeric" class="cell-input num-input" data-field="Price" value="' + Number(menu.Price || 0) + '"></td>' +
-          '<td class="num"><input type="number" min="0" inputmode="numeric" class="cell-input num-input" data-field="Cost" value="' + Number(menu.Cost || 0) + '"></td>' +
-          '<td><button type="button" class="icon-btn" title="編集"><svg class="icon"><use href="#icon-edit"></use></svg></button></td>' +
-          '<td><div class="status-wrap"><span class="status-text' + (menu.IsActive ? ' on' : '') + '">' + (menu.IsActive ? '販売中' : '販売終了') + '</span>' +
-          '<label class="switch"><input type="checkbox" ' + (menu.IsActive ? 'checked' : '') + '><span class="switch-slider"></span></label></div></td>';
+        var draft = isDraft ? {} : (productDraftEdits[menu.MenuId] || {});
+        var displayName = draft.MenuName !== undefined ? draft.MenuName : menu.MenuName;
+        var displayPrice = draft.Price !== undefined ? draft.Price : menu.Price;
+        var displayCost = draft.Cost !== undefined ? draft.Cost : menu.Cost;
+        var displayActive = draft.IsActive !== undefined ? draft.IsActive : menu.IsActive;
 
-        row.querySelectorAll('.cell-input').forEach(function (input) {
-          input.addEventListener('keydown', function (event) {
-            if (event.key === 'Enter') { this.blur(); }
+        if (productEditMode) {
+          row.className = 'drag-item';
+          row.innerHTML =
+            '<td><span class="drag-handle" title="ドラッグで並び替え"><svg class="icon"><use href="#icon-grip-vertical"></use></svg></span></td>' +
+            '<td><input type="text" class="cell-input" data-field="MenuName" value="' + escapeAttr(displayName) + '"></td>' +
+            '<td class="num"><input type="number" min="0" step="10" inputmode="numeric" class="cell-input num-input" data-field="Price" value="' + Number(displayPrice || 0) + '"></td>' +
+            '<td class="num"><input type="number" min="0" inputmode="numeric" class="cell-input num-input" data-field="Cost" value="' + Number(displayCost || 0) + '"></td>' +
+            '<td><div class="status-wrap"><span class="status-text' + (displayActive ? ' on' : '') + '">' + (displayActive ? '販売中' : '販売終了') + '</span>' +
+            '<label class="switch"><input type="checkbox" ' + (displayActive ? 'checked' : '') + '><span class="switch-slider"></span></label></div></td>' +
+            '<td><button type="button" class="icon-btn row-delete-btn" title="削除"><svg class="icon"><use href="#icon-trash"></use></svg></button></td>';
+
+          row.querySelectorAll('.cell-input').forEach(function (input) {
+            input.addEventListener('input', function () {
+              if (isDraft) {
+                menu[input.dataset.field] = input.value;
+                return;
+              }
+              productDraftEdits[menu.MenuId] = productDraftEdits[menu.MenuId] || {};
+              productDraftEdits[menu.MenuId][input.dataset.field] = input.value;
+            });
           });
-          input.addEventListener('blur', function () { saveMenuField(menu, input.dataset.field, this); });
-        });
-        row.querySelector('.icon-btn').addEventListener('click', function () { openProductForm(menu.MenuId); });
-        var checkbox = row.querySelector('input[type="checkbox"]');
-        checkbox.addEventListener('change', function () { toggleMenuActive(menu.MenuId, this.checked, checkbox); });
+          // 編集モード中は販売中／販売終了の切替も他の項目と同じく下書きにとどめ、保存時にまとめて反映する
+          var checkbox = row.querySelector('input[type="checkbox"]');
+          checkbox.addEventListener('change', function () {
+            if (isDraft) {
+              menu.IsActive = this.checked;
+            } else {
+              productDraftEdits[menu.MenuId] = productDraftEdits[menu.MenuId] || {};
+              productDraftEdits[menu.MenuId].IsActive = this.checked;
+            }
+            var statusText = row.querySelector('.status-text');
+            statusText.textContent = this.checked ? '販売中' : '販売終了';
+            statusText.classList.toggle('on', this.checked);
+          });
+          row.querySelector('.row-delete-btn').addEventListener('click', function () {
+            if (isDraft) {
+              // まだサーバーに存在しない下書きのため、確認なしでそのまま取り消せる
+              pendingNewProducts = pendingNewProducts.filter(function (p) { return p !== menu; });
+              renderTabs();
+              return;
+            }
+            confirmDeleteMenu(menu);
+          });
+        } else {
+          row.innerHTML =
+            '<td><span class="reorder-static">' + escapeAttr(displayName) + '</span></td>' +
+            '<td class="num"><span class="reorder-static num">¥' + Number(displayPrice || 0).toLocaleString() + '</span></td>' +
+            '<td class="num"><span class="reorder-static num">¥' + Number(displayCost || 0).toLocaleString() + '</span></td>' +
+            '<td><div class="status-wrap"><span class="status-text' + (displayActive ? ' on' : '') + '">' + (displayActive ? '販売中' : '販売終了') + '</span>' +
+            '<label class="switch"><input type="checkbox" ' + (displayActive ? 'checked' : '') + '><span class="switch-slider"></span></label></div></td>';
+
+          // 標準表示では即時保存する（ただし全データの再取得はしない。toggleMenuActive参照）
+          var checkbox = row.querySelector('input[type="checkbox"]');
+          checkbox.addEventListener('change', function () { toggleMenuActive(menu.MenuId, this.checked, checkbox); });
+        }
+
         return row;
       }
 
@@ -384,12 +759,16 @@
       function enableDragReorder(container, options) {
         container.querySelectorAll('.drag-handle').forEach(function (handle) {
           handle.addEventListener('pointerdown', function (event) {
+            // 左クリック（またはタッチ／ペン）以外は無視する。button===0はマウス左クリック、
+            // タッチ・ペンはbuttonが-1または0になる
+            if (event.button > 0) { return; }
             var dragEl = handle.closest(options.itemSelector);
             if (!dragEl) { return; }
             event.preventDefault();
             dragEl.classList.add('dragging');
-            handle.setPointerCapture(event.pointerId);
 
+            // 要素側でのpointer capture（setPointerCapture）はブラウザによって挙動差があるため、
+            // move/upはdocument側で監視する（要素が並び替えでDOM移動しても取りこぼさない）
             function onMove(moveEvent) {
               var y = moveEvent.clientY;
               var siblings = Array.prototype.slice.call(container.querySelectorAll(options.itemSelector))
@@ -401,60 +780,37 @@
               }
               if (next) {
                 container.insertBefore(dragEl, next);
+              } else if (options.beforeEl) {
+                container.insertBefore(dragEl, options.beforeEl);
               } else {
                 container.appendChild(dragEl);
               }
             }
-            function onUp(upEvent) {
-              handle.releasePointerCapture(upEvent.pointerId);
-              handle.removeEventListener('pointermove', onMove);
-              handle.removeEventListener('pointerup', onUp);
+            function onUp() {
+              document.removeEventListener('pointermove', onMove);
+              document.removeEventListener('pointerup', onUp);
+              document.removeEventListener('pointercancel', onUp);
               dragEl.classList.remove('dragging');
               var orderedIds = Array.prototype.slice.call(container.querySelectorAll(options.itemSelector)).map(options.getId);
               options.onReorder(orderedIds);
             }
-            handle.addEventListener('pointermove', onMove);
-            handle.addEventListener('pointerup', onUp);
+            document.addEventListener('pointermove', onMove);
+            document.addEventListener('pointerup', onUp);
+            document.addEventListener('pointercancel', onUp);
           });
         });
       }
 
-      // 表内での商品名・価格・原価の直接編集。カテゴリー選択は変更しないため既存の値をそのまま引き継ぐ
-      function saveMenuField(menu, field, inputEl) {
-        var newValue = inputEl.value;
-        var oldValue = String(menu[field]);
-        if (newValue === oldValue) {
-          return;
-        }
-        setLoadError('load-error', '');
-
-        var menuInput = {
-          MenuId: menu.MenuId,
-          MenuName: field === 'MenuName' ? newValue : menu.MenuName,
-          Price: field === 'Price' ? newValue : menu.Price,
-          Cost: field === 'Cost' ? newValue : menu.Cost,
-          CategoryLarge: menu.CategoryLarge,
-          CategoryMedium: menu.CategoryMedium
-        };
-
-        google.script.run
+      // 標準表示での販売中／販売終了の切替は即時保存するが、全データの再取得（loadAll）は行わず、
+      // 対象商品の状態をローカルで書き換えて一覧を再描画するだけにする（毎回の読み込み処理を避けるため）
+      function toggleMenuActive(menuId, checked, checkboxEl) {
+        var runner = google.script.run
           .withSuccessHandler(function () {
-            menu[field] = menuInput[field];
+            var menu = allMenus.filter(function (m) { return m.MenuId === menuId; })[0];
+            if (menu) { menu.IsActive = checked; }
             renderProductList();
           })
           .withFailureHandler(function (error) {
-            inputEl.value = oldValue;
-            setLoadError('load-error', '更新に失敗しました：' + error.message);
-          })
-          .saveMenu(menuInput);
-      }
-
-      function toggleMenuActive(menuId, checked, checkboxEl) {
-        setLoading(true);
-        var runner = google.script.run
-          .withSuccessHandler(loadAll)
-          .withFailureHandler(function (error) {
-            setLoading(false);
             checkboxEl.checked = !checked;
             setLoadError('load-error', '更新に失敗しました：' + error.message);
           });
@@ -469,10 +825,20 @@
       function renderCategoryList() {
         var wrap = document.getElementById('category-list');
         wrap.innerHTML = '';
+
+        document.getElementById('category-edit-bar').classList.toggle('show', categoryEditMode);
+        document.getElementById('btn-category-edit-toggle').classList.toggle('active', categoryEditMode);
+        document.getElementById('btn-category-edit-toggle').style.display = categoryEditMode ? 'none' : '';
+
+        // カテゴリー（大分類）は初期構築時に固定した分類として扱い、追加・削除機能は提供しない
+        // （分析軸を一定に保つため）。編集できるのはカテゴリー名と、サブカテゴリーの作成・名称変更・
+        // 並び替え・削除のみ
         if (categories.length === 0) {
           wrap.innerHTML = '<p class="empty-note">カテゴリーがまだありません</p>';
           return;
         }
+
+        var allSubCategories = subCategories.concat(pendingNewSubCategories);
 
         categories.forEach(function (cat) {
           var count = allMenus.filter(function (m) { return m.CategoryLarge === cat.CategoryName; }).length;
@@ -481,88 +847,221 @@
 
           var row = document.createElement('div');
           row.className = 'cat-row';
-          row.innerHTML =
-            '<span class="cat-name">' + cat.CategoryName + '<span class="cat-count">' + count + '商品</span></span>' +
-            '<button type="button" class="icon-btn" title="カテゴリー名を編集"><svg class="icon"><use href="#icon-edit"></use></svg></button>';
-          row.querySelector('.icon-btn').addEventListener('click', function () { openCategoryModal(cat.CategoryId); });
+          var catDisplayName = categoryDraftNames[cat.CategoryId] !== undefined ? categoryDraftNames[cat.CategoryId] : cat.CategoryName;
+          if (categoryEditMode) {
+            row.innerHTML =
+              '<input type="text" class="cell-input cat-name-input" value="' + escapeAttr(catDisplayName) + '">' +
+              '<span class="cat-count">' + count + '商品</span>';
+            row.querySelector('.cat-name-input').addEventListener('input', function () {
+              categoryDraftNames[cat.CategoryId] = this.value;
+            });
+          } else {
+            row.innerHTML = '<span class="cat-name">' + escapeAttr(catDisplayName) + '<span class="cat-count">' + count + '商品</span></span>';
+          }
           group.appendChild(row);
 
-          var scoped = subCategories.filter(function (s) { return s.CategoryId === cat.CategoryId; })
-            .sort(function (a, b) { return (Number(a.SortOrder) || 0) - (Number(b.SortOrder) || 0); });
+          var scopedUnordered = allSubCategories.filter(function (s) { return s.CategoryId === cat.CategoryId; });
+          var pendingReorder = pendingSubGroups[cat.CategoryId];
+          var scoped;
+          if (pendingReorder) {
+            // 並び替え直後に一覧が再構築されても、ドラッグした順序を見た目にも維持する
+            // （保存前提のドラッグ結果をDOMの再構築で失わないようにするため）
+            var byId = {};
+            scopedUnordered.forEach(function (s) { byId[s.SubCategoryId] = s; });
+            scoped = pendingReorder.map(function (id) { return byId[id]; }).filter(function (s) { return !!s; });
+            scopedUnordered.forEach(function (s) { if (scoped.indexOf(s) === -1) { scoped.push(s); } });
+          } else {
+            scoped = scopedUnordered.slice().sort(function (a, b) { return (Number(a.SortOrder) || 0) - (Number(b.SortOrder) || 0); });
+          }
           var subList = document.createElement('div');
           subList.className = 'subcat-list';
+          subList.dataset.categoryId = cat.CategoryId;
           if (scoped.length === 0) {
             subList.innerHTML = '<p class="subcat-empty">サブカテゴリーがまだありません</p>';
           } else {
             scoped.forEach(function (sub) {
+              var isDraftSub = !!sub.__isDraft;
               var subRow = document.createElement('div');
               subRow.className = 'subcat-row drag-item';
               subRow.dataset.id = sub.SubCategoryId;
-              subRow.innerHTML =
-                '<span class="drag-handle" title="ドラッグで並び替え"><svg class="icon"><use href="#icon-grip-vertical"></use></svg></span>' +
-                '<span class="subcat-name">' + sub.SubCategoryName + '</span>' +
-                '<button type="button" class="icon-btn" title="サブカテゴリー名を編集"><svg class="icon"><use href="#icon-edit"></use></svg></button>';
-              subRow.querySelector('.icon-btn').addEventListener('click', function () { openSubCategoryModal(cat.CategoryId, sub.SubCategoryId); });
+              var subDisplayName = subDraftNames[sub.SubCategoryId] !== undefined ? subDraftNames[sub.SubCategoryId] : sub.SubCategoryName;
+              if (categoryEditMode) {
+                subRow.innerHTML =
+                  '<span class="drag-handle" title="ドラッグで並び替え"><svg class="icon"><use href="#icon-grip-vertical"></use></svg></span>' +
+                  '<input type="text" class="cell-input subcat-name-input" value="' + escapeAttr(subDisplayName) + '">';
+                subRow.querySelector('.subcat-name-input').addEventListener('input', function () {
+                  if (isDraftSub) {
+                    sub.SubCategoryName = this.value;
+                  } else {
+                    subDraftNames[sub.SubCategoryId] = this.value;
+                  }
+                });
+                var removeSubBtn = document.createElement('button');
+                removeSubBtn.type = 'button';
+                removeSubBtn.className = 'icon-btn row-delete-btn';
+                removeSubBtn.title = '削除';
+                removeSubBtn.innerHTML = '<svg class="icon"><use href="#icon-trash"></use></svg>';
+                if (isDraftSub) {
+                  // まだサーバーに存在しない下書きのため、確認なしでそのまま取り消せる
+                  removeSubBtn.addEventListener('click', function () {
+                    pendingNewSubCategories = pendingNewSubCategories.filter(function (s) { return s !== sub; });
+                    renderCategoryList();
+                  });
+                } else {
+                  removeSubBtn.addEventListener('click', function () { confirmDeleteSubCategory(sub, cat); });
+                }
+                subRow.appendChild(removeSubBtn);
+              } else {
+                subRow.innerHTML = '<span class="subcat-name">' + escapeAttr(subDisplayName) + '</span>';
+              }
               subList.appendChild(subRow);
             });
-            enableDragReorder(subList, {
-              itemSelector: '.drag-item',
-              getId: function (el) { return el.dataset.id; },
-              onReorder: function (orderedIds) {
-                google.script.run
-                  .withFailureHandler(function (error) {
-                    setLoadError('load-error', '並び替えに失敗しました：' + error.message);
-                    loadAll();
-                  })
-                  .reorderSubCategories(cat.CategoryId, orderedIds);
-              }
-            });
+          }
+          var addSubBtn = null;
+          if (categoryEditMode) {
+            addSubBtn = document.createElement('button');
+            addSubBtn.type = 'button';
+            addSubBtn.className = 'add-row-btn';
+            addSubBtn.innerHTML = '<svg class="icon"><use href="#icon-plus"></use></svg>サブカテゴリー追加';
+            addSubBtn.addEventListener('click', function () { openSubCategoryModal(cat.CategoryId); });
+            subList.appendChild(addSubBtn);
+            if (scoped.length > 0) {
+              enableDragReorder(subList, {
+                itemSelector: '.drag-item',
+                beforeEl: addSubBtn,
+                getId: function (el) { return el.dataset.id; },
+                onReorder: function (orderedIds) {
+                  pendingSubGroups[cat.CategoryId] = orderedIds;
+                }
+              });
+            }
           }
           group.appendChild(subList);
           wrap.appendChild(group);
         });
       }
 
-      // カテゴリー作成／編集モーダル（editIdを渡すと編集モード）
-      function openCategoryModal(editId) {
-        editingCategoryId = editId || null;
-        var cat = editId ? categories.filter(function (c) { return c.CategoryId === editId; })[0] : null;
-        document.getElementById('category-modal-title').textContent = cat ? 'カテゴリー名を編集' : 'カテゴリーを作成';
-        document.getElementById('new-category-name').value = cat ? cat.CategoryName : '';
-        document.getElementById('category-modal-error').textContent = '';
-        document.getElementById('modal-category').classList.add('show');
-      }
-      function saveCategoryModal() {
-        var name = document.getElementById('new-category-name').value.trim();
-        var errorEl = document.getElementById('category-modal-error');
-        errorEl.textContent = '';
-        var runner = google.script.run
-          .withSuccessHandler(function () {
-            closeModal('modal-category');
-            loadAll();
-          })
-          .withFailureHandler(function (error) {
-            errorEl.textContent = error.message;
-          });
-        if (editingCategoryId) {
-          runner.renameCategory(editingCategoryId, name);
-        } else {
-          runner.createCategory(name);
+      function confirmDeleteSubCategory(sub, cat) {
+        var affectedCount = allMenus.filter(function (m) {
+          return m.CategoryLarge === cat.CategoryName && m.CategoryMedium === sub.SubCategoryName;
+        }).length;
+        var message = '「' + sub.SubCategoryName + '」を削除します。\nこの操作は取り消せません。';
+        if (affectedCount > 0) {
+          message += '\n\n※現在このサブカテゴリーの商品は' + affectedCount + '件です。\n削除後も商品自体は残りますが、分類名の管理対象からは外れます。';
         }
+        showGenericConfirm({
+          title: 'サブカテゴリーを削除しますか？',
+          message: message,
+          secondaryLabel: 'キャンセル',
+          primaryLabel: '削除する',
+          primaryClass: 'btn-danger',
+          primaryAction: function () {
+            setLoading(true);
+            google.script.run
+              .withSuccessHandler(function () {
+                setLoading(false);
+                loadAll();
+              })
+              .withFailureHandler(function (error) {
+                setLoading(false);
+                setLoadError('load-error', '削除に失敗しました：' + error.message);
+              })
+              .deleteSubCategory(sub.SubCategoryId);
+          }
+        });
       }
 
-      // サブカテゴリー作成／編集モーダル（作成は商品一覧タブの文脈、編集はカテゴリー管理から呼ばれる）
-      function openSubCategoryModal(categoryId, editId) {
+      function toggleCategoryEditMode() {
+        categoryEditMode = true;
+        categoryDraftNames = {};
+        subDraftNames = {};
+        pendingSubGroups = {};
+        pendingNewSubCategories = [];
+        renderCategoryList();
+      }
+
+      // 保存せずに編集前の状態に戻して編集モードを終了する。「＋」で追加したカテゴリー・
+      // サブカテゴリーはまだサーバーに作成していない下書きのため、単に破棄するだけでよい
+      function cancelCategoryEdit() {
+        categoryEditMode = false;
+        categoryDraftNames = {};
+        subDraftNames = {};
+        pendingSubGroups = {};
+        pendingNewSubCategories = [];
+        renderCategoryList();
+      }
+
+      function saveCategoryEdit(onDone) {
+        var tasks = [];
+        Object.keys(categoryDraftNames).forEach(function (categoryId) {
+          var name = categoryDraftNames[categoryId].trim();
+          var original = categories.filter(function (c) { return c.CategoryId === categoryId; })[0];
+          if (!name || (original && name === original.CategoryName)) { return; }
+          tasks.push({ action: 'renameCategory', args: [categoryId, name] });
+        });
+        Object.keys(subDraftNames).forEach(function (subCategoryId) {
+          var name = subDraftNames[subCategoryId].trim();
+          var original = subCategories.filter(function (s) { return s.SubCategoryId === subCategoryId; })[0];
+          if (!name || (original && name === original.SubCategoryName)) { return; }
+          tasks.push({ action: 'renameSubCategory', args: [subCategoryId, name] });
+        });
+        var newSubCategories = pendingNewSubCategories.slice();
+
+        function finish() {
+          categoryEditMode = false;
+          categoryDraftNames = {};
+          subDraftNames = {};
+          pendingSubGroups = {};
+          pendingNewSubCategories = [];
+        }
+
+        if (tasks.length === 0 && newSubCategories.length === 0 && Object.keys(pendingSubGroups).length === 0) {
+          finish();
+          renderCategoryList();
+          if (onDone) { onDone(); }
+          return;
+        }
+
+        setLoading(true);
+        // 並び替え情報には、まだ実IDを持たない下書きサブカテゴリー（仮ID）が含まれている場合があるため、
+        // 先に下書きサブカテゴリーを作成して仮ID→実SubCategoryIdの対応表を作ってから、
+        // 並び替えタスクを組み立てる（そうしないと並び替え時に仮IDが認識されず位置情報が失われる）
+        var tempIdMap = {};
+        runSequential_(newSubCategories, function (draftSub, next) {
+          google.script.run
+            .withSuccessHandler(function (realId) {
+              tempIdMap[draftSub.SubCategoryId] = realId;
+              next();
+            })
+            .withFailureHandler(function (error) {
+              setLoadError('load-error', '保存に失敗しました：' + error.message);
+              next();
+            })
+            .createSubCategory(draftSub.CategoryId, draftSub.SubCategoryName);
+        }, function () {
+          Object.keys(pendingSubGroups).forEach(function (categoryId) {
+            var orderedIds = pendingSubGroups[categoryId].map(function (id) { return tempIdMap[id] || id; });
+            tasks.push({ action: 'reorderSubCategories', args: [categoryId, orderedIds] });
+          });
+          runParallel_(tasks, function () {
+            setLoading(false);
+            finish();
+            loadAll(onDone);
+          });
+        });
+      }
+
+      // サブカテゴリー作成モーダル（商品一覧タブの文脈で対象カテゴリーを決める。
+      // 名前の編集はカテゴリー管理の編集モードでインライン編集する）
+      function openSubCategoryModal(categoryId) {
         var targetCategoryId = categoryId || (currentTab !== 'all' ? currentTab : null);
         if (!targetCategoryId) {
           return;
         }
-        editingSubCategoryId = editId || null;
         editingSubCategoryTargetId = targetCategoryId;
-        var sub = editId ? subCategories.filter(function (s) { return s.SubCategoryId === editId; })[0] : null;
-        document.getElementById('subcategory-modal-title').textContent = sub ? 'サブカテゴリー名を編集' : 'サブカテゴリーを作成';
+        document.getElementById('subcategory-modal-title').textContent = 'サブカテゴリーを作成';
         document.getElementById('subcategory-target-label').textContent = '「' + categoryName(targetCategoryId) + '」のサブカテゴリー';
-        document.getElementById('new-subcategory-name').value = sub ? sub.SubCategoryName : '';
+        document.getElementById('new-subcategory-name').value = '';
         document.getElementById('subcategory-modal-error').textContent = '';
         document.getElementById('modal-subcategory').classList.add('show');
       }
@@ -570,19 +1069,35 @@
         var name = document.getElementById('new-subcategory-name').value.trim();
         var errorEl = document.getElementById('subcategory-modal-error');
         errorEl.textContent = '';
-        var runner = google.script.run
+        if (!name) {
+          errorEl.textContent = 'サブカテゴリー名を入力してください';
+          return;
+        }
+
+        // 編集モード中は、ここではサーバーへ作成せずローカルの下書きとして一覧にすぐ反映し、
+        // 実際の作成は「編集結果を保存」を押した時点でまとめて行う
+        if (categoryEditMode) {
+          pendingNewSubCategories.push({
+            SubCategoryId: nextTempId_('SCT'),
+            CategoryId: editingSubCategoryTargetId,
+            SubCategoryName: name,
+            SortOrder: 999999,
+            __isDraft: true
+          });
+          closeModal('modal-subcategory');
+          renderCategoryList();
+          return;
+        }
+
+        google.script.run
           .withSuccessHandler(function () {
             closeModal('modal-subcategory');
             loadAll();
           })
           .withFailureHandler(function (error) {
             errorEl.textContent = error.message;
-          });
-        if (editingSubCategoryId) {
-          runner.renameSubCategory(editingSubCategoryId, name);
-        } else {
-          runner.createSubCategory(editingSubCategoryTargetId, name);
-        }
+          })
+          .createSubCategory(editingSubCategoryTargetId, name);
       }
 
       function closeModal(id) {
@@ -651,19 +1166,18 @@
         populateSubCategorySelect(this.value, null);
       });
 
-      function openProductForm(menuId) {
-        editingMenuId = menuId || null;
-        var m = menuId ? allMenus.filter(function (x) { return x.MenuId === menuId; })[0] : null;
-        document.getElementById('product-form-title').textContent = m ? '編集：' + m.MenuName : '商品追加';
+      // 商品追加モーダル（既存商品の編集は商品一覧の編集モードでインライン編集する）
+      function openProductForm(categoryLargeName, categoryMediumName) {
+        document.getElementById('product-form-title').textContent = '商品追加';
         document.getElementById('product-form-error').textContent = '';
 
-        var defaultCategoryName = m ? m.CategoryLarge : (currentTab !== 'all' ? categoryName(currentTab) : null);
+        var defaultCategoryName = categoryLargeName || (currentTab !== 'all' ? categoryName(currentTab) : null);
         populateCategorySelect(defaultCategoryName);
-        populateSubCategorySelect(document.getElementById('pf-category').value, m ? m.CategoryMedium : null);
+        populateSubCategorySelect(document.getElementById('pf-category').value, categoryMediumName || null);
 
-        document.getElementById('pf-name').value = m ? m.MenuName : '';
-        document.getElementById('pf-price').value = m ? m.Price : '';
-        document.getElementById('pf-cost').value = m ? m.Cost : '';
+        document.getElementById('pf-name').value = '';
+        document.getElementById('pf-price').value = '';
+        document.getElementById('pf-cost').value = '';
         document.getElementById('modal-product-form').classList.add('show');
       }
 
@@ -672,13 +1186,32 @@
         document.getElementById('product-form-error').textContent = '';
 
         var menuInput = {
-          MenuId: editingMenuId || '',
+          MenuId: '',
           MenuName: document.getElementById('pf-name').value,
           Price: document.getElementById('pf-price').value,
           Cost: document.getElementById('pf-cost').value,
           CategoryLarge: document.getElementById('pf-category').value,
           CategoryMedium: document.getElementById('pf-subcategory').value
         };
+
+        // 編集モード中は、ここではサーバーへ作成せずローカルの下書きとして一覧にすぐ反映し、
+        // 実際の作成は「編集結果を保存」を押した時点でまとめて行う
+        if (productEditMode) {
+          pendingNewProducts.push({
+            MenuId: nextTempId_('M'),
+            MenuName: menuInput.MenuName,
+            Price: Number(menuInput.Price) || 0,
+            Cost: menuInput.Cost === '' ? 0 : Number(menuInput.Cost),
+            CategoryLarge: menuInput.CategoryLarge,
+            CategoryMedium: menuInput.CategoryMedium,
+            IsActive: true,
+            SortOrder: 999999,
+            __isDraft: true
+          });
+          closeModal('modal-product-form');
+          renderTabs();
+          return;
+        }
 
         google.script.run
           .withSuccessHandler(function () {

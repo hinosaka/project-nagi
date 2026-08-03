@@ -14,7 +14,7 @@ var API_TOKEN_TTL_MS_ = 30 * 24 * 60 * 60 * 1000; // 30日
 // クライアント（ブラウザ）から呼び出せる関数のみ許可する（許可リスト方式）。
 // setupDatabase・doGet・include等の管理用/内部関数は含めない
 var API_ALLOWED_ACTIONS_ = [
-  'closeRegister', 'createCategory', 'createSubCategory', 'deactivateMenu', 'deleteSalesEntry',
+  'closeRegister', 'createSubCategory', 'deactivateMenu', 'deleteMenu', 'deleteSalesEntry', 'deleteSubCategory',
   'getAbcAnalysisData', 'getBudgetData', 'getBudgetDataForYear', 'getCashRegisterData', 'getCategoryList', 'getCustomerList',
   'getCustomerOrderRanking', 'getDailyTargetsForMonth', 'getDashboardData', 'getDayAnalysisData',
   'getMenuList', 'getMenuManagementData', 'getProductAnalysisData', 'getSalesEntryData', 'getSalesStatsData', 'getSeatList',
