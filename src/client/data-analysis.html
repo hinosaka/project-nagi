@@ -288,6 +288,25 @@
       var abcAxis = 'product';
       var loadRequestId = 0;
 
+      // タブ切替のたびに同じ期間のデータを取得し直さずに済むよう、タブごとに直近の結果を
+      // 短時間（サーバー側のRepositoryCacheと同じ60秒）だけ再利用する。キャッシュキーには
+      // 期間・軸などのパラメータをすべて含めるため、それらが変われば自動的に無効化され、
+      // 常に最新を取得する（このTTLが効くのは、同じパラメータのまま短時間でタブを行き来する場合のみ）
+      var TAB_CACHE_TTL_MS_ = 60000;
+      var tabDataCache_ = {};
+
+      function getTabCache_(tab, key) {
+        var entry = tabDataCache_[tab];
+        if (entry && entry.key === key && (Date.now() - entry.timestamp) < TAB_CACHE_TTL_MS_) {
+          return entry.data;
+        }
+        return null;
+      }
+
+      function setTabCache_(tab, key, data) {
+        tabDataCache_[tab] = { key: key, data: data, timestamp: Date.now() };
+      }
+
       var WEATHER_ICON_ = { '晴れ': 'sun', '曇り': 'cloud', '雨': 'cloud-rain', '雪': 'cloud-snow' };
       var SEGMENT_DOTS_ = { new: 'var(--cat-1)', repeat: 'var(--cat-3)', solo: 'var(--cat-1)', group: 'var(--cat-3)' };
 
@@ -451,12 +470,23 @@
 
       // ==== ABC分析 ====
       function loadAbc() {
-        var h = withLoad();
         var params = currentRangeParams();
+        var categoryFilter = document.getElementById('category-filter').value;
+        var cacheKey = JSON.stringify(params.concat([abcAxis, categoryFilter]));
+        var cached = getTabCache_('abc', cacheKey);
+        if (cached) {
+          renderAbc(cached);
+          return;
+        }
+
+        var h = withLoad();
         google.script.run
-          .withSuccessHandler(h.success(renderAbc))
+          .withSuccessHandler(h.success(function (data) {
+            setTabCache_('abc', cacheKey, data);
+            renderAbc(data);
+          }))
           .withFailureHandler(h.failure())
-          .getAbcAnalysisData(params[0], params[1], params[2], params[3], abcAxis, document.getElementById('category-filter').value);
+          .getAbcAnalysisData(params[0], params[1], params[2], params[3], abcAxis, categoryFilter);
       }
 
       function populateCategoryFilter(categories) {
@@ -562,10 +592,20 @@
 
       // ==== 曜日別分析 ====
       function loadDay() {
-        var h = withLoad();
         var params = currentRangeParams();
+        var cacheKey = JSON.stringify(params);
+        var cached = getTabCache_('day', cacheKey);
+        if (cached) {
+          renderDay(cached);
+          return;
+        }
+
+        var h = withLoad();
         google.script.run
-          .withSuccessHandler(h.success(renderDay))
+          .withSuccessHandler(h.success(function (data) {
+            setTabCache_('day', cacheKey, data);
+            renderDay(data);
+          }))
           .withFailureHandler(h.failure())
           .getDayAnalysisData(params[0], params[1], params[2], params[3]);
       }
@@ -598,10 +638,20 @@
 
       // ==== 天候別分析 ====
       function loadWeather() {
-        var h = withLoad();
         var params = currentRangeParams();
+        var cacheKey = JSON.stringify(params);
+        var cached = getTabCache_('weather', cacheKey);
+        if (cached) {
+          renderWeather(cached);
+          return;
+        }
+
+        var h = withLoad();
         google.script.run
-          .withSuccessHandler(h.success(renderWeather))
+          .withSuccessHandler(h.success(function (data) {
+            setTabCache_('weather', cacheKey, data);
+            renderWeather(data);
+          }))
           .withFailureHandler(h.failure())
           .getWeatherAnalysisData(params[0], params[1], params[2], params[3]);
       }
@@ -654,10 +704,20 @@
 
       // ==== 客層分析 ====
       function loadSegment() {
-        var h = withLoad();
         var params = currentRangeParams();
+        var cacheKey = JSON.stringify(params);
+        var cached = getTabCache_('segment', cacheKey);
+        if (cached) {
+          renderSegment(cached);
+          return;
+        }
+
+        var h = withLoad();
         google.script.run
-          .withSuccessHandler(h.success(renderSegment))
+          .withSuccessHandler(h.success(function (data) {
+            setTabCache_('segment', cacheKey, data);
+            renderSegment(data);
+          }))
           .withFailureHandler(h.failure())
           .getSegmentAnalysisData(params[0], params[1], params[2], params[3]);
       }
