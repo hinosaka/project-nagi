@@ -17,6 +17,15 @@
     localStorage.removeItem(TOKEN_KEY);
   }
 
+  // 読み取り専用（get〜）の関数のみ再試行してよいとみなす。この API は関数名を get〜 で
+  // 始める命名規則を徹底している（Api.gsのAPI_ALLOWED_ACTIONS_参照）ため、これで安全に
+  // 判定できる。書き込み系（save〜/delete〜/create〜等）は、リクエスト自体はサーバーに
+  // 届いて処理済みなのに応答の受信だけ失敗した場合に再試行すると、会計の二重登録や
+  // レジクローズの二重記録など、データ不整合につながるおそれがあるため再試行しない
+  function isRetryableAction(action) {
+    return action === 'login' || /^get/.test(action);
+  }
+
   // Content-Typeをtext/plainにする（application/jsonだとブラウザがCORSプリフライト(OPTIONS)を
   // 送るが、GAS Webアプリはプリフライトに正しく応答できずエラーになるため）
   //
@@ -24,10 +33,11 @@
   // doPost実行結果への302リダイレクト先（script.googleusercontent.com/macros/echo）が
   // Google Drive側の一過性の不具合で「現在、ファイルを開くことができません」のようなHTMLを
   // 返すことがあり、その場合はJSONとして正しくparseできない。どちらも一過性の失敗として
-  // 1回だけ再試行する
+  // 1回だけ再試行するが、書き込み系アクションは二重実行を避けるため再試行しない（上記参照）
   function postJson(payload) {
     return doFetch().catch(function (error) {
-      if (error instanceof TypeError || error.isInvalidJsonResponse) {
+      var isTransient = error instanceof TypeError || error.isInvalidJsonResponse;
+      if (isTransient && isRetryableAction(payload.action)) {
         return doFetch();
       }
       throw error;
