@@ -3,6 +3,7 @@
 <html>
   <head>
     <base target="_top">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <?!= include('client/shared/stylesheet') ?>
     <style>
       /* ===== トグルタブ（会計管理／清算） ===== */
@@ -24,6 +25,10 @@
       .weather-btn { border-radius: 999px; padding: 5px 7px; }
       .weather-btn.selected { background: var(--ai-soft); border-color: var(--ai-soft); }
       .date-total { margin-left: auto; text-align: right; font-size: 1.3em; font-weight: 700; font-variant-numeric: tabular-nums; }
+      /* スマホ幅：日付ナビ・天候ボタンと合計金額が1行に収まりきらないため、合計金額は次の行に折り返す */
+      @media (max-width: 480px) {
+        .date-total { width: 100%; margin-left: 0; order: 3; }
+      }
 
       /* ===== 会計管理：伝票一覧・伝票作成/編集ビュー（横幅に余裕がある場合は2カラム表示） ===== */
       #ticket-create-view { display: none; }
@@ -47,7 +52,7 @@
         padding: 8px var(--space-sm); cursor: pointer;
       }
       .ticket-card:hover { border-color: var(--ai); }
-      .ticket-card .t-name { font-weight: 700; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .ticket-card .t-name { font-weight: 700; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       .ticket-card .t-meta { font-size: 0.82em; color: var(--ink-muted); white-space: nowrap; }
       .ticket-card .t-amount { font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
       .ticket-card .t-delete { color: var(--ink-muted); flex-shrink: 0; }
@@ -58,11 +63,18 @@
       .create-header { display: flex; align-items: center; gap: var(--space-sm); margin-bottom: var(--space-md); }
       .create-header h3 { margin: 0; }
 
-      .form-inline-row { display: flex; gap: var(--space-md); flex-wrap: wrap; margin-bottom: var(--space-md); align-items: flex-end; }
-      .form-inline-row .field { display: flex; flex-direction: column; gap: 2px; position: relative; }
-      .form-inline-row label { font-size: 0.78em; color: var(--ink-muted); }
-      .form-inline-row input, .form-inline-row select { width: 140px; }
-      .form-inline-row .field.wide input { width: 200px; }
+      /* 人数・座席・顧客名は横長・縦長どちらでも折り返さず常に1行で表示する（顧客名入力欄が
+         余白を埋めるように伸縮する） */
+      .form-inline-row { display: flex; flex-wrap: nowrap; gap: var(--space-sm); margin-bottom: var(--space-sm); align-items: flex-end; }
+      .form-inline-row .field { display: flex; flex-direction: column; gap: 2px; position: relative; min-width: 0; }
+      .form-inline-row label { font-size: 0.78em; color: var(--ink-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .form-inline-row input, .form-inline-row select { width: 100%; }
+      .form-inline-row .field.field-party { flex: 0 1 3.4em; }
+      .form-inline-row .field.field-seat { flex: 0 1 4.8em; }
+      .form-inline-row .field.field-customer { flex: 1 1 auto; }
+      .form-row-memo { display: flex; flex-direction: column; gap: 2px; margin-bottom: var(--space-md); }
+      .form-row-memo label { font-size: 0.78em; color: var(--ink-muted); }
+      .form-row-memo input { width: 100%; }
 
       .suggestions { list-style: none; margin: 0; padding: 4px; border: 1px solid var(--ai-soft); border-radius: var(--radius-sm); width: 200px; background: var(--ai-soft); position: absolute; top: 100%; left: 0; z-index: 10; box-shadow: 0 4px 12px rgba(0,0,0,0.12); }
       .suggestions li { padding: 4px 8px; border-radius: var(--radius-sm); cursor: pointer; font-size: 0.78em; color: var(--ink); }
@@ -73,31 +85,41 @@
       .history-chip { font-size: 0.8em; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface); color: var(--ink); }
       .history-chip:hover { border-color: var(--ai); background: var(--ai-soft); color: var(--ai); }
 
-      .other-add-row { display: flex; gap: var(--space-sm); margin-bottom: var(--space-sm); }
+      .other-add-row { display: flex; flex-wrap: wrap; gap: var(--space-sm); margin-bottom: var(--space-sm); }
       .other-add-row button { font-size: 0.85em; padding: 5px 10px; }
 
       .other-list { display: flex; flex-direction: column; gap: 4px; margin-bottom: var(--space-md); }
 
-      .product-panes { display: grid; grid-template-columns: 140px 1fr; gap: var(--space-md); }
-      @media (max-width: 600px) { .product-panes { grid-template-columns: 1fr; } }
-      .category-col { display: flex; flex-direction: column; gap: 4px; }
-      .category-btn { text-align: left; border: 1px solid transparent; background: none; padding: 8px 10px; border-radius: var(--radius-sm); color: var(--ink-muted); }
+      /* カテゴリー選択と商品一覧は常に左右並び（商品選択のたびに下までスクロールするのを避けるため、
+         縦長・スマホ幅でも1カラムに折り返さない） */
+      .product-panes { display: grid; grid-template-columns: 140px 1fr; gap: var(--space-md); align-items: start; }
+      .category-col { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+      .category-btn { text-align: left; border: 1px solid transparent; background: none; padding: 8px 10px; border-radius: var(--radius-sm); color: var(--ink-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       .category-btn.large { margin-top: var(--space-sm); }
       .category-btn.large:first-child { margin-top: 0; }
       .category-btn.large.active { color: var(--ai); font-weight: 700; }
       .category-btn.medium { font-size: 0.9em; padding-left: 18px; }
       .category-btn.medium.active { background: var(--ai-soft); color: var(--ai); font-weight: 700; }
+      @media (max-width: 480px) {
+        .product-panes { grid-template-columns: 72px 1fr; gap: 6px; }
+        .category-btn { padding: 5px 4px; font-size: 0.78em; }
+        .category-btn.medium { font-size: 0.72em; padding-left: 6px; }
+      }
 
-      .product-grid { display: flex; flex-direction: column; gap: 4px; }
+      /* product-grid-wrapはCSS Gridの列（product-panesの2列目）の直接の子。グリッド・フレックス
+         アイテムは既定でmin-width:autoのため、中身（価格や数量ボタンの固定幅）がそのままだと
+         列幅が広がって右にはみ出す。min-width:0を通しで効かせて折り返し・省略できるようにする */
+      .product-grid-wrap { min-width: 0; }
+      .product-grid { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
       .product-tile {
-        display: flex; align-items: center; gap: var(--space-sm);
-        border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 6px 10px; background: var(--surface);
+        display: flex; align-items: center; gap: 6px; min-width: 0;
+        border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 6px 8px; background: var(--surface);
       }
       .product-tile.has-qty { border-color: var(--ai-soft); background: var(--ai-soft); }
-      .product-tile .p-info { flex: 1; min-width: 0; display: flex; align-items: baseline; gap: var(--space-sm); }
-      .product-tile .p-name { font-weight: 700; font-size: 0.92em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-      .product-tile .p-price { color: var(--ink-muted); font-size: 0.85em; white-space: nowrap; }
-      .qty-control { display: flex; align-items: center; gap: 6px; margin-left: auto; flex-shrink: 0; }
+      .product-tile .p-info { flex: 1; min-width: 0; display: flex; align-items: baseline; gap: 6px; }
+      .product-tile .p-name { font-weight: 700; font-size: 0.92em; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .product-tile .p-price { color: var(--ink-muted); font-size: 0.85em; white-space: nowrap; flex-shrink: 0; }
+      .qty-control { display: flex; align-items: center; gap: 4px; margin-left: auto; flex-shrink: 0; }
       .circle-btn {
         width: 24px; height: 24px; border-radius: 50%; border: 1px solid var(--border); background: var(--surface);
         display: inline-flex; align-items: center; justify-content: center; padding: 0; color: var(--ink);
@@ -107,8 +129,17 @@
       .circle-btn.plus { color: var(--good); border-color: var(--good-soft); }
       .circle-btn:disabled { opacity: 0.35; }
       .qty-num { font-weight: 700; font-variant-numeric: tabular-nums; min-width: 1.4em; text-align: center; }
+      /* スマホ幅：商品名の下に価格を表示する2行構成にするため、タイル自体の縦幅が伸びる。
+         数量ボタンはタイル下端に揃える（中央だと商品名と重なって見えるため） */
+      @media (max-width: 480px) {
+        .product-tile { align-items: flex-end; padding: 5px 6px; gap: 4px; }
+        .product-tile .p-info { flex-direction: column; align-items: stretch; gap: 0; }
+        .product-tile .p-price { font-size: 0.78em; }
+        .circle-btn { width: 22px; height: 22px; }
+        .qty-num { min-width: 1.1em; font-size: 0.9em; }
+      }
 
-      .create-footer { display: flex; align-items: center; justify-content: flex-end; gap: var(--space-md); margin-top: var(--space-md); padding-top: var(--space-md); border-top: 1px solid var(--border); }
+      .create-footer { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: var(--space-md); margin-top: var(--space-md); padding-top: var(--space-md); border-top: 1px solid var(--border); }
       .running-total { font-size: 0.9em; color: var(--ink-muted); }
       .running-total strong { color: var(--ink); font-variant-numeric: tabular-nums; }
 
@@ -117,7 +148,7 @@
       .modal-box { background: var(--surface); border-radius: var(--radius-md); padding: var(--space-md) var(--space-lg); max-width: 440px; width: 92%; max-height: 85vh; overflow-y: auto; position: relative; }
       .modal-close { position: absolute; top: var(--space-sm); right: var(--space-sm); }
       .confirm-row { display: flex; align-items: center; gap: var(--space-sm); padding: 8px 0; border-bottom: 1px solid var(--border); }
-      .confirm-row .c-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .confirm-row .c-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       .confirm-row .c-price { width: 60px; text-align: right; color: var(--ink-muted); font-variant-numeric: tabular-nums; }
       .confirm-row .c-price-input { width: 72px; text-align: right; font-variant-numeric: tabular-nums; }
 
@@ -140,9 +171,14 @@
       .cash-field input { width: 140px; text-align: right; }
       .close-btn-row { text-align: center; margin: var(--space-md) 0; }
       .close-btn-row button { padding: 10px 24px; font-weight: 700; }
-      .history-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 0.9em; gap: var(--space-sm); }
+      .history-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 0.9em; gap: var(--space-sm); flex-wrap: wrap; }
       .history-row:last-child { border-bottom: none; }
       .history-row .amounts { color: var(--ink-muted); white-space: nowrap; }
+      /* スマホ幅：日時と金額内訳が1行に収まらないため、内訳を次の行に折り返して読みやすくする */
+      @media (max-width: 480px) {
+        .history-row { flex-direction: column; gap: 2px; }
+        .history-row .amounts { white-space: normal; }
+      }
 
       /* ===== 汎用確認モーダル・その他商品追加モーダル ===== */
       .small-modal { max-width: 340px; }
@@ -675,11 +711,11 @@
           '<h3>' + (sales ? '伝票の編集' : '伝票の作成') + '</h3>' +
           '</div>' +
           '<div class="form-inline-row">' +
-          '<div class="field"><label>人数</label><input type="number" id="f-party" min="1" inputmode="numeric" value="' + (sales ? sales.PartySize : 1) + '"></div>' +
-          '<div class="field"><label>座席（任意）</label><select id="f-seat"></select></div>' +
-          '<div class="field wide"><label>顧客（任意）</label><input type="text" id="f-customer" autocomplete="off" placeholder="ニックネームを入力" value="' + (sales ? (sales.CustomerName || '') : '') + '"><input type="hidden" id="f-customer-id" value="' + (sales ? (sales.CustomerId || '') : '') + '"><ul id="f-customer-suggestions" class="suggestions" style="display:none;"></ul></div>' +
-          '<div class="field wide"><label>備考（任意）</label><input type="text" id="f-note" value="' + (sales ? (sales.Note || '') : '') + '"></div>' +
+          '<div class="field field-party"><label>人数</label><input type="number" id="f-party" min="1" inputmode="numeric" value="' + (sales ? sales.PartySize : 1) + '"></div>' +
+          '<div class="field field-seat"><label>座席（任意）</label><select id="f-seat"></select></div>' +
+          '<div class="field field-customer"><label>顧客（任意）</label><input type="text" id="f-customer" autocomplete="off" placeholder="ニックネームを入力" value="' + (sales ? (sales.CustomerName || '') : '') + '"><input type="hidden" id="f-customer-id" value="' + (sales ? (sales.CustomerId || '') : '') + '"><ul id="f-customer-suggestions" class="suggestions" style="display:none;"></ul></div>' +
           '</div>' +
+          '<div class="form-row-memo"><label>メモ</label><input type="text" id="f-note" value="' + (sales ? (sales.Note || '') : '') + '"></div>' +
           '<div class="other-add-row">' +
           '<button type="button" id="btn-add-other-drink">＋ その他ドリンク</button>' +
           '<button type="button" id="btn-add-other-food">＋ その他フード</button>' +
@@ -687,7 +723,7 @@
           '<div class="other-list" id="other-list"></div>' +
           '<div class="product-panes">' +
           '<div class="category-col" id="category-col"></div>' +
-          '<div><div class="product-grid" id="product-grid"></div></div>' +
+          '<div class="product-grid-wrap"><div class="product-grid" id="product-grid"></div></div>' +
           '</div>' +
           '<div class="create-footer">' +
           '<div class="running-total">選択中：<strong id="running-count">0点 ¥0</strong></div>' +
