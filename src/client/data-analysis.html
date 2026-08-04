@@ -203,7 +203,7 @@
               <div class="table-scroll">
                 <table>
                   <thead>
-                    <tr><th>曜日</th><th class="num">売上</th><th class="num">構成比</th><th class="num">注文数</th><th class="num">平均注文数</th><th class="num">来店人数</th><th class="num">来店組数</th><th class="num">客単価</th></tr>
+                    <tr><th>曜日</th><th class="num">売上</th><th class="num">構成比</th><th class="num">注文数</th><th class="num">平均注文数</th><th class="num">客数</th><th class="num">組数</th><th class="num">客単価</th></tr>
                   </thead>
                   <tbody id="day-table-body"></tbody>
                 </table>
@@ -228,7 +228,7 @@
               <div class="table-scroll">
                 <table>
                   <thead>
-                    <tr><th>天候</th><th class="num">売上</th><th class="num">構成比</th><th class="num">注文数</th><th class="num">平均注文数</th><th class="num">来店人数</th><th class="num">来店組数</th><th class="num">客単価</th></tr>
+                    <tr><th>天候</th><th class="num">売上</th><th class="num">構成比</th><th class="num">注文数</th><th class="num">平均注文数</th><th class="num">客数</th><th class="num">組数</th><th class="num">客単価</th></tr>
                   </thead>
                   <tbody id="weather-table-body"></tbody>
                 </table>
@@ -245,7 +245,7 @@
               <div class="table-scroll">
                 <table>
                   <thead>
-                    <tr><th>区分</th><th class="num">売上</th><th class="num">売上構成比</th><th class="num">注文数</th><th class="num">注文数構成比</th><th class="num">平均注文数</th><th class="num">客数</th><th class="num">組数構成比</th><th class="num">客単価</th></tr>
+                    <tr><th>区分</th><th class="num">売上</th><th class="num">売上構成比</th><th class="num">注文数</th><th class="num">注文数構成比</th><th class="num">平均注文数</th><th class="num">客数</th><th class="num">組数</th><th class="num">組数構成比</th><th class="num">客単価</th></tr>
                   </thead>
                   <tbody id="newrepeat-table-body"></tbody>
                 </table>
@@ -256,7 +256,7 @@
               <div class="table-scroll">
                 <table>
                   <thead>
-                    <tr><th>座席種別</th><th class="num">売上</th><th class="num">売上構成比</th><th class="num">注文数</th><th class="num">注文数構成比</th><th class="num">平均注文数</th><th class="num">客数</th><th class="num">組数構成比</th><th class="num">客単価</th><th class="num">稼働率</th></tr>
+                    <tr><th>座席種別</th><th class="num">売上</th><th class="num">売上構成比</th><th class="num">注文数</th><th class="num">注文数構成比</th><th class="num">平均注文数</th><th class="num">客数</th><th class="num">組数</th><th class="num">組数構成比</th><th class="num">客単価</th><th class="num">稼働率</th></tr>
                   </thead>
                   <tbody id="seat-table-body"></tbody>
                 </table>
@@ -267,7 +267,7 @@
               <div class="table-scroll">
                 <table>
                   <thead>
-                    <tr><th>区分</th><th class="num">売上</th><th class="num">売上構成比</th><th class="num">注文数</th><th class="num">注文数構成比</th><th class="num">平均注文数</th><th class="num">客数</th><th class="num">組数構成比</th><th class="num">客単価</th></tr>
+                    <tr><th>区分</th><th class="num">売上</th><th class="num">売上構成比</th><th class="num">注文数</th><th class="num">注文数構成比</th><th class="num">平均注文数</th><th class="num">客数</th><th class="num">組数</th><th class="num">組数構成比</th><th class="num">客単価</th></tr>
                   </thead>
                   <tbody id="partysize-table-body"></tbody>
                 </table>
@@ -736,6 +736,7 @@
             '<td class="num">' + r.orderQtySharePercent + '%</td>' +
             '<td class="num">' + r.avgOrderQty + '</td>' +
             '<td class="num">' + r.partySize + '人</td>' +
+            '<td class="num">' + r.visitCount + '組</td>' +
             '<td class="num">' + r.visitCountSharePercent + '%</td>' +
             '<td class="num">¥' + r.perPersonAmount.toLocaleString() + '</td>' +
             (r.utilizationRate !== undefined ? '<td class="num">' + r.utilizationRate + '%</td>' : '');
