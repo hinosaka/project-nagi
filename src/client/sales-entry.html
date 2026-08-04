@@ -29,6 +29,7 @@
       @media (max-width: 480px) {
         .date-total { width: 100%; margin-left: 0; order: 3; }
       }
+      .save-flash { display: block; text-align: right; color: var(--good); font-size: 0.8em; min-height: 1.2em; }
 
       /* ===== 会計管理：伝票一覧・伝票作成/編集ビュー（横幅に余裕がある場合は2カラム表示） ===== */
       #ticket-create-view { display: none; }
@@ -214,6 +215,7 @@
             </div>
             <div class="date-total" id="manage-date-total">¥0</div>
           </div>
+          <span class="save-flash" id="manage-save-flash"></span>
 
           <div id="manage-error" class="load-error"></div>
 
@@ -282,7 +284,6 @@
         <button type="button" class="icon-btn modal-close" id="confirm-close">✕</button>
         <h3 style="margin-top:0;">明細の確認</h3>
         <div id="confirm-rows"></div>
-        <p id="confirm-error" class="error"></p>
         <div class="confirm-footer">
           <div class="confirm-totals">
             <div class="confirm-total"><div class="label">点数</div><div class="value" id="confirm-count">0点</div></div>
@@ -989,7 +990,6 @@
           rows.appendChild(row);
         });
         updateConfirmTotal();
-        document.getElementById('confirm-error').textContent = '';
         var submitBtn = document.getElementById('confirm-submit');
         submitBtn.disabled = false;
         submitBtn.textContent = '確定';
@@ -1010,6 +1010,16 @@
       document.getElementById('confirm-modal').addEventListener('click', function (e) {
         if (e.target === this) { closeConfirmModal(); }
       });
+
+      // GAS側の応答配送が一過性に数十秒かかることがあり（api-client.jsのコメント、経費記録の
+      // クイック入力と同じ理由）、保存のたびに画面をブロックして待つと連続で伝票を作成する際の
+      // 妨げになる。そのため「確定」を押した時点で確認モーダル・作成画面を即座に閉じ、
+      // 保存自体は裏側で行う。ID採番はLockUtilで排他化済みのため、連続で保存しても衝突しない
+      var salesSavePendingCount_ = 0;
+      function updateSalesSavePendingIndicator_() {
+        var flash = document.getElementById('manage-save-flash');
+        flash.textContent = salesSavePendingCount_ > 0 ? '保存中…（' + salesSavePendingCount_ + '件）' : '';
+      }
 
       document.getElementById('confirm-submit').addEventListener('click', function () {
         var customerId = document.getElementById('f-customer-id').value;
@@ -1035,21 +1045,23 @@
             };
           })
         };
+        var summaryLabel = (customerName || '顧客未設定') + '・¥' + currentDetails.reduce(function (sum, d) { return sum + d.Quantity * d.UnitPrice; }, 0).toLocaleString();
 
-        var submitBtn = document.getElementById('confirm-submit');
-        submitBtn.disabled = true;
-        submitBtn.textContent = '保存中…';
-        document.getElementById('confirm-error').textContent = '';
+        closeConfirmModal();
+        closeCreateView();
+        setLoadError('manage-error', '');
+        salesSavePendingCount_++;
+        updateSalesSavePendingIndicator_();
         google.script.run
           .withSuccessHandler(function (result) {
-            closeConfirmModal();
-            closeCreateView();
+            salesSavePendingCount_--;
+            updateSalesSavePendingIndicator_();
             applySavedTicket_(result);
           })
           .withFailureHandler(function (error) {
-            submitBtn.disabled = false;
-            submitBtn.textContent = '確定';
-            document.getElementById('confirm-error').textContent = error.message;
+            salesSavePendingCount_--;
+            updateSalesSavePendingIndicator_();
+            setLoadError('manage-error', '伝票（' + summaryLabel + '）の保存に失敗しました：' + error.message);
           })
           .saveSalesEntry(input);
       });
