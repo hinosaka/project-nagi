@@ -124,8 +124,15 @@ function getDailyTargetsForMonth(yearMonth) {
 }
 
 // 日本の祝日（Googleが公開している祝日カレンダー）から対象月の祝日一覧を取得する。
-// カレンダーへのアクセス権限が未許可の場合は祝日情報なしで続行する（機能自体は壊さない）
+// カレンダーへのアクセス権限が未許可の場合は祝日情報なしで続行する（機能自体は壊さない）。
+// CalendarApp.getEvents()は外部カレンダーへの都度アクセスで遅く（日別予算設定の読み込み遅延の主因）、
+// かつ祝日は事実上変化しないデータのため、月単位でRepositoryCacheに長時間（6時間＝CacheServiceの上限）キャッシュする
 function loadJapaneseHolidaySet_(year, month, daysInMonth) {
+  var cacheKey = 'holidaySet:' + year + '-' + ('0' + month).slice(-2);
+  var cached = RepositoryCache.get(cacheKey);
+  if (cached) {
+    return cached;
+  }
   var set = {};
   try {
     var start = new Date(year, month - 1, 1);
@@ -136,6 +143,7 @@ function loadJapaneseHolidaySet_(year, month, daysInMonth) {
   } catch (e) {
     // 権限未許可・カレンダー取得失敗時は祝日なし扱いにする
   }
+  RepositoryCache.put(cacheKey, set, 21600);
   return set;
 }
 

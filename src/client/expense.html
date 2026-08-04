@@ -12,6 +12,7 @@
       .modal-close { position: absolute; top: var(--space-sm); right: var(--space-sm); }
 
       .toolbar-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-md); flex-wrap: wrap; gap: var(--space-sm); }
+      .date-nav-row { display: flex; align-items: center; gap: 2px; }
       .section-header { display: flex; align-items: center; justify-content: space-between; margin: 0 0 var(--space-md); flex-wrap: wrap; gap: var(--space-sm); }
       .section-header h3 { margin: 0; }
       .edit-actions { display: flex; align-items: center; gap: var(--space-sm); }
@@ -125,16 +126,20 @@
       <?!= include('client/shared/sidebar', {baseUrl: baseUrl}) ?>
       <main class="main-content">
         <div class="toolbar-row">
-          <div class="month-picker-wrap">
-            <button type="button" class="month-select" id="month-btn"></button>
-            <div class="month-picker-popover" id="month-popover">
-              <div class="month-picker-year-row">
-                <button type="button" class="icon-btn" id="picker-year-prev"><svg class="icon"><use href="#icon-chevron-left"></use></svg></button>
-                <span id="picker-year-label"></span>
-                <button type="button" class="icon-btn" id="picker-year-next"><svg class="icon"><use href="#icon-chevron-right"></use></svg></button>
+          <div class="date-nav-row">
+            <button type="button" class="icon-btn" id="month-prev"><svg class="icon"><use href="#icon-chevron-left"></use></svg></button>
+            <div class="month-picker-wrap">
+              <button type="button" class="month-select" id="month-btn"></button>
+              <div class="month-picker-popover" id="month-popover">
+                <div class="month-picker-year-row">
+                  <button type="button" class="icon-btn" id="picker-year-prev"><svg class="icon"><use href="#icon-chevron-left"></use></svg></button>
+                  <span id="picker-year-label"></span>
+                  <button type="button" class="icon-btn" id="picker-year-next"><svg class="icon"><use href="#icon-chevron-right"></use></svg></button>
+                </div>
+                <div class="month-picker-grid" id="picker-grid"></div>
               </div>
-              <div class="month-picker-grid" id="picker-grid"></div>
             </div>
+            <button type="button" class="icon-btn" id="month-next"><svg class="icon"><use href="#icon-chevron-right"></use></svg></button>
           </div>
           <span class="save-flash" id="save-flash"></span>
         </div>
@@ -354,6 +359,23 @@
           exitCategoryEditing();
           loadData();
         }
+      });
+
+      function shiftYearMonth(value, direction) {
+        var parts = value.split('-');
+        var d = new Date(Number(parts[0]), Number(parts[1]) - 1 + direction, 1);
+        var mm = ('0' + (d.getMonth() + 1)).slice(-2);
+        return d.getFullYear() + '-' + mm;
+      }
+      document.getElementById('month-prev').addEventListener('click', function () {
+        currentMonth = shiftYearMonth(currentMonth, -1);
+        exitCategoryEditing();
+        loadData();
+      });
+      document.getElementById('month-next').addEventListener('click', function () {
+        currentMonth = shiftYearMonth(currentMonth, 1);
+        exitCategoryEditing();
+        loadData();
       });
 
       document.querySelectorAll('#expense-tabs .toggle-tab').forEach(function (btn) {

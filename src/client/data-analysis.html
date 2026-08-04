@@ -554,7 +554,7 @@
           tbody.appendChild(tr);
         });
 
-        if (currentTab === 'abc') {
+        if (currentTab === 'abc' && currentPeriod !== 'day') {
           document.getElementById('ref-date-label').textContent = data.periodLabel;
         }
       }
@@ -631,7 +631,7 @@
           tbody.appendChild(tr);
         });
 
-        if (currentTab === 'day') {
+        if (currentTab === 'day' && currentPeriod !== 'day') {
           document.getElementById('ref-date-label').textContent = data.periodLabel;
         }
       }
@@ -697,7 +697,7 @@
           cards.appendChild(card);
         });
 
-        if (currentTab === 'weather') {
+        if (currentTab === 'weather' && currentPeriod !== 'day') {
           document.getElementById('ref-date-label').textContent = data.periodLabel;
         }
       }
@@ -749,7 +749,7 @@
         renderSegmentTable('seat-table-body', data.seatType);
         renderSegmentTable('partysize-table-body', data.partySize);
 
-        if (currentTab === 'segment') {
+        if (currentTab === 'segment' && currentPeriod !== 'day') {
           document.getElementById('ref-date-label').textContent = data.periodLabel;
         }
       }

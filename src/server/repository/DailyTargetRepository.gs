@@ -2,16 +2,23 @@
 // 未設定の日はここに行を持たず、売上統計（SCR-007, SCR-011）の日別タブでは月目標の日数按分にフォールバックする
 var DailyTargetRepository = {
   HEADERS: ['DailyTargetId', 'TargetDate', 'TargetAmount'],
+  CACHE_KEY_: 'repo:DailyTarget:findAll',
 
   // TargetDateはGoogleスプレッドシートが自動的に日付型に変換して保存することがあるため、
   // 読み込み時に"yyyy-MM-dd"形式の文字列へ正規化する（SheetUtil.normalizeDateKey参照）
   findAll: function () {
+    var cached = RepositoryCache.get(this.CACHE_KEY_);
+    if (cached) {
+      return cached;
+    }
     var sheet = SpreadsheetConfig.getSheet('DailyTarget');
     var values = sheet.getDataRange().getValues();
-    return SheetUtil.rowsToObjects(values).map(function (t) {
+    var rows = SheetUtil.rowsToObjects(values).map(function (t) {
       t.TargetDate = SheetUtil.normalizeDateKey(t.TargetDate, 'yyyy-MM-dd');
       return t;
     });
+    RepositoryCache.put(this.CACHE_KEY_, rows);
+    return rows;
   },
 
   findByMonth: function (yearMonth) {
@@ -30,5 +37,6 @@ var DailyTargetRepository = {
     rows.forEach(function (row) {
       sheet.appendRow(SheetUtil.objectToRow(self.HEADERS, row));
     });
+    RepositoryCache.invalidate(this.CACHE_KEY_);
   }
 };

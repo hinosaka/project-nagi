@@ -21,9 +21,11 @@ var RepositoryCache = {
     }
   },
 
-  put: function (key, rows) {
+  // ttlSecondsを省略した場合は既定の60秒。祝日等、変化しないデータは長いTTL（最大21600秒＝6時間、
+  // CacheServiceの上限）を明示的に指定できる
+  put: function (key, rows, ttlSeconds) {
     try {
-      CacheService.getScriptCache().put(key, JSON.stringify(rows), this.TTL_SECONDS_);
+      CacheService.getScriptCache().put(key, JSON.stringify(rows), ttlSeconds || this.TTL_SECONDS_);
     } catch (e) {
       // 100KB上限超過などはキャッシュを諦めるだけで、呼び出し元には影響させない
     }
