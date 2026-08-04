@@ -166,7 +166,7 @@
       /* ===== 清算タブ ===== */
       .cash-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: var(--space-md); }
       .cash-field { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border); }
-      .cash-field:last-child { border-bottom: none; }
+      .cash-field:last-child, .cash-field.no-border { border-bottom: none; }
       .cash-field .label { color: var(--ink-muted); }
       .cash-field .value { font-weight: 700; font-variant-numeric: tabular-nums; }
       .cash-field input { width: 140px; text-align: right; }
@@ -252,21 +252,26 @@
               <div class="cash-grid">
                 <div class="card">
                   <h3 style="margin-top:0;">売上情報</h3>
-                  <div class="cash-field"><span class="label">合計金額</span><span class="value" id="settle-total">¥0</span></div>
-                  <div class="cash-field"><span class="label">会計数</span><span class="value" id="settle-count">0組</span></div>
+                  <div class="cash-field no-border"><span class="label">合計金額</span><span class="value" id="settle-total">¥0</span></div>
+                  <div class="cash-field"><span class="label">組数</span><span class="value" id="settle-count">0組</span></div>
                 </div>
                 <div class="card">
                   <h3 style="margin-top:0;">現金状況</h3>
-                  <div class="cash-field"><span class="label">準備金</span><input type="number" id="starting-cash" min="0" inputmode="numeric"></div>
+                  <div class="cash-field no-border"><span class="label">準備金</span><input type="number" id="starting-cash" min="0" inputmode="numeric"></div>
+                  <span class="save-flash" id="starting-cash-save-flash"></span>
                   <div class="cash-field"><span class="label">現金売上額</span><span class="value" id="settle-cash-sales">¥0</span></div>
                   <div class="cash-field"><span class="label">予想現金残高</span><span class="value" id="settle-expected">¥0</span></div>
                 </div>
               </div>
-
-              <div class="close-btn-row">
-                <button type="button" class="btn-primary" id="btn-close-register">レジクローズを実行</button>
-              </div>
-
+            </div>
+            <!-- レジクローズ操作はサーバー側で常に最新データを再取得してから実行するため、
+                 準備金保存中など他の読み込み中でも押せるようloading-targetの外に置く（中に置くと
+                 pointer-events:noneで読み込み中はクリックが無視され、押したのに反応しないように見える）。
+                 履歴が貯まってもクローズ操作への導線が遠くならないよう、管理履歴より上に配置する -->
+            <div class="close-btn-row">
+              <button type="button" class="btn-primary" id="btn-close-register">レジクローズを実行</button>
+            </div>
+            <div class="loading-target">
               <h2>管理履歴</h2>
               <div class="card">
                 <div id="close-history"></div>
@@ -1102,6 +1107,9 @@
 
       var settleLoadRequestId = 0;
       function loadSettleData() {
+        // 日付切替の直前に準備金入力のblurで保存リクエストが飛んでいた場合、その応答が
+        // 新しい対象日の表示に上書きされて反映されてしまうことがあるため、切り替えのたびに無効化する
+        startingCashSaveRequestId_++;
         setLoadError('settle-error', '');
         clearSettlePanel_();
         document.getElementById('settle-loading-wrap').classList.add('is-loading');
@@ -1147,20 +1155,35 @@
         });
       }
 
-      document.getElementById('starting-cash').addEventListener('change', function () {
+      // 準備金はスピナー（↑↓）クリックのたびに毎回changeイベントが発火するため、changeで都度保存すると
+      // 連打時に古い応答が後から返ってきて新しい入力値を上書きしてしまう（意図した金額より少なくなる不具合）。
+      // スピナークリック自体はフォーカスを外さないため、blur（テキスト欄から離れた時）をトリガーにすれば
+      // 連打中は一切保存が走らず、入力し終えたタイミングで1回だけ保存される。念のため、他の変更が
+      // 割り込んでいたら古い応答は無視するようリクエストIDでも防御する。読み込み中演出も出さない
+      // （連続入力・他操作の妨げにしないため）
+      var startingCashSaveRequestId_ = 0;
+      document.getElementById('starting-cash').addEventListener('blur', function () {
+        saveStartingCash_(this.value);
+      });
+
+      function saveStartingCash_(value) {
         setLoadError('settle-error', '');
-        document.getElementById('settle-loading-wrap').classList.add('is-loading');
+        var requestId = ++startingCashSaveRequestId_;
+        var flash = document.getElementById('starting-cash-save-flash');
+        flash.textContent = '保存中…';
         google.script.run
           .withSuccessHandler(function (data) {
-            document.getElementById('settle-loading-wrap').classList.remove('is-loading');
+            if (requestId !== startingCashSaveRequestId_) { return; } // さらに新しい変更が発生済みなら古い応答は捨てる
+            flash.textContent = '';
             renderSettleData(data);
           })
           .withFailureHandler(function (error) {
-            document.getElementById('settle-loading-wrap').classList.remove('is-loading');
+            if (requestId !== startingCashSaveRequestId_) { return; }
+            flash.textContent = '';
             setLoadError('settle-error', error.message);
           })
-          .saveStartingCash(settleDate, this.value);
-      });
+          .saveStartingCash(settleDate, value);
+      }
 
       document.getElementById('btn-close-register').addEventListener('click', function () {
         showConfirmModal('レジクローズを実行しますか？（会計データはロックされません）', function () {
