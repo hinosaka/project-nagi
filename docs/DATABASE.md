@@ -24,8 +24,8 @@ Googleスプレッドシート（唯一のデータベース）の構造を定�
 | シート名 | 概要 | 関連要件ID |
 |---|---|---|
 | Menu | 商品（メニュー）マスタ | REQ-001, REQ-002, REQ-003, REQ-004, REQ-026, REQ-029 |
-| Sales | 会計ヘッダ（売上管理） | REQ-005, REQ-007, REQ-008, REQ-009, REQ-010, REQ-017, REQ-024, REQ-028, REQ-032, REQ-033, REQ-034, REQ-036, REQ-037 |
-| SalesDetail | 売上明細（会計ごとの商品・数量） | REQ-006, REQ-007, REQ-018, REQ-023, REQ-025, REQ-029, REQ-030, REQ-031, REQ-034, REQ-036, REQ-037 |
+| Sales | 会計ヘッダ（売上管理） | REQ-005, REQ-007, REQ-008, REQ-009, REQ-010, REQ-017, REQ-024, REQ-028, REQ-032, REQ-033, REQ-034, REQ-036 |
+| SalesDetail | 売上明細（会計ごとの商品・数量） | REQ-006, REQ-007, REQ-018, REQ-023, REQ-025, REQ-029, REQ-030, REQ-031, REQ-034, REQ-036 |
 | Customer | 顧客マスタ（新規／リピート判別） | REQ-012, REQ-013, REQ-014, REQ-015, REQ-020, REQ-023, REQ-032 |
 | BusinessDay | 営業日実績（曜日・天候・準備金） | REQ-011, REQ-019, REQ-039, REQ-040 |
 | Seat | 座席マスタ（客単価・席稼働の分析用） | REQ-009, REQ-016, REQ-021 |

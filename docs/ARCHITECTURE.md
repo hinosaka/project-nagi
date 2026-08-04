@@ -117,10 +117,9 @@ GAS Webアプリ（`webapp.access: "ANYONE"`）は、`/exec` URLへ遷移する�
 
 - UI層（`web/`）：`src/client/*.html`をビルドしたプレーンな静的HTML/CSS/JS。GitHub Pagesで配信し、`google.script.run`の代わりに`fetch`でGASのJSON APIを呼び出す
 - アプリケーション層の一部（`src/server/Api.gs`）：`doPost`をエントリーポイントとするJSON API。既存の`application/`層の関数（`getMenuList`等）をそのまま呼び出す。新しいドメイン・データアクセスロジックは追加しない
-- GASのデプロイを2系統持つ：
-  - 旧デプロイ（`doGet`、`access: "ANYONE"`）：Googleアカウントログイン必須。旧UI（`client/*.html`を直接HtmlServiceで配信）が新フロントエンド安定稼働まで並行稼働する
-  - API用デプロイ（`doPost`、`access: "ANYONE_ANONYMOUS"`）：匿名アクセス可。新フロントエンドの`fetch`呼び出し専用。同一スクリプトプロジェクトの別デプロイとして作成し、旧デプロイのアクセス設定に影響しない
+- GASのデプロイはAPI用デプロイ（`doPost`、`access: "ANYONE_ANONYMOUS"`）のみを運用する：匿名アクセス可。新フロントエンドの`fetch`呼び出し専用
   - `appsscript.json`の`webapp`設定は新規デプロイ作成時の初期値としてのみ使われる。デプロイ済みのバージョンは作成時点の設定を保持し続けるため、マニフェストを変更しても既存デプロイのアクセスレベルは変わらない
+  - 旧デプロイ（`doGet`、Googleアカウントログイン必須。`client/*.html`を直接HtmlServiceで配信する旧UI用）は、新フロントエンドが経費管理まで含め安定稼働したことを受けて2026-08-04に`clasp undeploy`で廃止した。`main.gs`の`doGet`関数自体はコード上に残っているが、現在それを公開するデプロイは存在しない
 
 ### 8.3 認証
 
