@@ -34,6 +34,10 @@ Googleスプレッドシート（唯一のデータベース）の構造を定�
 | Category | 商品大分類マスタ（カテゴリー管理用） | REQ-001, REQ-042 |
 | SubCategory | 商品中分類マスタ（カテゴリー管理用） | REQ-001, REQ-042 |
 | DailyTarget | 日別目標売上（予算管理・日別予算設定用） | REQ-046 |
+| ExpenseCategory | 経費区分マスタ（仕入れ／家賃／水道光熱費等） | REQ-047 |
+| ExpenseTarget | 経費目標（区分ごとの月次予定額） | REQ-048 |
+| Expense | 経費実績 | REQ-049 |
+| ExpenseVendor | 取引先マスタ（経費の支払先） | REQ-050 |
 
 ### 2.2 将来追加予定のデータドメイン（詳細設計は未着手）
 
@@ -206,6 +210,61 @@ Googleスプレッドシート（唯一のデータベース）の構造を定�
 - 関連：`SalesTarget.TargetMonth`と対象月が一致する（IDでの参照はしない）。日別予算設定タブの「保存」操作のたびに対象月の行を全削除して書き直す
 
 > 2026-08-02：固定費から目標売上を逆算する機能（FixedCost, BudgetSettings）は実装後にUIの複雑さを理由に廃止した。両シート自体はスプレッドシート上に残っているが、現在は参照するコード・機能がない（詳細はCHANGELOG.md参照）
+
+### 3.12 ExpenseCategory（経費区分マスタ）
+
+> 経費管理画面（3.7参照）で、仕入れ・家賃・水道光熱費など経費の分類を管理するマスタ。Menu/Seatと同じく論理削除（IsActive）で管理し、並び替え・名称変更に対応する。初期状態で「仕入れ・家賃・水道光熱費・人件費・その他」の5件をあらかじめ登録する（店主が自由に追加・改名・無効化できる）
+
+| カラム名 | 型 | 必須 | 説明 |
+|---|---|---|---|
+| ExpenseCategoryId | 文字列 | ○ | 主キー。形式：`EC-0001` |
+| ExpenseCategoryName | 文字列 | ○ | 区分名（例：仕入れ／家賃） |
+| SortOrder | 数値 | ○ | 表示順。編集モードでドラッグ並び替え可能 |
+| IsActive | 真偽値 | ○ | 論理削除フラグ |
+
+- 関連：`ExpenseTarget.ExpenseCategoryId`、`Expense.ExpenseCategoryId` から参照される
+
+### 3.13 ExpenseTarget（経費目標）
+
+> 区分ごとの月次予定額。SalesTargetの区分別版（1区分・1ヶ月につき1行）
+
+| カラム名 | 型 | 必須 | 説明 |
+|---|---|---|---|
+| ExpenseTargetId | 文字列 | ○ | 主キー。形式：`EXT-YYYYMM-{ExpenseCategoryId}`（例：`EXT-202608-EC-0001`） |
+| TargetMonth | 文字列 | ○ | 対象年月（例：`2026-08`） |
+| ExpenseCategoryId | 文字列 | ○ | 外部キー。`ExpenseCategory.ExpenseCategoryId`を参照 |
+| TargetAmount | 数値 | ○ | その区分・月の予定額 |
+| Note | 文字列 | - | 備考 |
+
+- 関連：`ExpenseCategory.ExpenseCategoryId`を参照する。`Expense`の同月・同区分の実績合計と比較される（IDではなく年月・区分の値で結合する）
+
+### 3.14 Expense（経費実績）
+
+> Salesと同じく、登録・修正・削除のたびに実データを直接更新する（論理削除ではない、入力ミスの訂正を随時許可する方針）
+
+| カラム名 | 型 | 必須 | 説明 |
+|---|---|---|---|
+| ExpenseId | 文字列 | ○ | 主キー。形式：`EXP-YYYYMMDD-0001`（発生日ごとに連番リセット） |
+| ExpenseDate | 日付 | ○ | 発生日 |
+| ExpenseCategoryId | 文字列 | ○ | 外部キー。`ExpenseCategory.ExpenseCategoryId`を参照 |
+| Amount | 数値 | ○ | 金額 |
+| Note | 文字列 | - | 備考 |
+| RegisteredAt | 日時 | ○ | このアプリにデータ入力した日時（システムが自動記録） |
+| ExpenseVendorId | 文字列 | - | 外部キー。`ExpenseVendor.ExpenseVendorId`を参照（任意）。後から追加した列のため末尾に配置（命名規則参照） |
+
+- 関連：`ExpenseCategory.ExpenseCategoryId`、`ExpenseVendor.ExpenseVendorId`（任意）を参照する
+
+### 3.15 ExpenseVendor（取引先マスタ）
+
+> 経費の支払先（仕入れ先・家賃の貸主等）。Customerと同じく論理削除（IsActive）で管理し、経費記録時にオートコンプリートで選択、または新規名称の入力でその場登録できる（`resolveExpenseVendorId_`、ExpenseService.gs）
+
+| カラム名 | 型 | 必須 | 説明 |
+|---|---|---|---|
+| ExpenseVendorId | 文字列 | ○ | 主キー。形式：`EV-0001` |
+| ExpenseVendorName | 文字列 | ○ | 取引先名。1名称1件のみ（重複登録不可、Customerと同じ方針） |
+| IsActive | 真偽値 | ○ | 論理削除フラグ |
+
+- 関連：`Expense.ExpenseVendorId` から参照される
 
 ## 4. 命名規則
 
