@@ -35,7 +35,7 @@
       .donut-caption-top { font-size: 0.72em; color: var(--ink-muted); margin-bottom: 2px; }
       .donut-pct { font-size: 1.25em; font-weight: 700; font-variant-numeric: tabular-nums; }
       .donut-pct.achieved { color: var(--good); }
-      .donut-pct.behind { color: var(--warn); }
+      .donut-pct.behind { color: var(--ai); }
       .donut-pct.none { color: var(--ink-muted); font-size: 0.85em; }
       .pace-note { font-size: 0.72em; color: var(--ink-muted); margin-top: 4px; text-align: center; }
       .kpi-scope-note { font-size: 0.78em; color: var(--ink-muted); margin-bottom: var(--space-xs); }
@@ -47,7 +47,6 @@
       .combo-bars { position: absolute; inset: 0; display: flex; align-items: flex-end; gap: 3px; padding-right: 44px; }
       .combo-col { flex: 1; min-width: 4px; height: 100%; display: flex; align-items: flex-end; position: relative; }
       .combo-bar { width: 100%; background: var(--ai); border-radius: 3px 3px 0 0; min-height: 1px; }
-      .combo-target-line { position: absolute; left: 0; right: 44px; border-top: 2px dashed var(--warn); }
       .combo-target-svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
       .combo-axis-labels { display: flex; gap: 3px; padding-right: 44px; margin-top: 4px; }
       .combo-axis-label { flex: 1; min-width: 4px; font-size: 0.65em; color: var(--ink-muted); text-align: center; white-space: nowrap; overflow: hidden; }
@@ -162,7 +161,6 @@
             <div class="combo-chart-wrap">
               <div class="combo-gridlines" id="combo-gridlines"></div>
               <div class="combo-bars" id="combo-bars"></div>
-              <div class="combo-target-line" id="combo-target-line" style="display:none;"></div>
               <svg class="combo-target-svg" id="combo-target-svg"></svg>
             </div>
             <div class="combo-axis-labels" id="combo-axis"></div>
@@ -334,7 +332,7 @@
           pctEl.textContent = rate + '%';
           pctEl.className = 'donut-pct ' + (achieved ? 'achieved' : 'behind');
           var fillPct = Math.min(rate, 100);
-          arc.setAttribute('stroke', achieved ? 'var(--good)' : 'var(--warn)');
+          arc.setAttribute('stroke', achieved ? 'var(--good)' : 'var(--ai)');
           arc.setAttribute('stroke-dasharray', fillPct + ' ' + (100 - fillPct));
           arc.setAttribute('stroke-dashoffset', 25);
         } else {
@@ -463,21 +461,12 @@
         renderTargetLine(items, niceMax);
       }
 
-      // 日別：目標が月内一定のため水平の点線1本。月別／年別：区間ごとに目標が異なるため、
-      // 目標が設定されている点だけを滑らかな曲線でつなぐ（未設定の区間は曲線から除外する）
+      // 目標が設定されている点だけを滑らかな曲線でつなぐ（未設定の区間は曲線から除外する）。
+      // 日別予算設定（予算管理）で日ごとに異なる目標を設定した場合はその通りに上下する曲線になり、
+      // 未設定（月目標の日数按分のみ）の場合は全日同額のため結果的に水平線になる
       function renderTargetLine(items, niceMax) {
-        var lineEl = document.getElementById('combo-target-line');
         var svgEl = document.getElementById('combo-target-svg');
         svgEl.innerHTML = '';
-        lineEl.style.display = 'none';
-
-        if (currentUnit === 'day') {
-          if (items[0] && items[0].hasBudget) {
-            lineEl.style.display = '';
-            lineEl.style.bottom = ((items[0].budget / niceMax) * 100) + '%';
-          }
-          return;
-        }
 
         var wrap = svgEl.parentElement;
         var wrapRect = wrap.getBoundingClientRect();
