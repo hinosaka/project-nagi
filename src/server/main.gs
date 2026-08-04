@@ -7,6 +7,7 @@ var PAGE_FILES = {
   dashboard: 'client/dashboard',
   'sales-stats': 'client/sales-stats',
   budget: 'client/budget',
+  expense: 'client/expense',
   'analysis-product': 'client/analysis-product',
   'data-analysis': 'client/data-analysis'
 };

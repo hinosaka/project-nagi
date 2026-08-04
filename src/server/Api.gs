@@ -14,14 +14,19 @@ var API_TOKEN_TTL_MS_ = 30 * 24 * 60 * 60 * 1000; // 30日
 // クライアント（ブラウザ）から呼び出せる関数のみ許可する（許可リスト方式）。
 // setupDatabase・doGet・include等の管理用/内部関数は含めない
 var API_ALLOWED_ACTIONS_ = [
-  'closeRegister', 'createSubCategory', 'deactivateMenu', 'deleteMenu', 'deleteSalesEntry', 'deleteSubCategory',
+  'closeRegister', 'createSubCategory', 'deactivateMenu',
+  'deleteExpenseEntry', 'deleteMenu', 'deleteSalesEntry', 'deleteSubCategory',
   'getAbcAnalysisData', 'getBudgetData', 'getBudgetDataForYear', 'getCashRegisterData', 'getCategoryList', 'getCustomerList',
   'getCustomerOrderRanking', 'getDailyTargetsForMonth', 'getDashboardData', 'getDayAnalysisData',
+  'getExpenseCategoryList', 'getExpenseManagementData', 'getExpenseYearlyData',
   'getMenuList', 'getMenuManagementData', 'getProductAnalysisData', 'getSalesEntryData', 'getSalesStatsData', 'getSeatList',
-  'getSegmentAnalysisData', 'getSubCategoryList', 'getWeatherAnalysisData', 'moveSubCategory', 'reactivateMenu',
-  'registerCustomer', 'renameCategory', 'renameSubCategory', 'reorderMenus', 'reorderSubCategories',
+  'getSegmentAnalysisData', 'getSubCategoryList', 'getWeatherAnalysisData', 'moveSubCategory',
+  'reactivateMenu',
+  'registerCustomer', 'renameCategory', 'renameSubCategory',
+  'reorderMenus', 'reorderSubCategories',
   'saveBudgetTarget', 'saveBudgetTargetsForYear',
   'saveBusinessDayWeather', 'saveBusinessDayWeatherAndGetData', 'saveCustomerDetail', 'saveDailyTargetsForMonth',
+  'saveExpenseCategoryEdits', 'saveExpenseEntry',
   'saveMenu', 'saveSalesEntry', 'saveStartingCash', 'toggleSeatActive'
 ];
 

@@ -17,7 +17,11 @@ var SHEET_DISPLAY_NAMES_ = {
   RegisterCloseLog: 'レジ締め履歴',
   DailyTarget: '日別目標',
   FixedCost: '固定費',
-  BudgetSettings: '予算設定'
+  BudgetSettings: '予算設定',
+  ExpenseCategory: '経費区分',
+  ExpenseTarget: '経費目標',
+  Expense: '経費実績',
+  ExpenseVendor: '取引先'
 };
 
 var SpreadsheetConfig = {

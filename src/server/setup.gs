@@ -20,6 +20,12 @@ function setupDatabase() {
   ensureCategorySheet_(spreadsheet);
   ensureSubCategorySheet_(spreadsheet);
   ensureCategoryMasterSeeded_(spreadsheet);
+  ensureExpenseCategorySheet_(spreadsheet);
+  ensureExpenseCategorySeeded_(spreadsheet);
+  ensureExpenseTargetSheet_(spreadsheet);
+  ensureExpenseSheet_(spreadsheet);
+  ensureExpenseVendorSheet_(spreadsheet);
+  ensureExpenseVendorIdColumn_(spreadsheet);
   repairCustomerFirstVisitDates_(spreadsheet);
   removeUnusedDefaultSheet_(spreadsheet);
   Logger.log('セットアップ完了。URL=' + spreadsheet.getUrl());
@@ -292,6 +298,67 @@ function ensureCategoryMasterSeeded_(spreadsheet) {
   }
   if (subCategoryRows.length > 0) {
     subCategorySheet.getRange(2, 1, subCategoryRows.length, 4).setValues(subCategoryRows);
+  }
+}
+
+function ensureExpenseCategorySheet_(spreadsheet) {
+  if (spreadsheet.getSheetByName(SpreadsheetConfig.displayName('ExpenseCategory'))) {
+    return;
+  }
+  var sheet = spreadsheet.insertSheet(SpreadsheetConfig.displayName('ExpenseCategory'));
+  sheet.appendRow(['ExpenseCategoryId', 'ExpenseCategoryName', 'SortOrder', 'IsActive']);
+}
+
+// ExpenseCategoryシートが空の場合のみ、代表的な経費区分をあらかじめ登録しておく
+// （店主が最初に区分を1つずつ作らずに済むようにするための初期値。後から自由に追加・名称変更・
+// 無効化できる）
+function ensureExpenseCategorySeeded_(spreadsheet) {
+  var sheet = spreadsheet.getSheetByName(SpreadsheetConfig.displayName('ExpenseCategory'));
+  if (!sheet || sheet.getLastRow() > 1) {
+    return;
+  }
+  var defaults = ['仕入れ', '家賃', '水道光熱費', '人件費', 'その他'];
+  var rows = defaults.map(function (name, i) {
+    return ['EC-' + ('0000' + (i + 1)).slice(-4), name, i + 1, true];
+  });
+  sheet.getRange(2, 1, rows.length, 4).setValues(rows);
+}
+
+function ensureExpenseTargetSheet_(spreadsheet) {
+  if (spreadsheet.getSheetByName(SpreadsheetConfig.displayName('ExpenseTarget'))) {
+    return;
+  }
+  var sheet = spreadsheet.insertSheet(SpreadsheetConfig.displayName('ExpenseTarget'));
+  sheet.appendRow(['ExpenseTargetId', 'TargetMonth', 'ExpenseCategoryId', 'TargetAmount', 'Note']);
+}
+
+function ensureExpenseSheet_(spreadsheet) {
+  if (spreadsheet.getSheetByName(SpreadsheetConfig.displayName('Expense'))) {
+    return;
+  }
+  var sheet = spreadsheet.insertSheet(SpreadsheetConfig.displayName('Expense'));
+  sheet.appendRow(['ExpenseId', 'ExpenseDate', 'ExpenseCategoryId', 'Amount', 'Note', 'RegisteredAt']);
+}
+
+function ensureExpenseVendorSheet_(spreadsheet) {
+  if (spreadsheet.getSheetByName(SpreadsheetConfig.displayName('ExpenseVendor'))) {
+    return;
+  }
+  var sheet = spreadsheet.insertSheet(SpreadsheetConfig.displayName('ExpenseVendor'));
+  sheet.appendRow(['ExpenseVendorId', 'ExpenseVendorName', 'IsActive']);
+}
+
+// 既存のExpenseシートに後から追加した列（ExpenseVendorId）のヘッダーが無ければ追記する。
+// ensureBusinessDayStartingCashColumn_と同じく、固定位置（HEADERSの末尾）で判定する
+function ensureExpenseVendorIdColumn_(spreadsheet) {
+  var sheet = spreadsheet.getSheetByName(SpreadsheetConfig.displayName('Expense'));
+  if (!sheet) {
+    return;
+  }
+  var targetColumn = ExpenseRepository.HEADERS.length;
+  var currentValue = sheet.getRange(1, targetColumn).getValue();
+  if (currentValue !== 'ExpenseVendorId') {
+    sheet.getRange(1, targetColumn).setValue('ExpenseVendorId');
   }
 }
 
