@@ -221,6 +221,7 @@ Googleスプレッドシート（唯一のデータベース）の構造を定�
 | ExpenseCategoryName | 文字列 | ○ | 区分名（例：仕入れ／家賃） |
 | SortOrder | 数値 | ○ | 表示順。編集モードでドラッグ並び替え可能 |
 | IsActive | 真偽値 | ○ | 論理削除フラグ |
+| IsCostOfGoods | 真偽値 | ○ | 損益（3.8参照）で「原価」として扱う区分かどうか。初期値は「仕入れ」区分のみtrue、他はfalse（店主が編集モードで変更可能）。区分名は改名・追加されうるため、名前ではなくこのフラグで原価／経費を判別する。後から追加した列のため末尾に配置（命名規則参照） |
 
 - 関連：`ExpenseTarget.ExpenseCategoryId`、`Expense.ExpenseCategoryId` から参照される
 

@@ -22,6 +22,7 @@ function setupDatabase() {
   ensureCategoryMasterSeeded_(spreadsheet);
   ensureExpenseCategorySheet_(spreadsheet);
   ensureExpenseCategorySeeded_(spreadsheet);
+  ensureExpenseCategoryCostFlagColumn_(spreadsheet);
   ensureExpenseTargetSheet_(spreadsheet);
   ensureExpenseSheet_(spreadsheet);
   ensureExpenseVendorSheet_(spreadsheet);
@@ -306,12 +307,12 @@ function ensureExpenseCategorySheet_(spreadsheet) {
     return;
   }
   var sheet = spreadsheet.insertSheet(SpreadsheetConfig.displayName('ExpenseCategory'));
-  sheet.appendRow(['ExpenseCategoryId', 'ExpenseCategoryName', 'SortOrder', 'IsActive']);
+  sheet.appendRow(['ExpenseCategoryId', 'ExpenseCategoryName', 'SortOrder', 'IsActive', 'IsCostOfGoods']);
 }
 
 // ExpenseCategoryシートが空の場合のみ、代表的な経費区分をあらかじめ登録しておく
 // （店主が最初に区分を1つずつ作らずに済むようにするための初期値。後から自由に追加・名称変更・
-// 無効化できる）
+// 無効化できる）。損益（3.8参照）で原価として扱うのは「仕入れ」区分のみ
 function ensureExpenseCategorySeeded_(spreadsheet) {
   var sheet = spreadsheet.getSheetByName(SpreadsheetConfig.displayName('ExpenseCategory'));
   if (!sheet || sheet.getLastRow() > 1) {
@@ -319,9 +320,41 @@ function ensureExpenseCategorySeeded_(spreadsheet) {
   }
   var defaults = ['仕入れ', '家賃', '水道光熱費', '人件費', 'その他'];
   var rows = defaults.map(function (name, i) {
-    return ['EC-' + ('0000' + (i + 1)).slice(-4), name, i + 1, true];
+    return ['EC-' + ('0000' + (i + 1)).slice(-4), name, i + 1, true, name === '仕入れ'];
   });
-  sheet.getRange(2, 1, rows.length, 4).setValues(rows);
+  sheet.getRange(2, 1, rows.length, 5).setValues(rows);
+}
+
+// 既存のExpenseCategoryシートに後から追加した列（IsCostOfGoods）のヘッダーが無ければ追記し、
+// 未設定（空欄）の行にのみ「仕入れ」区分ならtrue・それ以外はfalseをバックフィルする。
+// 既に値が入っている行（店主が編集画面で変更済み）は上書きしない
+function ensureExpenseCategoryCostFlagColumn_(spreadsheet) {
+  var sheet = spreadsheet.getSheetByName(SpreadsheetConfig.displayName('ExpenseCategory'));
+  if (!sheet) {
+    return;
+  }
+  var targetColumn = ExpenseCategoryRepository.HEADERS.length;
+  var headerCell = sheet.getRange(1, targetColumn);
+  if (headerCell.getValue() !== 'IsCostOfGoods') {
+    headerCell.setValue('IsCostOfGoods');
+  }
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) {
+    return;
+  }
+  var names = sheet.getRange(2, 2, lastRow - 1, 1).getValues();
+  var flagRange = sheet.getRange(2, targetColumn, lastRow - 1, 1);
+  var flags = flagRange.getValues();
+  var changed = false;
+  for (var i = 0; i < flags.length; i++) {
+    if (flags[i][0] === '') {
+      flags[i][0] = names[i][0] === '仕入れ';
+      changed = true;
+    }
+  }
+  if (changed) {
+    flagRange.setValues(flags);
+  }
 }
 
 function ensureExpenseTargetSheet_(spreadsheet) {

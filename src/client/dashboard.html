@@ -93,6 +93,17 @@
       .detail-link:hover { border-color: var(--ai); background: var(--ai-soft); color: var(--ai); }
 
       .design-note { font-size: 0.78em; color: var(--ink-muted); margin-top: 2px; }
+
+      /* ===== 月次損益タブ ===== */
+      .pl-year-nav { display: flex; align-items: center; gap: 4px; margin-bottom: var(--space-md); }
+      .pl-year-nav span { font-weight: 700; font-size: 1.05em; min-width: 4.5em; text-align: center; }
+      .kpi-tile-good .kpi-value { color: var(--good); }
+      .kpi-tile-bad .kpi-value { color: var(--bad); }
+      #pl-table th, #pl-table td { text-align: right; font-variant-numeric: tabular-nums; }
+      #pl-table th:first-child, #pl-table td:first-child { text-align: left; }
+      #pl-table .profit-pos { color: var(--good); font-weight: 700; }
+      #pl-table .profit-neg { color: var(--bad); font-weight: 700; }
+      #pl-table .total-row td { font-weight: 700; background: var(--ai-soft); }
     </style>
   </head>
   <body data-page="<?= currentPage ?>">
@@ -100,6 +111,13 @@
     <div class="app-shell">
       <?!= include('client/shared/sidebar', {baseUrl: baseUrl}) ?>
       <main class="main-content">
+        <!-- 今日の状況 ／ 月次損益 の切り替え -->
+        <div class="toggle-tabs" id="dashboard-view-tabs">
+          <button type="button" class="toggle-tab active" data-view="today">今日の状況</button>
+          <button type="button" class="toggle-tab" data-view="pl">月次損益</button>
+        </div>
+
+        <div id="view-today">
         <!-- 期間タブ + 期間指定 -->
         <div class="toggle-tabs" id="period-tabs">
           <button type="button" class="toggle-tab active" data-period="today">本日</button>
@@ -176,6 +194,37 @@
           <a class="detail-link" href="<?= baseUrl ?>?page=sales-stats"><svg class="icon"><use href="#icon-trending-up"></use></svg>売上統計</a>
           <a class="detail-link" href="<?= baseUrl ?>?page=analysis-product"><svg class="icon"><use href="#icon-tag"></use></svg>商品統計</a>
           <a class="detail-link" href="<?= baseUrl ?>?page=data-analysis"><svg class="icon"><use href="#icon-pie-chart"></use></svg>データ分析</a>
+        </div>
+        </div>
+
+        <div id="view-pl" style="display:none;">
+          <div class="pl-year-nav">
+            <button type="button" class="icon-btn" id="pl-year-prev"><svg class="icon"><use href="#icon-chevron-left"></use></svg></button>
+            <span id="pl-year-label"></span>
+            <button type="button" class="icon-btn" id="pl-year-next"><svg class="icon"><use href="#icon-chevron-right"></use></svg></button>
+          </div>
+
+          <div id="pl-load-error" class="load-error"></div>
+
+          <div class="loading-wrap" id="pl-loading-wrap">
+            <div class="loading-target" id="pl-body">
+              <div class="kpi-row" id="pl-kpi-row"></div>
+
+              <h2>月次推移（年間合計は表の最終行）</h2>
+              <div class="card">
+                <div class="table-scroll">
+                  <table id="pl-table">
+                    <thead>
+                      <tr><th>月</th><th>売上</th><th>原価</th><th>売上総利益</th><th>経費</th><th>営業利益</th></tr>
+                    </thead>
+                    <tbody id="pl-table-body"></tbody>
+                  </table>
+                </div>
+              </div>
+              <p class="design-note">原価は経費管理で「原価」区分に指定した区分（初期設定は「仕入れ」）の実績額です。区分の指定は経費管理画面で変更できます。</p>
+            </div>
+            <div class="loading-overlay"><div class="loading-overlay-pill"><span class="loading-spinner"></span><span>読み込み中...</span></div></div>
+          </div>
         </div>
       </main>
     </div>
@@ -520,6 +569,85 @@
 
       renderRefDateNav();
       loadDashboard();
+
+      /* ===================== 今日の状況／月次損益 の切り替え ===================== */
+      document.querySelectorAll('#dashboard-view-tabs .toggle-tab').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          document.querySelectorAll('#dashboard-view-tabs .toggle-tab').forEach(function (t) { t.classList.remove('active'); });
+          btn.classList.add('active');
+          var view = btn.dataset.view;
+          document.getElementById('view-today').style.display = view === 'today' ? '' : 'none';
+          document.getElementById('view-pl').style.display = view === 'pl' ? '' : 'none';
+          if (view === 'pl' && !plLoaded) {
+            loadProfitLoss();
+          }
+        });
+      });
+
+      /* ===================== 月次損益タブ（遅延読み込み。タブを開いた時点で初回取得する） ===================== */
+      var plYear = new Date().getFullYear();
+      var plLoaded = false;
+
+      document.getElementById('pl-year-prev').addEventListener('click', function () { plYear--; loadProfitLoss(); });
+      document.getElementById('pl-year-next').addEventListener('click', function () { plYear++; loadProfitLoss(); });
+
+      function renderPlYearLabel() {
+        document.getElementById('pl-year-label').textContent = plYear + '年';
+      }
+
+      function loadProfitLoss() {
+        renderPlYearLabel();
+        setLoadError('pl-load-error', '');
+        document.getElementById('pl-loading-wrap').classList.add('is-loading');
+        google.script.run
+          .withSuccessHandler(function (data) {
+            plLoaded = true;
+            document.getElementById('pl-loading-wrap').classList.remove('is-loading');
+            setLoadError('pl-load-error', '');
+            renderProfitLoss(data);
+          })
+          .withFailureHandler(function (error) {
+            document.getElementById('pl-loading-wrap').classList.remove('is-loading');
+            setLoadError('pl-load-error', 'データの取得に失敗しました：' + error.message, loadProfitLoss);
+          })
+          .getProfitLossData(plYear);
+      }
+
+      function plTileHtml(label, value, extraClass) {
+        return '<div class="kpi-tile' + (extraClass ? ' ' + extraClass : '') + '"><div class="kpi-label">' + label + '</div><div class="kpi-value">¥' + value.toLocaleString() + '</div></div>';
+      }
+
+      function renderProfitLoss(data) {
+        document.getElementById('pl-kpi-row').innerHTML =
+          plTileHtml('年間売上', data.totals.sales) +
+          plTileHtml('年間原価', data.totals.cogs) +
+          plTileHtml('年間経費', data.totals.opex) +
+          plTileHtml('年間営業利益', data.totals.operatingProfit, data.totals.operatingProfit >= 0 ? 'kpi-tile-good' : 'kpi-tile-bad');
+
+        var tbody = document.getElementById('pl-table-body');
+        tbody.innerHTML = '';
+        data.months.forEach(function (m) {
+          var tr = document.createElement('tr');
+          tr.innerHTML =
+            '<td>' + m.label + '</td>' +
+            '<td>¥' + m.sales.toLocaleString() + '</td>' +
+            '<td>¥' + m.cogs.toLocaleString() + '</td>' +
+            '<td>¥' + m.grossProfit.toLocaleString() + '</td>' +
+            '<td>¥' + m.opex.toLocaleString() + '</td>' +
+            '<td class="' + (m.operatingProfit >= 0 ? 'profit-pos' : 'profit-neg') + '">¥' + m.operatingProfit.toLocaleString() + '</td>';
+          tbody.appendChild(tr);
+        });
+        var totalTr = document.createElement('tr');
+        totalTr.className = 'total-row';
+        totalTr.innerHTML =
+          '<td>年間合計</td>' +
+          '<td>¥' + data.totals.sales.toLocaleString() + '</td>' +
+          '<td>¥' + data.totals.cogs.toLocaleString() + '</td>' +
+          '<td>¥' + data.totals.grossProfit.toLocaleString() + '</td>' +
+          '<td>¥' + data.totals.opex.toLocaleString() + '</td>' +
+          '<td class="' + (data.totals.operatingProfit >= 0 ? 'profit-pos' : 'profit-neg') + '">¥' + data.totals.operatingProfit.toLocaleString() + '</td>';
+        tbody.appendChild(totalTr);
+      }
     </script>
   </body>
 </html>

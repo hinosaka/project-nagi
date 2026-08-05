@@ -141,6 +141,15 @@
       .ranking-row { display: flex; align-items: center; gap: var(--space-sm); padding: 7px 0; border-bottom: 1px solid var(--border); }
       .ranking-row .name { flex: 1; }
       .ranking-row .qty { font-variant-numeric: tabular-nums; color: var(--ink-muted); font-size: 0.9em; }
+
+      /* ===== しばらく来店のない常連さん（来店2回以上・30日以上来店なし） ===== */
+      .dormant-card { display: none; }
+      .dormant-card.show { display: block; }
+      .visit-row { display: flex; align-items: center; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border); gap: var(--space-sm); }
+      .visit-row:last-child { border-bottom: none; }
+      .visit-name { font-weight: 700; cursor: pointer; color: var(--ink); }
+      .visit-meta { font-size: 0.85em; color: var(--ink-muted); }
+      .visit-badge { display: inline-block; background: var(--warn-soft); color: var(--warn); font-size: 0.78em; padding: 2px 8px; border-radius: 999px; white-space: nowrap; }
     </style>
   </head>
   <body data-page="<?= currentPage ?>">
@@ -157,6 +166,11 @@
             <button type="submit">新規登録</button>
           </form>
           <p id="form-error" class="error"></p>
+        </div>
+
+        <div class="card dormant-card" id="dormant-card">
+          <h2 style="margin-top:0;">しばらく来店のない常連さん</h2>
+          <div id="dormant-list"></div>
         </div>
 
         <h2>顧客一覧</h2>
@@ -270,6 +284,52 @@
           tr.appendChild(cell(customer.FirstVisitDate));
 
           tbody.appendChild(tr);
+        });
+
+        renderDormantCustomers(customerList);
+      }
+
+      // 来店2回以上・30日以上来店なしの顧客を、経過日数が長い順に一覧表示する
+      // （一見客を除外し、再来店を促したい常連さんに絞る。0件ならカード自体を隠す）
+      function renderDormantCustomers(customerList) {
+        var card = document.getElementById('dormant-card');
+        var list = document.getElementById('dormant-list');
+        var now = new Date();
+
+        var dormant = customerList
+          .filter(function (c) { return (c.VisitCount || 0) >= 2 && !!c.LastVisitDate; })
+          .map(function (c) {
+            var days = Math.floor((now - new Date(c.LastVisitDate)) / 86400000);
+            return { customer: c, days: days };
+          })
+          .filter(function (entry) { return entry.days >= 30; })
+          .sort(function (a, b) { return b.days - a.days; });
+
+        card.classList.toggle('show', dormant.length > 0);
+        list.innerHTML = '';
+        dormant.forEach(function (entry) {
+          var c = entry.customer;
+          var row = document.createElement('div');
+          row.className = 'visit-row';
+
+          var left = document.createElement('div');
+          var nameEl = document.createElement('span');
+          nameEl.className = 'visit-name';
+          nameEl.textContent = c.CustomerName;
+          nameEl.addEventListener('click', function () { openDetail(c.CustomerId); });
+          var meta = document.createElement('div');
+          meta.className = 'visit-meta';
+          meta.textContent = '来店' + c.VisitCount + '回・最終来店 ' + c.LastVisitDate;
+          left.appendChild(nameEl);
+          left.appendChild(meta);
+
+          var badge = document.createElement('span');
+          badge.className = 'visit-badge';
+          badge.textContent = entry.days + '日経過';
+
+          row.appendChild(left);
+          row.appendChild(badge);
+          list.appendChild(row);
         });
       }
 

@@ -27,7 +27,8 @@ function createExpenseCategory(name) {
     ExpenseCategoryId: categoryId,
     ExpenseCategoryName: trimmed,
     SortOrder: maxOrder + 1,
-    IsActive: true
+    IsActive: true,
+    IsCostOfGoods: false
   });
   return categoryId;
 }
@@ -63,6 +64,17 @@ function setExpenseCategoryActive_(categoryId, isActive) {
     throw new Error('対象の区分が見つかりません：' + categoryId);
   }
   target.IsActive = isActive;
+  ExpenseCategoryRepository.save(target);
+}
+
+// 損益（3.8参照）で「原価」として扱う区分かどうかを切り替える。区分名は改名されうるため、
+// 名前ではなくこのフラグで判別する（DATABASE.md ExpenseCategory参照）
+function setExpenseCategoryCostFlag_(categoryId, isCostOfGoods) {
+  var target = ExpenseCategoryRepository.findAll().filter(function (c) { return c.ExpenseCategoryId === categoryId; })[0];
+  if (!target) {
+    throw new Error('対象の区分が見つかりません：' + categoryId);
+  }
+  target.IsCostOfGoods = isCostOfGoods;
   ExpenseCategoryRepository.save(target);
 }
 
@@ -119,6 +131,10 @@ function saveExpenseCategoryEdits(yearMonth, rows) {
           deactivateExpenseCategory(r.ExpenseCategoryId);
         }
       }
+    }
+    // 原価区分の切替は新規作成分（デフォルトfalse）にも起こりうるため、isNewにかかわらず判定する
+    if (!!r.IsCostOfGoods !== !!r.originalIsCostOfGoods) {
+      setExpenseCategoryCostFlag_(r.ExpenseCategoryId, !!r.IsCostOfGoods);
     }
     // 無効化した区分に今月の目標額を設定しても意味がないため、予定額の保存は有効な区分のみ行う
     if (r.IsActive) {
@@ -178,6 +194,7 @@ function getExpenseManagementData(yearMonth) {
     return {
       ExpenseCategoryId: c.ExpenseCategoryId,
       ExpenseCategoryName: c.ExpenseCategoryName,
+      IsCostOfGoods: !!c.IsCostOfGoods,
       targetAmount: targetAmount,
       hasTarget: hasTarget,
       note: target ? (target.Note || '') : '',

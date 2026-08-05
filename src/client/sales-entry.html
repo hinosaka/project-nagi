@@ -64,6 +64,10 @@
       .create-header { display: flex; align-items: center; gap: var(--space-sm); margin-bottom: var(--space-md); }
       .create-header h3 { margin: 0; }
 
+      /* ===== 下書き復元バナー（通信不安定時等の入力内容ロスト対策） ===== */
+      .draft-banner-actions { display: flex; gap: var(--space-sm); margin-top: 8px; }
+      .draft-banner-actions button { font-size: 0.85em; padding: 4px 12px; }
+
       /* 人数・座席・顧客名は横長・縦長どちらでも折り返さず常に1行で表示する（顧客名入力欄が
          余白を埋めるように伸縮する） */
       .form-inline-row { display: flex; flex-wrap: nowrap; gap: var(--space-sm); margin-bottom: var(--space-sm); align-items: flex-end; }
@@ -461,6 +465,82 @@
         });
       }
 
+      // 伝票の下書き自動保存（通信不安定時にページが再読み込みされても入力内容を失わないための
+      // 保険。新規作成時のみ対象とし、既存伝票の編集中はサーバーデータが正のため対象外とする）。
+      // 対象日（manageDate）ごとにキーを分けるので、日付ナビ中に開いていた下書きが別日に
+      // 誤って復元されることはない
+      var SALES_DRAFT_PREFIX_ = 'posSalesDraft_';
+      var draftSaveTimer_ = null;
+
+      function draftKeyFor_(dateStr) {
+        return SALES_DRAFT_PREFIX_ + dateStr;
+      }
+      function scheduleDraftSave_() {
+        if (editingSalesId) { return; }
+        if (draftSaveTimer_) { clearTimeout(draftSaveTimer_); }
+        draftSaveTimer_ = setTimeout(saveDraftNow_, 300);
+      }
+      function saveDraftNow_() {
+        if (editingSalesId) { return; }
+        var partyEl = document.getElementById('f-party');
+        if (!partyEl) { return; }
+        var draft = {
+          partySize: partyEl.value,
+          seatId: document.getElementById('f-seat').value,
+          customerId: document.getElementById('f-customer-id').value,
+          customerName: document.getElementById('f-customer').value,
+          note: document.getElementById('f-note').value,
+          details: currentDetails,
+          savedAt: new Date().toISOString()
+        };
+        try {
+          localStorage.setItem(draftKeyFor_(manageDate), JSON.stringify(draft));
+        } catch (e) {
+          // 保存できなくても致命的ではないため無視
+        }
+      }
+      function loadDraft_() {
+        try {
+          var raw = localStorage.getItem(draftKeyFor_(manageDate));
+          return raw ? JSON.parse(raw) : null;
+        } catch (e) {
+          return null;
+        }
+      }
+      function clearDraft_(dateStr) {
+        try {
+          localStorage.removeItem(draftKeyFor_(dateStr || manageDate));
+        } catch (e) {
+          // ignore
+        }
+      }
+
+      function draftBannerHtml_(draft) {
+        var saved = new Date(draft.savedAt);
+        var hh = ('0' + saved.getHours()).slice(-2);
+        var mm = ('0' + saved.getMinutes()).slice(-2);
+        return '<div class="load-error show" id="draft-banner">' + iconSvg('info') +
+          '<span class="load-error-text">' + hh + ':' + mm + '時点の下書きが見つかりました。復元しますか？' +
+          '<div class="draft-banner-actions">' +
+          '<button type="button" class="btn-primary" id="draft-restore-btn">復元する</button>' +
+          '<button type="button" id="draft-discard-btn">破棄する</button>' +
+          '</div></span></div>';
+      }
+
+      function restoreDraft_(draft) {
+        document.getElementById('f-party').value = draft.partySize || 1;
+        document.getElementById('f-seat').value = draft.seatId || '';
+        document.getElementById('f-customer').value = draft.customerName || '';
+        document.getElementById('f-customer-id').value = draft.customerId || '';
+        document.getElementById('f-note').value = draft.note || '';
+        currentDetails = draft.details || [];
+        renderProductGrid();
+        renderOtherList();
+        updateRunningTotal();
+        var banner = document.getElementById('draft-banner');
+        if (banner) { banner.remove(); }
+      }
+
       var otherItemCallback = null;
       var otherItemCategory = null;
       function showOtherItemModal(categoryLarge, onAdd) {
@@ -709,6 +789,7 @@
         currentMedium = (tree.large[currentLarge] && tree.large[currentLarge].mediumOrder[0]) || null;
 
         document.getElementById('ticket-list-view').classList.add('hidden-on-mobile');
+        var pendingDraft = sales ? null : loadDraft_();
         var pane = document.getElementById('ticket-create-view');
         pane.classList.add('active');
         pane.innerHTML =
@@ -716,6 +797,7 @@
           '<button type="button" class="icon-btn" id="btn-back" title="戻る"><svg class="icon"><use href="#icon-chevron-left"></use></svg></button>' +
           '<h3>' + (sales ? '伝票の編集' : '伝票の作成') + '</h3>' +
           '</div>' +
+          (pendingDraft ? draftBannerHtml_(pendingDraft) : '') +
           '<div class="form-inline-row">' +
           '<div class="field field-party"><label>人数</label><input type="number" id="f-party" min="1" inputmode="numeric" value="' + (sales ? sales.PartySize : 1) + '"></div>' +
           '<div class="field field-seat"><label>座席（任意）</label><select id="f-seat"></select></div>' +
@@ -748,6 +830,20 @@
         document.getElementById('btn-add-other-drink').addEventListener('click', function () { addOtherItem('ドリンク'); });
         document.getElementById('btn-add-other-food').addEventListener('click', function () { addOtherItem('フード'); });
         document.getElementById('f-customer').addEventListener('input', onCustomerInput);
+
+        document.getElementById('f-party').addEventListener('input', scheduleDraftSave_);
+        document.getElementById('f-seat').addEventListener('change', scheduleDraftSave_);
+        document.getElementById('f-customer').addEventListener('input', scheduleDraftSave_);
+        document.getElementById('f-note').addEventListener('input', scheduleDraftSave_);
+
+        if (pendingDraft) {
+          document.getElementById('draft-restore-btn').addEventListener('click', function () { restoreDraft_(pendingDraft); });
+          document.getElementById('draft-discard-btn').addEventListener('click', function () {
+            clearDraft_();
+            var banner = document.getElementById('draft-banner');
+            if (banner) { banner.remove(); }
+          });
+        }
       }
 
       function closeCreateView() {
@@ -792,6 +888,7 @@
             document.getElementById('f-customer').value = c.CustomerName;
             document.getElementById('f-customer-id').value = c.CustomerId;
             list.style.display = 'none';
+            scheduleDraftSave_();
           });
           list.appendChild(li);
         });
@@ -890,11 +987,13 @@
           setMenuQty(menu, Math.max(0, qty - 1));
           renderProductGrid();
           updateRunningTotal();
+          scheduleDraftSave_();
         });
         tile.querySelector('.plus').addEventListener('click', function () {
           setMenuQty(menu, qty + 1);
           renderProductGrid();
           updateRunningTotal();
+          scheduleDraftSave_();
         });
         return tile;
       }
@@ -913,6 +1012,7 @@
           });
           renderOtherList();
           updateRunningTotal();
+          scheduleDraftSave_();
         });
       }
 
@@ -934,11 +1034,13 @@
             if (d.Quantity <= 0) { currentDetails.splice(currentDetails.indexOf(d), 1); }
             renderOtherList();
             updateRunningTotal();
+            scheduleDraftSave_();
           });
           tile.querySelector('.plus').addEventListener('click', function () {
             d.Quantity += 1;
             renderOtherList();
             updateRunningTotal();
+            scheduleDraftSave_();
           });
           container.appendChild(tile);
         });
@@ -1052,6 +1154,9 @@
         };
         var summaryLabel = (customerName || '顧客未設定') + '・¥' + currentDetails.reduce(function (sum, d) { return sum + d.Quantity * d.UnitPrice; }, 0).toLocaleString();
 
+        var wasNewEntry_ = !editingSalesId;
+        var draftDateAtSubmit_ = manageDate;
+
         closeConfirmModal();
         closeCreateView();
         setLoadError('manage-error', '');
@@ -1061,6 +1166,7 @@
           .withSuccessHandler(function (result) {
             salesSavePendingCount_--;
             updateSalesSavePendingIndicator_();
+            if (wasNewEntry_) { clearDraft_(draftDateAtSubmit_); }
             applySavedTicket_(result);
           })
           .withFailureHandler(function (error) {

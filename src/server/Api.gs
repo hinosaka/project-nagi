@@ -19,7 +19,7 @@ var API_ALLOWED_ACTIONS_ = [
   'getAbcAnalysisData', 'getBudgetData', 'getBudgetDataForYear', 'getCashRegisterData', 'getCategoryList', 'getCustomerList',
   'getCustomerOrderRanking', 'getDailyTargetsForMonth', 'getDashboardData', 'getDayAnalysisData',
   'getExpenseCategoryList', 'getExpenseManagementData', 'getExpenseYearlyData',
-  'getMenuList', 'getMenuManagementData', 'getProductAnalysisData', 'getSalesEntryData', 'getSalesStatsData', 'getSeatList',
+  'getMenuList', 'getMenuManagementData', 'getProductAnalysisData', 'getProfitLossData', 'getSalesEntryData', 'getSalesStatsData', 'getSeatList',
   'getSegmentAnalysisData', 'getSubCategoryList', 'getWeatherAnalysisData', 'moveSubCategory',
   'reactivateMenu',
   'registerCustomer', 'renameCategory', 'renameSubCategory',

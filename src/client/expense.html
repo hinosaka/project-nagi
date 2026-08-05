@@ -58,6 +58,7 @@
       #category-table col.col-actual { width: 13%; }
       #category-table col.col-rate { width: 11%; }
       #category-table col.col-note { width: 18%; }
+      #category-table col.col-cost { width: 4.4em; }
       #category-table col.col-status { width: 5.6em; }
       #category-table col.col-action { width: 2.4em; }
 
@@ -564,7 +565,7 @@
         if (oldThead) { oldThead.remove(); }
 
         var colClasses = categoryEditing
-          ? ['col-drag', 'col-name', 'col-target', 'col-actual', 'col-rate', 'col-note', 'col-status', 'col-action']
+          ? ['col-drag', 'col-name', 'col-target', 'col-actual', 'col-rate', 'col-note', 'col-cost', 'col-status', 'col-action']
           : ['col-name', 'col-target', 'col-actual', 'col-rate', 'col-note'];
         var colgroup = document.createElement('colgroup');
         colClasses.forEach(function (cls) {
@@ -575,7 +576,7 @@
         table.appendChild(colgroup);
 
         var headerLabels = categoryEditing
-          ? ['', '区分', '予定額', '実績', '達成率', 'メモ', '有効', '']
+          ? ['', '区分', '予定額', '実績', '達成率', 'メモ', '原価', '有効', '']
           : ['区分', '予定額', '実績', '達成率', 'メモ'];
         var thead = document.createElement('thead');
         var tr = document.createElement('tr');
@@ -612,6 +613,7 @@
               ? ''
               : '<div class="status-wrap"><span class="status-text' + (r.IsActive ? ' on' : '') + '">' + (r.IsActive ? '有効' : '無効') + '</span>' +
                 '<label class="switch"><input type="checkbox" class="cat-active-toggle" data-i="' + i + '" ' + (r.IsActive ? 'checked' : '') + '><span class="switch-slider"></span></label></div>';
+            var costCell = '<label class="switch"><input type="checkbox" class="cat-cost-toggle" data-i="' + i + '" ' + (r.IsCostOfGoods ? 'checked' : '') + '><span class="switch-slider"></span></label>';
             tr.innerHTML =
               '<td class="col-drag"><span class="drag-handle" title="ドラッグで並び替え"><svg class="icon"><use href="#icon-grip-vertical"></use></svg></span></td>' +
               '<td class="col-name"><input type="text" class="cell-input" data-i="' + i + '" data-field="ExpenseCategoryName" value="' + escapeAttr(r.ExpenseCategoryName) + '"></td>' +
@@ -619,11 +621,13 @@
               '<td class="col-actual">¥' + (r.actualAmount || 0).toLocaleString() + '</td>' +
               '<td class="col-rate">' + rateBadgeHtml(r.achievementRate) + '</td>' +
               '<td class="col-note"><input type="text" class="cell-input" data-i="' + i + '" data-field="note" value="' + escapeAttr(r.note) + '"></td>' +
+              '<td class="col-cost">' + costCell + '</td>' +
               '<td class="col-status">' + statusCell + '</td>' +
               '<td class="col-action">' + actionCell + '</td>';
           } else {
+            var costBadge = r.IsCostOfGoods ? ' <span class="badge badge-active">原価</span>' : '';
             tr.innerHTML =
-              '<td class="col-name">' + escapeAttr(r.ExpenseCategoryName) + '</td>' +
+              '<td class="col-name">' + escapeAttr(r.ExpenseCategoryName) + costBadge + '</td>' +
               '<td class="readonly-cell">' + (r.hasTarget ? '¥' + r.targetAmount.toLocaleString() : '-') + '</td>' +
               '<td>¥' + r.actualAmount.toLocaleString() + '</td>' +
               '<td>' + rateBadgeHtml(r.achievementRate) + '</td>' +
@@ -654,6 +658,11 @@
               var statusText = row.querySelector('.status-text');
               statusText.textContent = toggle.checked ? '有効' : '無効';
               statusText.classList.toggle('on', toggle.checked);
+            });
+          });
+          tbody.querySelectorAll('.cat-cost-toggle').forEach(function (toggle) {
+            toggle.addEventListener('change', function () {
+              categoryEditRows[Number(toggle.dataset.i)].IsCostOfGoods = toggle.checked;
             });
           });
           tbody.querySelectorAll('.cat-remove-new-btn').forEach(function (btn) {
@@ -770,7 +779,9 @@
               actualAmount: r.actualAmount,
               achievementRate: r.achievementRate,
               IsActive: true,
-              originalIsActive_: true
+              originalIsActive_: true,
+              IsCostOfGoods: !!r.IsCostOfGoods,
+              originalIsCostOfGoods_: !!r.IsCostOfGoods
             };
           });
           var inactiveRows = (currentData.inactiveCategories || []).map(function (c) {
@@ -783,7 +794,9 @@
               actualAmount: 0,
               achievementRate: null,
               IsActive: false,
-              originalIsActive_: false
+              originalIsActive_: false,
+              IsCostOfGoods: !!c.IsCostOfGoods,
+              originalIsCostOfGoods_: !!c.IsCostOfGoods
             };
           });
           categoryEditRows = activeRows.concat(inactiveRows);
@@ -813,6 +826,8 @@
             IsActive: r.IsActive,
             originalName: r.originalName_,
             originalIsActive: r.originalIsActive_,
+            IsCostOfGoods: r.IsCostOfGoods,
+            originalIsCostOfGoods: r.originalIsCostOfGoods_,
             isNew: !!r.isNew
           };
         });
@@ -864,6 +879,8 @@
           achievementRate: null,
           IsActive: true,
           originalIsActive_: true,
+          IsCostOfGoods: false,
+          originalIsCostOfGoods_: false,
           isNew: true
         });
         renderCategoryTable();
