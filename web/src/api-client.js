@@ -34,14 +34,28 @@
   // Google Drive側の一過性の不具合で「現在、ファイルを開くことができません」のようなHTMLを
   // 返すことがあり、その場合はJSONとして正しくparseできない。どちらも一過性の失敗として
   // 1回だけ再試行するが、書き込み系アクションは二重実行を避けるため再試行しない（上記参照）
+
+  // 同一タブから複数の呼び出しが重なると（例：詳細ポップアップを開いた直後に別項目の自動保存が
+  // 走る等）、GAS Webアプリ側は同一スクリプトへの同時実行をうまく捌けず、通常は数秒で終わる
+  // 呼び出しが数十秒かかったり「Failed to fetch」になったりすることを2026-08-05に実機で確認した。
+  // そのためリクエストはこのタブ内で常に1本ずつ順番に送る（前の呼び出しの完了＝成功/失敗を
+  // 問わず待ってから次を送る）
+  var requestQueue = Promise.resolve();
+
   function postJson(payload) {
-    return doFetch().catch(function (error) {
-      var isTransient = error instanceof TypeError || error.isInvalidJsonResponse;
-      if (isTransient && isRetryableAction(payload.action)) {
-        return doFetch();
-      }
-      throw error;
-    });
+    function attempt() {
+      return doFetch().catch(function (error) {
+        var isTransient = error instanceof TypeError || error.isInvalidJsonResponse;
+        if (isTransient && isRetryableAction(payload.action)) {
+          return doFetch();
+        }
+        throw error;
+      });
+    }
+
+    var result = requestQueue.then(attempt, attempt);
+    requestQueue = result.then(function () {}, function () {});
+    return result;
 
     function doFetch() {
       return fetch(window.POS_API_URL, {
