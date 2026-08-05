@@ -143,3 +143,4 @@ GAS Webアプリ（`webapp.access: "ANYONE"`）は、`/exec` URLへ遷移する�
 - フレームワークは使用しない（`web/build.js`はNode標準ライブラリのみ）。`src/client/*.html`を唯一の情報源とし、GAS専用のスクリプトレット（`<?!= include(...) ?>`等）だけを静的な同等物（`<link>`/`<script src>`やファイルへのハイパーリンク）に機械的に置換して`web/dist/`へ出力する
 - 共通CSS/JS/アイコン（`shared/stylesheet.html`等）もGAS版と共用し、`web/`側に複製を持たない
 - `web/dist/`はビルド生成物のためgit管理対象外（`.gitignore`）とし、`main`へのpush時に`.github/workflows/deploy-pages.yml`が都度ビルドしGitHub Pagesへデプロイする
+- 使い方ガイド（SCR-014）用の画像は`src/client/assets/`に置き、ビルド時に`web/dist/assets/`へそのままコピーする（スクリプトレットを含まないため変換不要）。会計処理・清算の1枚ガイド（`web/src/quick-guide.html`）はGAS版を持たない独立静的ページで、ログイン不要のため他ページのような認証チェック注入も行わず、`copyStatic`でそのまま`web/dist/`へコピーする

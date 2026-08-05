@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>店長のノート クイックガイド</title>
+<style>
+  :root {
+    --paper: #f6f7f9;
+    --surface: #ffffff;
+    --surface-2: #eef2f6;
+    --ink: #23262b;
+    --ink-muted: #6b7280;
+    --border: #e3e7ec;
+    --ai: #2e4e6e;
+    --ai-soft: #e4ebf1;
+    --good: #3f8759;
+    --good-soft: #e3f1e8;
+    --warn: #b5793a;
+    --warn-soft: #f3e8d8;
+    --bad: #c1483a;
+    --bad-soft: #f7e2df;
+    --radius-sm: 6px;
+    --radius-md: 10px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper: #17191c;
+      --surface: #1f2226;
+      --surface-2: #1b1e22;
+      --ink: #e7e9ec;
+      --ink-muted: #9aa0a8;
+      --border: #2c3034;
+      --ai: #8fb0cf;
+      --ai-soft: #26333e;
+      --good: #7fc294;
+      --good-soft: #1f2d24;
+      --warn: #d9a565;
+      --warn-soft: #332a1c;
+      --bad: #e08b7c;
+      --bad-soft: #35211d;
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper: #17191c;
+    --surface: #1f2226;
+    --surface-2: #1b1e22;
+    --ink: #e7e9ec;
+    --ink-muted: #9aa0a8;
+    --border: #2c3034;
+    --ai: #8fb0cf;
+    --ai-soft: #26333e;
+    --good: #7fc294;
+    --good-soft: #1f2d24;
+    --warn: #d9a565;
+    --warn-soft: #332a1c;
+    --bad: #e08b7c;
+    --bad-soft: #35211d;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Hiragino Kaku Gothic ProN", "Hiragino Sans", "Yu Gothic", Meiryo, sans-serif;
+    background: var(--paper);
+    color: var(--ink);
+    margin: 0;
+    line-height: 1.6;
+  }
+  .sheet {
+    max-width: 780px;
+    margin: 0 auto;
+    padding: 28px 24px 40px;
+  }
+  .top-bar {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+  .top-bar a, .top-bar button {
+    font-family: inherit;
+    font-size: 0.85em;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--ink-muted);
+    border-radius: var(--radius-sm);
+    padding: 6px 12px;
+    text-decoration: none;
+    cursor: pointer;
+  }
+  header.title-block {
+    text-align: center;
+    margin-bottom: 20px;
+  }
+  header.title-block .eyebrow {
+    color: var(--ai);
+    font-size: 0.82em;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+  }
+  header.title-block h1 {
+    margin: 4px 0 2px;
+    font-size: 1.5em;
+  }
+  header.title-block p {
+    margin: 0;
+    color: var(--ink-muted);
+    font-size: 0.88em;
+  }
+  .col-wrap {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 18px;
+  }
+  section.step-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 16px 18px;
+    break-inside: avoid;
+  }
+  section.step-card h2 {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 1.05em;
+    margin: 0 0 10px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid var(--ai-soft);
+    color: var(--ai);
+  }
+  section.step-card h2 .num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: var(--ai);
+    color: #fff;
+    font-size: 0.75em;
+    flex-shrink: 0;
+  }
+  ol.steps {
+    margin: 0;
+    padding-left: 1.3em;
+  }
+  ol.steps li {
+    margin-bottom: 7px;
+    font-size: 0.92em;
+  }
+  ol.steps li b {
+    font-weight: 700;
+  }
+  .note {
+    margin-top: 10px;
+    padding: 8px 10px;
+    border-radius: var(--radius-sm);
+    font-size: 0.84em;
+  }
+  .note.warn {
+    background: var(--warn-soft);
+    color: var(--warn);
+  }
+  .note.info {
+    background: var(--ai-soft);
+    color: var(--ai);
+  }
+  .misc-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-top: 18px;
+  }
+  .misc-card {
+    background: var(--surface-2);
+    border-radius: var(--radius-sm);
+    padding: 10px 12px;
+    font-size: 0.82em;
+  }
+  .misc-card b {
+    display: block;
+    margin-bottom: 3px;
+    color: var(--ink);
+  }
+  .misc-card span {
+    color: var(--ink-muted);
+  }
+  footer.sheet-footer {
+    margin-top: 20px;
+    text-align: center;
+    font-size: 0.78em;
+    color: var(--ink-muted);
+  }
+  footer.sheet-footer a {
+    color: var(--ai);
+  }
+
+  @media print {
+    .top-bar { display: none; }
+    body { background: #fff; }
+    .sheet { padding: 6mm 4mm; max-width: none; }
+    section.step-card { border-color: #ccc; }
+    @page { size: A4; margin: 10mm; }
+  }
+
+  @media (max-width: 640px) {
+    .col-wrap, .misc-row { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+  <div class="sheet">
+    <div class="top-bar">
+      <button type="button" onclick="window.print()">🖶 印刷 / PDF保存</button>
+      <a href="manual.html">使い方ガイド（詳しい説明）へ</a>
+    </div>
+
+    <header class="title-block">
+      <div class="eyebrow">店長のノート</div>
+      <h1>クイックガイド（会計処理・清算）</h1>
+      <p>営業中にすぐ見返せるよう、日々の基本操作だけをまとめています</p>
+    </header>
+
+    <div class="col-wrap">
+      <section class="step-card">
+        <h2><span class="num">1</span>会計を登録する</h2>
+        <ol class="steps">
+          <li>サイドバーの<b>「会計処理」</b>を開く（<b>会計管理</b>タブが基本）</li>
+          <li>日付が今日以外なら、日付をタップして合わせる</li>
+          <li>天気アイコンをタップして今日の天気を記録（任意）</li>
+          <li><b>「＋伝票作成」</b>をタップ</li>
+          <li>人数を入力し、座席・お客様の名前を選ぶ（どちらも任意）</li>
+          <li>ドリンク／フードのタブから注文された商品をタップし、数量を＋で増やす</li>
+          <li>メニューにない商品は「＋その他ドリンク」「＋その他フード」から金額を直接入力</li>
+          <li>内容を確認し、<b>「確定」</b>で保存</li>
+        </ol>
+        <div class="note info">あとから直したいときは、一覧のカードをタップすると内容を修正・削除できます。</div>
+      </section>
+
+      <section class="step-card">
+        <h2><span class="num">2</span>レジを締める（清算）</h2>
+        <ol class="steps">
+          <li><b>「清算」</b>タブを開く</li>
+          <li><b>準備金</b>を入力（入力欄から外れると自動で保存されます）</li>
+          <li>売上合計・予想される現金残高を確認</li>
+          <li>実際のレジの中身と金額が合っていることを確認する</li>
+          <li>問題なければ<b>「レジクローズを実行」</b></li>
+        </ol>
+        <div class="note warn">レジクローズは記録として残り、あとから取り消せません。金額をよく確認してから実行してください。</div>
+      </section>
+    </div>
+
+    <div class="misc-row">
+      <div class="misc-card">
+        <b>顧客の紐づけに迷ったら</b>
+        <span>名前は空欄のままでも登録できます。常連さんだけ入力すれば十分です。</span>
+      </div>
+      <div class="misc-card">
+        <b>画面が固まった・反応しない</b>
+        <span>少し待ってから操作をやり直すか、画面を再読み込みしてください。</span>
+      </div>
+    </div>
+
+    <footer class="sheet-footer">
+      商品管理・顧客管理・座席管理・売上や経費の確認方法など、詳しい説明は<br>
+      <a href="manual.html">アプリ内サイドバーの「使い方ガイド」</a>をご覧ください。
+    </footer>
+  </div>
+</body>
+</html>

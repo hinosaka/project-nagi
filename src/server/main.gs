@@ -9,7 +9,8 @@ var PAGE_FILES = {
   budget: 'client/budget',
   expense: 'client/expense',
   'analysis-product': 'client/analysis-product',
-  'data-analysis': 'client/data-analysis'
+  'data-analysis': 'client/data-analysis',
+  manual: 'client/manual'
 };
 
 function doGet(e) {

@@ -1,0 +1,394 @@
+<!-- SCR-014 使い方ガイド -->
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <?!= include('client/shared/stylesheet') ?>
+    <style>
+      .manual-header {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: var(--space-md);
+        margin-bottom: var(--space-md);
+        flex-wrap: wrap;
+      }
+      .manual-header h1 {
+        margin: 0 0 4px;
+      }
+      .manual-header p {
+        margin: 0;
+        color: var(--ink-muted);
+      }
+      .print-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        flex-shrink: 0;
+      }
+      .quick-guide-link {
+        font-size: 0.85em;
+        color: var(--ink-muted);
+      }
+
+      /* ===== 目次 ===== */
+      .toc {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-md);
+        padding: var(--space-md);
+        margin-bottom: var(--space-lg);
+      }
+      .toc h2 {
+        margin-top: 0;
+        border-bottom: none;
+        font-size: 1em;
+        color: var(--ink-muted);
+      }
+      .toc-cols {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 4px var(--space-lg);
+      }
+      .toc-cols a {
+        display: block;
+        padding: 3px 0;
+        text-decoration: none;
+        font-size: 0.92em;
+      }
+      .toc-cols a:hover {
+        text-decoration: underline;
+      }
+
+      /* ===== 章 ===== */
+      .manual-section {
+        margin-bottom: var(--space-lg);
+        scroll-margin-top: var(--space-md);
+      }
+      .manual-section h2 {
+        display: flex;
+        align-items: center;
+        gap: var(--space-sm);
+      }
+      .manual-section h2 .icon {
+        color: var(--ai);
+        width: 1.3em;
+        height: 1.3em;
+      }
+      .part-label {
+        display: inline-block;
+        background: var(--ai);
+        color: #fff;
+        font-size: 0.75em;
+        font-weight: 700;
+        padding: 3px 10px;
+        border-radius: 999px;
+        margin: var(--space-lg) 0 var(--space-sm);
+      }
+      .part-label.part-b { background: var(--ink-muted); }
+
+      .steps {
+        margin: 0 0 var(--space-sm);
+        padding-left: 1.4em;
+      }
+      .steps li {
+        margin-bottom: 6px;
+      }
+
+      figure.shot {
+        margin: var(--space-sm) 0 var(--space-md);
+        break-inside: avoid;
+      }
+      figure.shot img {
+        display: block;
+        max-width: 100%;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-md);
+      }
+      figure.shot figcaption {
+        font-size: 0.82em;
+        color: var(--ink-muted);
+        margin-top: 4px;
+      }
+
+      .note {
+        padding: 10px 14px;
+        border-radius: var(--radius-sm);
+        font-size: 0.92em;
+        margin: var(--space-sm) 0;
+      }
+      .note.info { background: var(--ai-soft); color: var(--ai); }
+      .note.warn { background: var(--warn-soft); color: var(--warn); }
+      .note.good { background: var(--good-soft); color: var(--good); }
+
+      .overview-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        gap: var(--space-md);
+      }
+      .overview-card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-md);
+        padding: var(--space-md);
+      }
+      .overview-card h3 {
+        margin-top: 0;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .overview-card h3 .icon {
+        color: var(--ai);
+      }
+      .overview-card ul {
+        margin: 6px 0 0;
+        padding-left: 1.2em;
+        font-size: 0.92em;
+        color: var(--ink-muted);
+      }
+      .overview-card img {
+        display: block;
+        width: 100%;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        margin-bottom: var(--space-sm);
+      }
+
+      .shot-row {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        gap: var(--space-md);
+        margin: var(--space-sm) 0 var(--space-md);
+      }
+
+      dl.faq dt {
+        font-weight: 700;
+        margin-top: var(--space-md);
+      }
+      dl.faq dt::before {
+        content: "Q. ";
+        color: var(--ai);
+      }
+      dl.faq dd {
+        margin: 4px 0 0;
+        color: var(--ink-muted);
+      }
+      dl.faq dd::before {
+        content: "A. ";
+        color: var(--ink);
+        font-weight: 700;
+      }
+
+      @media print {
+        .sidebar, .print-btn, .quick-guide-link { display: none !important; }
+        .app-shell { display: block; }
+        .main-content { max-width: none; padding: 0; }
+        .toc { break-after: page; }
+        .manual-section { break-inside: avoid-page; }
+        body { background: #fff; }
+        a { color: inherit; text-decoration: none; }
+      }
+    </style>
+  </head>
+  <body data-page="<?= currentPage ?>">
+    <?!= include('client/shared/icons') ?>
+    <div class="app-shell">
+      <?!= include('client/shared/sidebar', {baseUrl: baseUrl}) ?>
+      <main class="main-content">
+
+        <div class="manual-header">
+          <div>
+            <h1>使い方ガイド</h1>
+            <p>「店長のノート」の操作方法をまとめています。困ったときはこのページに戻ってください。</p>
+          </div>
+          <div>
+            <button type="button" class="print-btn" onclick="window.print()"><svg class="icon"><use href="#icon-printer"></use></svg>印刷 / PDFで保存</button>
+            <div class="quick-guide-link"><a href="quick-guide.html" target="_blank">会計処理だけの1枚版はこちら</a></div>
+          </div>
+        </div>
+
+        <nav class="toc">
+          <h2>もくじ</h2>
+          <div class="toc-cols">
+            <a href="#kaikei">1. 会計処理（会計管理）</a>
+            <a href="#seisan">2. 会計処理（清算）</a>
+            <a href="#shohin">3. 商品管理</a>
+            <a href="#kokyaku">4. 顧客管理</a>
+            <a href="#zaseki">5. 座席管理</a>
+            <a href="#dashboard">6. ダッシュボード</a>
+            <a href="#uriage-tokei">7. 売上統計・予算管理</a>
+            <a href="#shohin-tokei">8. 商品統計・データ分析</a>
+            <a href="#keihi">9. 経費管理</a>
+            <a href="#faq">10. 困ったときは</a>
+          </div>
+        </nav>
+
+        <p class="part-label">毎日の営業で使う画面</p>
+
+        <section class="manual-section" id="kaikei">
+          <h2><svg class="icon"><use href="#icon-receipt"></use></svg>1. 会計処理（会計管理）</h2>
+          <p>お客様が会計を終えるたびに、この画面で1件ずつ記録します。サイドバーの「会計処理」から開き、上部の「会計管理」タブが基本です。</p>
+          <ol class="steps">
+            <li>画面上部の日付が今日になっているか確認します。別の日を入力・修正したいときは日付をタップするとカレンダーが開きます。</li>
+            <li>その日の天気をアイコンでワンタップ記録します（あとで曜日・天候別の傾向を見るときに使います。省略しても構いません）。</li>
+            <li>「＋伝票作成」をタップします。</li>
+            <li>人数を入力し、座席・お客様の名前（ニックネーム）を選びます。どちらも任意項目で、空欄のまま保存できます。名前は入力候補から選ぶほか、その場で新しい名前を入力すればそのまま新規登録されます。</li>
+            <li>ドリンク・フードのカテゴリーからタップした商品の数量を＋ボタンで増やします。</li>
+            <li>メニューにない商品（差し入れ・単発の品など）は「＋その他ドリンク」「＋その他フード」から名前と金額を直接入力できます。</li>
+            <li>内容を確認し「確定」をタップすると保存され、一覧に戻ります。</li>
+          </ol>
+          <div class="shot-row">
+            <figure class="shot">
+              <img src="assets/manual/kaikei-list.jpg" alt="会計処理（会計管理タブ）の伝票一覧画面">
+              <figcaption>伝票一覧（この日はまだ伝票なし）</figcaption>
+            </figure>
+            <figure class="shot">
+              <img src="assets/manual/kaikei-form.jpg" alt="伝票作成フォームに人数・座席・商品を入力した状態">
+              <figcaption>人数・座席・商品を選んだ状態</figcaption>
+            </figure>
+            <figure class="shot">
+              <img src="assets/manual/kaikei-confirm.jpg" alt="明細の確認ポップアップ">
+              <figcaption>「確認」で開く最終確認ポップアップ</figcaption>
+            </figure>
+          </div>
+          <div class="note info">あとから人数・座席・注文内容を直したいときは、一覧のカードをタップすると同じ画面で編集できます。カードの削除アイコンで会計そのものを取り消せます。会計はいつでも自由に編集・削除できます。</div>
+        </section>
+
+        <section class="manual-section" id="seisan">
+          <h2><svg class="icon"><use href="#icon-receipt"></use></svg>2. 会計処理（清算）</h2>
+          <p>1日の営業を締めるときに使います。「会計処理」画面上部の「清算」タブを開きます。</p>
+          <ol class="steps">
+            <li>対象の日付を確認します（会計管理タブとは別に日付を選べます）。</li>
+            <li>レジに入れた「準備金」を入力します。入力欄からフォーカスを外すと自動的に保存されます。</li>
+            <li>その日の売上合計・組数、準備金を含めた予想の現金残高が表示されます（支払いはすべて現金のため、売上合計＝現金売上額です）。</li>
+            <li>実際にレジの中を数えて、予想残高と合っているか確認します。</li>
+            <li>問題なければ「レジクローズを実行」をタップします。</li>
+          </ol>
+          <figure class="shot">
+            <img src="assets/manual/seisan.jpg" alt="清算タブ：準備金・現金状況の画面">
+            <figcaption>準備金・現金状況の確認画面</figcaption>
+          </figure>
+          <div class="note warn">レジクローズは実施した記録として残り、取り消すことはできません（同じ日に何度でも実行はできます）。金額をよく確認してから実行してください。過去の実施履歴はこの画面の下部でいつでも確認できます。</div>
+        </section>
+
+        <p class="part-label">お店の情報を管理する画面</p>
+
+        <section class="manual-section" id="shohin">
+          <h2><svg class="icon"><use href="#icon-utensils"></use></svg>3. 商品管理</h2>
+          <p>メニューの内容を管理します。「商品一覧」「カテゴリー管理」をページ上部で切り替えます。</p>
+          <ul class="steps">
+            <li><b>商品を追加する</b>：「商品を追加する」または「商品追加」ボタンから、カテゴリー・サブカテゴリー・商品名・価格・原価（任意）を入力します。</li>
+            <li><b>商品を編集する</b>：一覧の各行の編集アイコンから、内容を修正します。</li>
+            <li><b>売り切れ・提供終了にする</b>：一覧の「販売中／販売終了」のスイッチで切り替えます。あとから販売中に戻すこともできます。</li>
+            <li><b>カテゴリーを整理する</b>：「商品カテゴリー」からカテゴリー・サブカテゴリーの作成・名称変更・並び替えができます。並び順は商品一覧の表示順にそのまま反映されます。</li>
+          </ul>
+          <figure class="shot">
+            <img src="assets/manual/shohin.jpg" alt="商品管理：カテゴリー別の商品一覧画面">
+            <figcaption>商品一覧（カテゴリーごとにグループ表示）</figcaption>
+          </figure>
+          <div class="note info">サブカテゴリーが1つもないカテゴリーには商品を追加できません。先に「商品カテゴリー」からサブカテゴリーを作成してください。</div>
+        </section>
+
+        <section class="manual-section" id="kokyaku">
+          <h2><svg class="icon"><use href="#icon-user"></use></svg>4. 顧客管理</h2>
+          <p>常連さんの情報を管理します。</p>
+          <ul class="steps">
+            <li><b>新規登録</b>：画面上部のニックネーム欄に入力して「新規登録」します（同じニックネームは重複登録できません）。</li>
+            <li><b>詳細を見る・編集する</b>：一覧のニックネームをタップすると、電話番号・メモ・よく注文する商品TOP3が確認できます。ニックネーム・電話番号・メモは、入力欄からフォーカスを外すと自動保存されます。</li>
+          </ul>
+          <figure class="shot">
+            <img src="assets/manual/kokyaku.jpg" alt="顧客管理：新規登録欄と顧客一覧">
+            <figcaption>新規登録欄と顧客一覧（登録するとここに並びます）</figcaption>
+          </figure>
+          <div class="note info">来店回数・最終来店日は、会計処理でその顧客に紐づけて会計を登録するたびに自動で更新されます。この画面から手入力する必要はありません。</div>
+        </section>
+
+        <section class="manual-section" id="zaseki">
+          <h2><svg class="icon"><use href="#icon-armchair"></use></svg>5. 座席管理</h2>
+          <p>店内の座席（テーブル・カウンター）の使用可否を管理します。座席番号・種別・定員は固定のため、この画面から新しく座席を追加することはありません。</p>
+          <ul class="steps">
+            <li>配置図の座席をタップすると切替メニューが開きます。</li>
+            <li>「無効にする」「有効にする」で、その座席を会計処理の座席選択に出すかどうかを切り替えます（例：修理中で使えないテーブルを一時的に外す）。</li>
+          </ul>
+          <figure class="shot">
+            <img src="assets/manual/zaseki.jpg" alt="座席管理：店内配置図（一部の座席が使用不可表示）">
+            <figcaption>店内配置図（グレー表示は使用不可の座席）</figcaption>
+          </figure>
+          <div class="note info">誤操作を防ぐため、座席をタップしただけでは切り替わりません。必ず切替メニューのボタンを押してください。</div>
+        </section>
+
+        <p class="part-label part-b">数字を確認する画面</p>
+        <p style="color:var(--ink-muted); font-size:0.92em; margin-top:-4px;">以下は日々の記録作業ではなく、「見て確認する」ための画面です。まずはどこで何が見られるかだけ把握しておけば十分です。</p>
+
+        <div class="overview-grid" id="dashboard">
+          <div class="overview-card">
+            <h3><svg class="icon"><use href="#icon-bar-chart"></use></svg>6. ダッシュボード</h3>
+            <img src="assets/manual/dashboard.jpg" alt="ダッシュボード画面">
+            <p>サイドバーの一番上、ログイン後に最初に開く画面です。指定した日・期間の数字をひと目で確認できます。</p>
+            <ul>
+              <li>本日／昨日／過去7日間／当月／期間指定を切り替え可能</li>
+              <li>売上高・客単価・客数・組数・客席回転率と、前日（または前週・前月）との比較</li>
+              <li>売上推移グラフ、商品別注文数ランキングTOP10、カテゴリ別売上分布</li>
+            </ul>
+          </div>
+
+          <div class="overview-card" id="uriage-tokei">
+            <h3><svg class="icon"><use href="#icon-trending-up"></use></svg>7. 売上統計・予算管理</h3>
+            <img src="assets/manual/uriage-tokei.jpg" alt="売上統計：予算と実績の比較画面">
+            <p><b>売上統計</b>は日別／月別／年別で実績と目標（予算）を比較する画面、<b>予算管理</b>はその目標（月ごと・日ごとの売上目標）を入力する画面です。</p>
+            <ul>
+              <li>売上統計：達成率・目標線付きグラフ・予算比チャートで実績を確認</li>
+              <li>予算管理：月別／日別の売上目標を編集タブから入力（「一括設定」「均等割付」で手早く設定可能）</li>
+            </ul>
+          </div>
+
+          <div class="overview-card" id="shohin-tokei">
+            <h3><svg class="icon"><use href="#icon-tag"></use></svg>8. 商品統計・データ分析</h3>
+            <img src="assets/manual/shohin-tokei.jpg" alt="商品統計：商品別TOP5の画面">
+            <p><b>商品統計</b>は商品・カテゴリごとの売上TOP5、<b>データ分析</b>はABC分析・曜日別・天候別・客層別の傾向を確認する画面です。</p>
+            <ul>
+              <li>商品統計：円グラフと詳細表で人気商品・カテゴリを確認</li>
+              <li>データ分析：どの商品が稼ぎ頭か（ABC分析）、忙しい曜日・天気、新規／リピート比率などをタブで確認</li>
+            </ul>
+          </div>
+
+          <div class="overview-card" id="keihi">
+            <h3><svg class="icon"><use href="#icon-trending-down"></use></svg>9. 経費管理</h3>
+            <img src="assets/manual/keihi.jpg" alt="経費管理：予実タブの画面">
+            <p>仕入れ・家賃・水道光熱費など、売上以外の支出を管理する画面です。</p>
+            <ul>
+              <li>「経費記録」タブの入力フォームから、日付・区分・取引先・金額を記録</li>
+              <li>「予実」タブで区分ごとの予定額に対する達成率を確認</li>
+              <li>「取引先別」「月次比較」タブで支払い状況を振り返り</li>
+            </ul>
+          </div>
+        </div>
+
+        <section class="manual-section" id="faq" style="margin-top: var(--space-lg);">
+          <h2><svg class="icon"><use href="#icon-help-circle"></use></svg>10. 困ったときは</h2>
+          <dl class="faq">
+            <dt>保存ボタンを押しても反応がない・読み込み中のまま止まる</dt>
+            <dd>通信が混み合っている可能性があります。少し（10秒ほど）待ってから、もう一度操作をやり直してください。改善しない場合は画面を再読み込みしてください。</dd>
+
+            <dt>画面が真っ白になった</dt>
+            <dd>画面を再読み込みしてください。それでも直らない場合は、一度サイドバーの別の画面に移動してから戻ってみてください。</dd>
+
+            <dt>レジクローズを間違った金額で実行してしまった</dt>
+            <dd>実行の取り消しはできませんが、履歴として記録が残るだけで、その日の売上データ自体が変わることはありません。次回の実行時に正しい金額で締め直してください。</dd>
+
+            <dt>顧客のニックネームを間違えて登録した</dt>
+            <dd>顧客一覧からニックネームをタップして開く詳細画面で、ニックネームを修正できます（入力欄から外れると自動保存されます）。</dd>
+
+            <dt>ログインできない</dt>
+            <dd>ログインキーが正しく入力されているか確認してください。分からない場合は、キーを管理している人に確認してください。</dd>
+          </dl>
+        </section>
+
+      </main>
+    </div>
+
+    <?!= include('client/shared/javascript') ?>
+  </body>
+</html>

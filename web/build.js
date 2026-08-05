@@ -27,7 +27,8 @@ var PAGE_FILES = {
   'analysis-product': 'analysis-product',
   'data-analysis': 'data-analysis',
   customer: 'customer',
-  seat: 'seat'
+  seat: 'seat',
+  manual: 'manual'
 };
 
 function readClient(relPath) {
@@ -116,6 +117,13 @@ function main() {
   copyStatic('config.js');
   copyStatic('api-client.js');
   copyStatic('login.html');
+  copyStatic('quick-guide.html');
+
+  // マニュアル用の画像（src/client/assets/）はGAS用スクリプトレット変換の対象外のためそのままコピーする
+  var manualAssetsDir = path.join(SRC_CLIENT, 'assets');
+  if (fs.existsSync(manualAssetsDir)) {
+    fs.cpSync(manualAssetsDir, path.join(OUT_DIR, 'assets'), { recursive: true });
+  }
 
   var sidebarHtml = buildSidebarHtml();
   Object.keys(PAGE_FILES).forEach(function (pageId) {
