@@ -372,7 +372,7 @@
           return;
         }
         legend.innerHTML = items.map(function (it) {
-          return '<div class="donut-legend-row"><span class="name"><span class="dot" style="background:' + it.color + '"></span>' + it.name + '</span>' +
+          return '<div class="donut-legend-row"><span class="name"><span class="dot" style="background:' + it.color + '"></span>' + escapeHtml(it.name) + '</span>' +
             '<span class="value">¥' + (it.amount || 0).toLocaleString() + '</span></div>';
         }).join('');
       }

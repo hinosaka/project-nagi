@@ -10,6 +10,9 @@
 var API_PASSWORD_PROPERTY_ = 'API_PASSWORD';
 var API_TOKENS_PROPERTY_ = 'API_TOKENS';
 var API_TOKEN_TTL_MS_ = 30 * 24 * 60 * 60 * 1000; // 30日
+var API_LOGIN_FAILS_PROPERTY_ = 'API_LOGIN_FAILS';
+var API_LOGIN_MAX_ATTEMPTS_ = 5;
+var API_LOGIN_LOCKOUT_MS_ = 5 * 60 * 1000; // 5分
 
 // クライアント（ブラウザ）から呼び出せる関数のみ許可する（許可リスト方式）。
 // setupDatabase・doGet・include等の管理用/内部関数は含めない
@@ -71,19 +74,58 @@ function handleApiRequest_(e) {
   return { result: result === undefined ? null : result };
 }
 
+// 総当たり攻撃対策：連続で規定回数失敗すると一定時間ログインを受け付けない（IPごとではなく
+// 全体で1つのカウンタ。Apps ScriptのWebアプリイベントからは呼び出し元IPを取得できないため）。
+// 正規ユーザーがパスワードを度忘れして連続失敗した場合も一時的にロックされるが、店舗規模の
+// 利用頻度・スクリプトプロパティの読み書きコストを踏まえ、この簡易な方式で十分と判断
 function login_(password) {
-  var correctPassword = PropertiesService.getScriptProperties().getProperty(API_PASSWORD_PROPERTY_);
-  if (!correctPassword) {
-    throw new Error('パスワードが未設定です。Apps ScriptエディタでsetApiPassword()を実行してください');
+  return LockUtil.withLock(function () {
+    checkLoginLockout_();
+
+    var correctPassword = PropertiesService.getScriptProperties().getProperty(API_PASSWORD_PROPERTY_);
+    if (!correctPassword) {
+      throw new Error('パスワードが未設定です。Apps ScriptエディタでsetApiPassword()を実行してください');
+    }
+    if (password !== correctPassword) {
+      recordLoginFailure_();
+      throw new Error('パスワードが違います');
+    }
+
+    clearLoginFailures_();
+    var token = Utilities.getUuid();
+    var tokens = loadApiTokens_();
+    tokens[token] = Date.now() + API_TOKEN_TTL_MS_;
+    saveApiTokens_(tokens);
+    return token;
+  });
+}
+
+function checkLoginLockout_() {
+  var state = loadLoginFailState_();
+  var remainingMs = state.lockUntil - Date.now();
+  if (remainingMs > 0) {
+    var remainingMin = Math.ceil(remainingMs / 60000);
+    throw new Error('ログイン試行回数が上限を超えました。' + remainingMin + '分後に再度お試しください');
   }
-  if (password !== correctPassword) {
-    throw new Error('パスワードが違います');
+}
+
+function recordLoginFailure_() {
+  var state = loadLoginFailState_();
+  state.count = (state.lockUntil > Date.now() ? 0 : state.count) + 1;
+  if (state.count >= API_LOGIN_MAX_ATTEMPTS_) {
+    state.lockUntil = Date.now() + API_LOGIN_LOCKOUT_MS_;
+    state.count = 0;
   }
-  var token = Utilities.getUuid();
-  var tokens = loadApiTokens_();
-  tokens[token] = Date.now() + API_TOKEN_TTL_MS_;
-  saveApiTokens_(tokens);
-  return token;
+  PropertiesService.getScriptProperties().setProperty(API_LOGIN_FAILS_PROPERTY_, JSON.stringify(state));
+}
+
+function clearLoginFailures_() {
+  PropertiesService.getScriptProperties().deleteProperty(API_LOGIN_FAILS_PROPERTY_);
+}
+
+function loadLoginFailState_() {
+  var raw = PropertiesService.getScriptProperties().getProperty(API_LOGIN_FAILS_PROPERTY_);
+  return raw ? JSON.parse(raw) : { count: 0, lockUntil: 0 };
 }
 
 function isValidToken_(token) {

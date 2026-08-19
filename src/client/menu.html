@@ -693,7 +693,7 @@
           row.className = 'drag-item';
           row.innerHTML =
             '<td><span class="drag-handle" title="ドラッグで並び替え"><svg class="icon"><use href="#icon-grip-vertical"></use></svg></span></td>' +
-            '<td><input type="text" class="cell-input" data-field="MenuName" value="' + escapeAttr(displayName) + '"></td>' +
+            '<td><input type="text" class="cell-input" data-field="MenuName" value="' + escapeHtml(displayName) + '"></td>' +
             '<td class="num"><input type="number" min="0" step="10" inputmode="numeric" class="cell-input num-input" data-field="Price" value="' + Number(displayPrice || 0) + '"></td>' +
             '<td class="num"><input type="number" min="0" inputmode="numeric" class="cell-input num-input" data-field="Cost" value="' + Number(displayCost || 0) + '"></td>' +
             '<td><div class="status-wrap"><span class="status-text' + (displayActive ? ' on' : '') + '">' + (displayActive ? '販売中' : '販売終了') + '</span>' +
@@ -734,7 +734,7 @@
           });
         } else {
           row.innerHTML =
-            '<td><span class="reorder-static">' + escapeAttr(displayName) + '</span></td>' +
+            '<td><span class="reorder-static">' + escapeHtml(displayName) + '</span></td>' +
             '<td class="num"><span class="reorder-static num">¥' + Number(displayPrice || 0).toLocaleString() + '</span></td>' +
             '<td class="num"><span class="reorder-static num">¥' + Number(displayCost || 0).toLocaleString() + '</span></td>' +
             '<td><div class="status-wrap"><span class="status-text' + (displayActive ? ' on' : '') + '">' + (displayActive ? '販売中' : '販売終了') + '</span>' +
@@ -748,11 +748,7 @@
         return row;
       }
 
-      function escapeAttr(value) {
-        return String(value == null ? '' : value).replace(/&/g, '&amp;').replace(/"/g, '&quot;');
-      }
-
-      // ポインターイベントによるドラッグ並び替え（HTML5 Drag and Drop APIはタッチ端末で
+// ポインターイベントによるドラッグ並び替え（HTML5 Drag and Drop APIはタッチ端末で
       // dragstartが発火しないため使わない）。container内の.drag-handleを掴んで動かすと、
       // container内の他options.itemSelector要素との位置関係に応じて並び替わり、
       // 指を離した時点の順序（DOM上の並び）でoptions.onReorder(orderedIds)を呼ぶ
@@ -850,13 +846,13 @@
           var catDisplayName = categoryDraftNames[cat.CategoryId] !== undefined ? categoryDraftNames[cat.CategoryId] : cat.CategoryName;
           if (categoryEditMode) {
             row.innerHTML =
-              '<input type="text" class="cell-input cat-name-input" value="' + escapeAttr(catDisplayName) + '">' +
+              '<input type="text" class="cell-input cat-name-input" value="' + escapeHtml(catDisplayName) + '">' +
               '<span class="cat-count">' + count + '商品</span>';
             row.querySelector('.cat-name-input').addEventListener('input', function () {
               categoryDraftNames[cat.CategoryId] = this.value;
             });
           } else {
-            row.innerHTML = '<span class="cat-name">' + escapeAttr(catDisplayName) + '<span class="cat-count">' + count + '商品</span></span>';
+            row.innerHTML = '<span class="cat-name">' + escapeHtml(catDisplayName) + '<span class="cat-count">' + count + '商品</span></span>';
           }
           group.appendChild(row);
 
@@ -888,7 +884,7 @@
               if (categoryEditMode) {
                 subRow.innerHTML =
                   '<span class="drag-handle" title="ドラッグで並び替え"><svg class="icon"><use href="#icon-grip-vertical"></use></svg></span>' +
-                  '<input type="text" class="cell-input subcat-name-input" value="' + escapeAttr(subDisplayName) + '">';
+                  '<input type="text" class="cell-input subcat-name-input" value="' + escapeHtml(subDisplayName) + '">';
                 subRow.querySelector('.subcat-name-input').addEventListener('input', function () {
                   if (isDraftSub) {
                     sub.SubCategoryName = this.value;
@@ -912,7 +908,7 @@
                 }
                 subRow.appendChild(removeSubBtn);
               } else {
-                subRow.innerHTML = '<span class="subcat-name">' + escapeAttr(subDisplayName) + '</span>';
+                subRow.innerHTML = '<span class="subcat-name">' + escapeHtml(subDisplayName) + '</span>';
               }
               subList.appendChild(subRow);
             });

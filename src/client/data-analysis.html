@@ -542,7 +542,7 @@
           var tr = document.createElement('tr');
           tr.innerHTML =
             '<td>' + r.rank + '</td>' +
-            '<td>' + r.name + '</td>' +
+            '<td>' + escapeHtml(r.name) + '</td>' +
             '<td class="num">¥' + (r.amount || 0).toLocaleString() + '</td>' +
             '<td class="num">' + (r.sharePercent || 0) + '%</td>' +
             '<td class="num">' + (r.cumSharePercent || 0) + '%</td>' +

@@ -530,7 +530,7 @@
         wrap.className = 'card donut-card';
         var legendRows = items.map(function (it) {
           var pct = total > 0 ? Math.round((it.amount / total) * 100) : 0;
-          return '<div class="donut-legend-row"><span class="name"><span class="dot" style="background:' + it.color + '"></span>' + it.name + '</span>' +
+          return '<div class="donut-legend-row"><span class="name"><span class="dot" style="background:' + it.color + '"></span>' + escapeHtml(it.name) + '</span>' +
             '<span class="value">¥' + it.amount.toLocaleString() + '（' + pct + '%）</span></div>';
         }).join('');
         wrap.innerHTML = '<h3>' + title + '</h3><div class="donut-body">' + buildDonut(items) + '<div class="donut-legend">' + legendRows + '</div></div>';

@@ -677,8 +677,8 @@
           var card = document.createElement('div');
           card.className = 'ticket-card';
           card.innerHTML =
-            '<span class="t-name">' + (sales.CustomerName || '（顧客未設定）') + '</span>' +
-            '<span class="t-meta">' + (sales.SeatId || '座席未設定') + '・' + sales.PartySize + '名</span>' +
+            '<span class="t-name">' + (sales.CustomerName ? escapeHtml(sales.CustomerName) : '（顧客未設定）') + '</span>' +
+            '<span class="t-meta">' + (sales.SeatId ? escapeHtml(sales.SeatId) : '座席未設定') + '・' + sales.PartySize + '名</span>' +
             '<span class="t-amount">¥' + Number(sales.TotalAmount).toLocaleString() + '</span>' +
             '<button type="button" class="icon-btn t-delete" title="削除">' + iconSvg('trash') + '</button>';
           card.addEventListener('click', function () {
@@ -977,7 +977,7 @@
         var tile = document.createElement('div');
         tile.className = 'product-tile' + (qty > 0 ? ' has-qty' : '');
         tile.innerHTML =
-          '<div class="p-info"><span class="p-name">' + menu.MenuName + '</span><span class="p-price">¥' + Number(menu.Price).toLocaleString() + '</span></div>' +
+          '<div class="p-info"><span class="p-name">' + escapeHtml(menu.MenuName) + '</span><span class="p-price">¥' + Number(menu.Price).toLocaleString() + '</span></div>' +
           '<div class="qty-control">' +
           '<button type="button" class="circle-btn minus"' + (qty === 0 ? ' disabled' : '') + '>' + iconSvg('minus') + '</button>' +
           '<span class="qty-num">' + qty + '</span>' +
@@ -1023,7 +1023,7 @@
           var tile = document.createElement('div');
           tile.className = 'product-tile has-qty';
           tile.innerHTML =
-            '<div class="p-info"><span class="p-name">' + d.MenuName + '（' + d.CategoryLarge + '・直接入力）</span><span class="p-price">¥' + d.UnitPrice.toLocaleString() + '</span></div>' +
+            '<div class="p-info"><span class="p-name">' + escapeHtml(d.MenuName) + '（' + escapeHtml(d.CategoryLarge) + '・直接入力）</span><span class="p-price">¥' + d.UnitPrice.toLocaleString() + '</span></div>' +
             '<div class="qty-control">' +
             '<button type="button" class="circle-btn minus">' + iconSvg('minus') + '</button>' +
             '<span class="qty-num">' + d.Quantity + '</span>' +
@@ -1067,7 +1067,7 @@
           var row = document.createElement('div');
           row.className = 'confirm-row';
           row.innerHTML =
-            '<span class="c-name">' + d.MenuName + '</span>' +
+            '<span class="c-name">' + escapeHtml(d.MenuName) + '</span>' +
             '<input type="number" class="c-price-input" min="0" step="10" inputmode="numeric" value="' + d.UnitPrice + '" title="価格を修正（メニュー価格改定後の伝票処理用）">' +
             '<div class="qty-control" style="margin-left:0;">' +
             '<button type="button" class="circle-btn minus">' + iconSvg('minus') + '</button>' +

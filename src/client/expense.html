@@ -320,9 +320,6 @@
 
     <?!= include('client/shared/javascript') ?>
     <script>
-      function escapeAttr(str) {
-        return String(str || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
-      }
       function flashSaved() {
         var flash = document.getElementById('save-flash');
         flash.textContent = '保存しました';
@@ -465,13 +462,13 @@
 
           var headerRow = document.createElement('tr');
           headerRow.className = 'group-header';
-          headerRow.innerHTML = '<td>' + escapeAttr(catName) + '</td><td>¥' + catTotal.toLocaleString() + '</td><td></td>';
+          headerRow.innerHTML = '<td>' + escapeHtml(catName) + '</td><td>¥' + catTotal.toLocaleString() + '</td><td></td>';
           tbody.appendChild(headerRow);
 
           vendorRows.sort(function (a, b) { return b.amount - a.amount; }).forEach(function (r) {
             var tr = document.createElement('tr');
             tr.innerHTML =
-              '<td class="vendor-name-cell">' + escapeAttr(r.name) + '</td>' +
+              '<td class="vendor-name-cell">' + escapeHtml(r.name) + '</td>' +
               '<td>¥' + r.amount.toLocaleString() + '</td>' +
               '<td>' + r.count + '件</td>';
             tbody.appendChild(tr);
@@ -616,22 +613,22 @@
             var costCell = '<label class="switch"><input type="checkbox" class="cat-cost-toggle" data-i="' + i + '" ' + (r.IsCostOfGoods ? 'checked' : '') + '><span class="switch-slider"></span></label>';
             tr.innerHTML =
               '<td class="col-drag"><span class="drag-handle" title="ドラッグで並び替え"><svg class="icon"><use href="#icon-grip-vertical"></use></svg></span></td>' +
-              '<td class="col-name"><input type="text" class="cell-input" data-i="' + i + '" data-field="ExpenseCategoryName" value="' + escapeAttr(r.ExpenseCategoryName) + '"></td>' +
+              '<td class="col-name"><input type="text" class="cell-input" data-i="' + i + '" data-field="ExpenseCategoryName" value="' + escapeHtml(r.ExpenseCategoryName) + '"></td>' +
               '<td class="col-target"><input type="number" class="cell-input" min="0" step="100" inputmode="numeric" data-i="' + i + '" data-field="targetAmount" value="' + (r.targetAmount || '') + '"></td>' +
               '<td class="col-actual">¥' + (r.actualAmount || 0).toLocaleString() + '</td>' +
               '<td class="col-rate">' + rateBadgeHtml(r.achievementRate) + '</td>' +
-              '<td class="col-note"><input type="text" class="cell-input" data-i="' + i + '" data-field="note" value="' + escapeAttr(r.note) + '"></td>' +
+              '<td class="col-note"><input type="text" class="cell-input" data-i="' + i + '" data-field="note" value="' + escapeHtml(r.note) + '"></td>' +
               '<td class="col-cost">' + costCell + '</td>' +
               '<td class="col-status">' + statusCell + '</td>' +
               '<td class="col-action">' + actionCell + '</td>';
           } else {
             var costBadge = r.IsCostOfGoods ? ' <span class="badge badge-active">原価</span>' : '';
             tr.innerHTML =
-              '<td class="col-name">' + escapeAttr(r.ExpenseCategoryName) + costBadge + '</td>' +
+              '<td class="col-name">' + escapeHtml(r.ExpenseCategoryName) + costBadge + '</td>' +
               '<td class="readonly-cell">' + (r.hasTarget ? '¥' + r.targetAmount.toLocaleString() : '-') + '</td>' +
               '<td>¥' + r.actualAmount.toLocaleString() + '</td>' +
               '<td>' + rateBadgeHtml(r.achievementRate) + '</td>' +
-              '<td class="col-note readonly-cell">' + escapeAttr(r.note) + '</td>';
+              '<td class="col-note readonly-cell">' + escapeHtml(r.note) + '</td>';
           }
           tbody.appendChild(tr);
         });
@@ -741,9 +738,9 @@
           row.className = 'entry-row';
           row.innerHTML =
             '<span class="e-date">' + e.ExpenseDate.slice(5).replace('-', '/') + '</span>' +
-            '<span class="e-category">' + escapeAttr(e.ExpenseCategoryName) + '</span>' +
-            '<span class="e-vendor">' + escapeAttr(e.ExpenseVendorName) + '</span>' +
-            '<span class="e-note">' + escapeAttr(e.Note) + '</span>' +
+            '<span class="e-category">' + escapeHtml(e.ExpenseCategoryName) + '</span>' +
+            '<span class="e-vendor">' + escapeHtml(e.ExpenseVendorName) + '</span>' +
+            '<span class="e-note">' + escapeHtml(e.Note) + '</span>' +
             '<span class="e-amount">¥' + e.Amount.toLocaleString() + '</span>' +
             '<span class="e-actions">' +
             '<button type="button" class="icon-btn e-edit" title="編集"><svg class="icon"><use href="#icon-edit"></use></svg></button>' +

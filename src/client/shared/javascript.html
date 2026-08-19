@@ -4,6 +4,17 @@
     return '<svg class="icon"><use href="#icon-' + name + '"></use></svg>';
   }
 
+  // ユーザー入力（商品名・カテゴリー名・顧客名・メモ等）をinnerHTML/属性値に埋め込む前に
+  // 必ず通す。テキストノード・属性値（ダブルクォート）どちらの文脈でも安全に使える
+  function escapeHtml(value) {
+    return String(value == null ? '' : value)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
   (function () {
     var currentPage = document.body.dataset.page;
     document.querySelectorAll('.sidebar .nav-item').forEach(function (item) {
