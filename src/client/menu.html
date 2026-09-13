@@ -37,6 +37,9 @@
       /* ===== 印刷メニュー設定アイコン（商品一覧の通常表示のみ） ===== */
       .print-flag-btn { color: var(--ink-muted); }
       .print-flag-btn.on { color: var(--ai); }
+      .print-flag-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+      .icon-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+      .icon-btn:disabled:hover { background: none; }
 
       /* ===== 表内での商品名・価格・原価の直接編集 ===== */
       .cell-input { width: 100%; border: 1px solid transparent; background: none; color: inherit; font: inherit; padding: 3px 4px; border-radius: var(--radius-sm); }
@@ -137,7 +140,14 @@
             <div class="card">
               <div class="list-toolbar">
                 <div class="tabs" id="product-tabs"></div>
+                <button type="button" class="icon-btn" id="btn-print-edit-toggle" title="印刷メニュー編集" onclick="togglePrintEditMode()"><svg class="icon"><use href="#icon-printer"></use></svg></button>
                 <button type="button" class="icon-btn" id="btn-product-edit-toggle" title="編集" onclick="toggleProductEditMode()"><svg class="icon"><use href="#icon-edit"></use></svg></button>
+              </div>
+              <div class="edit-bar" id="print-edit-bar">
+                <div class="edit-bar-actions">
+                  <button type="button" onclick="cancelPrintEdit()">キャンセル</button>
+                  <button type="button" class="btn-primary" onclick="savePrintEdit()">編集結果を保存</button>
+                </div>
               </div>
               <div class="edit-bar" id="product-edit-bar">
                 <div class="edit-bar-actions">
@@ -225,7 +235,6 @@
           <label for="pi-description">一行説明・キャッチコピー（任意）</label>
           <input type="text" id="pi-description">
         </div>
-        <p class="error" id="print-info-error"></p>
         <div class="modal-actions">
           <button type="button" onclick="closeModal('modal-print-info')">閉じる</button>
           <button type="button" class="btn-primary" onclick="savePrintInfoModal()">保存する</button>
@@ -297,6 +306,13 @@
       var productDraftEdits = {}; // key: MenuId -> { MenuName?, Price?, Cost? }（変更のあったフィールドのみ）
       var pendingProductGroups = {}; // key: CategoryLarge + ' ' + CategoryMedium -> { categoryLarge, categoryMedium, orderedIds }（並び替え結果そのものを保持し、再描画で失われないようにする）
       var pendingNewProducts = []; // 編集モード中に「＋」で追加した、まだサーバーに存在しない商品の下書き
+
+      // 印刷メニュー設定用の編集モード。商品一覧の編集モード（名前・価格等）とは別の独立したモードとし、
+      // 同時には入れないようにする（renderTabsで互いのトグルボタンをdisabledにする）。
+      // モーダルで「保存する」を押しても即サーバー送信せずprintDraftEditsに溜め、
+      // 編集バーの「編集結果を保存」でまとめて送信する（商品ごとに保存・全件再取得を繰り返すと重いため）
+      var printEditMode = false;
+      var printDraftEdits = {}; // key: MenuId -> { IsOnPrintMenu, PrintDisplayName, PrintDescription }
 
       var categoryEditMode = false;
       var categoryDraftNames = {}; // key: CategoryId -> 新しいカテゴリー名
@@ -379,23 +395,28 @@
       }
 
       function showView(name) {
-        // 編集モード中（商品一覧・カテゴリー管理どちらか）に画面を切り替えると、編集中の状態が
-        // 分かりにくくなるため、必ず確認ポップアップで「破棄する」か「保存して移動」かを選んでもらう
+        // 編集モード中（商品一覧・印刷メニュー設定・カテゴリー管理のいずれか）に画面を切り替えると、
+        // 編集中の状態が分かりにくくなるため、必ず確認ポップアップで「破棄する」か「保存して移動」かを選んでもらう。
+        // 商品一覧・印刷メニュー設定の2モードは互いに排他（同時には入れない）のため、同時に真になることはない
         var leavingProduct = name !== 'list' && productEditMode;
+        var leavingPrint = name !== 'list' && printEditMode;
         var leavingCategory = name !== 'category' && categoryEditMode;
-        if (leavingProduct || leavingCategory) {
+        if (leavingProduct || leavingPrint || leavingCategory) {
+          var modeLabel = leavingProduct ? '商品一覧' : (leavingPrint ? '印刷メニュー設定' : 'カテゴリー管理');
           showGenericConfirm({
             title: '編集中の内容があります',
-            message: (leavingProduct ? '商品一覧' : 'カテゴリー管理') + 'の編集を終了しますか？保存していない内容は失われます。',
+            message: modeLabel + 'の編集を終了しますか？保存していない内容は失われます。',
             secondaryLabel: '破棄する',
             secondaryAction: function () {
               if (leavingProduct) { cancelProductEdit(); }
+              if (leavingPrint) { cancelPrintEdit(); }
               if (leavingCategory) { cancelCategoryEdit(); }
               proceedShowView(name);
             },
             primaryLabel: '保存して移動',
             primaryAction: function () {
               if (leavingProduct) { saveProductEdit(function () { proceedShowView(name); }); }
+              else if (leavingPrint) { savePrintEdit(function () { proceedShowView(name); }); }
               else if (leavingCategory) { saveCategoryEdit(function () { proceedShowView(name); }); }
             }
           });
@@ -473,6 +494,14 @@
         document.getElementById('product-edit-bar').classList.toggle('show', productEditMode);
         document.getElementById('btn-product-edit-toggle').classList.toggle('active', productEditMode);
         document.getElementById('btn-product-edit-toggle').style.display = productEditMode ? 'none' : '';
+        // 商品一覧の編集モードと印刷メニュー設定の編集モードは同時には入れない。
+        // 一方が編集中の間は、もう一方のトグルボタンを押せなくする
+        document.getElementById('btn-product-edit-toggle').disabled = printEditMode;
+
+        document.getElementById('print-edit-bar').classList.toggle('show', printEditMode);
+        document.getElementById('btn-print-edit-toggle').classList.toggle('active', printEditMode);
+        document.getElementById('btn-print-edit-toggle').style.display = printEditMode ? 'none' : '';
+        document.getElementById('btn-print-edit-toggle').disabled = productEditMode;
       }
 
       function toggleProductEditMode() {
@@ -736,6 +765,8 @@
         var displayPrice = draft.Price !== undefined ? draft.Price : menu.Price;
         var displayCost = draft.Cost !== undefined ? draft.Cost : menu.Cost;
         var displayActive = draft.IsActive !== undefined ? draft.IsActive : menu.IsActive;
+        var printDraft = printDraftEdits[menu.MenuId];
+        var displayOnPrintMenu = printDraft && printDraft.IsOnPrintMenu !== undefined ? printDraft.IsOnPrintMenu : !!menu.IsOnPrintMenu;
 
         if (productEditMode) {
           row.className = 'drag-item';
@@ -787,7 +818,7 @@
             '<td class="num"><span class="reorder-static num">¥' + Number(displayCost || 0).toLocaleString() + '</span></td>' +
             '<td><div class="status-wrap"><span class="status-text' + (displayActive ? ' on' : '') + '">' + (displayActive ? '販売中' : '販売終了') + '</span>' +
             '<label class="switch"><input type="checkbox" ' + (displayActive ? 'checked' : '') + '><span class="switch-slider"></span></label></div></td>' +
-            '<td><button type="button" class="icon-btn print-flag-btn' + (menu.IsOnPrintMenu ? ' on' : '') + '" title="印刷メニュー設定"><svg class="icon"><use href="#icon-printer"></use></svg></button></td>';
+            '<td><button type="button" class="icon-btn print-flag-btn' + (displayOnPrintMenu ? ' on' : '') + '" title="印刷メニュー設定"' + (printEditMode ? '' : ' disabled') + '><svg class="icon"><use href="#icon-printer"></use></svg></button></td>';
 
           // 標準表示では即時保存する（ただし全データの再取得はしない。toggleMenuActive参照）
           var checkbox = row.querySelector('input[type="checkbox"]');
@@ -1147,34 +1178,69 @@
           .createSubCategory(editingSubCategoryTargetId, name);
       }
 
-      // ==== 印刷メニュー設定・印刷メニュー用テキスト（REQ-055） ====
+      // ==== 印刷メニュー設定（編集モード）・印刷メニュー用テキスト（REQ-055） ====
+      // 商品ごとに都度サーバー保存・一覧再取得すると件数分だけ重くなるため、商品一覧の編集モードと
+      // 同じ「下書きをためて、まとめて1回で保存」方式にする。モーダルの「保存する」はprintDraftEditsに
+      // 記録するだけでサーバーには送らず、実際の送信は編集バーの「編集結果を保存」（savePrintEdit）で行う
+      function togglePrintEditMode() {
+        printEditMode = true;
+        printDraftEdits = {};
+        renderTabs();
+      }
+
+      // 保存せずに編集前の状態に戻して編集モードを終了する（サーバーとの通信は発生しない）
+      function cancelPrintEdit() {
+        printEditMode = false;
+        printDraftEdits = {};
+        renderTabs();
+      }
+
+      function savePrintEdit(onDone) {
+        var menuIds = Object.keys(printDraftEdits);
+
+        function finish() {
+          printEditMode = false;
+          printDraftEdits = {};
+        }
+
+        if (menuIds.length === 0) {
+          finish();
+          renderTabs();
+          if (onDone) { onDone(); }
+          return;
+        }
+
+        var tasks = menuIds.map(function (menuId) {
+          return { action: 'updateMenuPrintInfo', args: [menuId, printDraftEdits[menuId]] };
+        });
+        setLoading(true);
+        runParallel_(tasks, function () {
+          setLoading(false);
+          finish();
+          loadAll(onDone);
+        });
+      }
+
       function openPrintInfoModal(menu) {
         printInfoTargetId = menu.MenuId;
+        var draft = printDraftEdits[menu.MenuId] || {};
         document.getElementById('print-info-target-label').textContent = '「' + menu.MenuName + '」の設定';
-        document.getElementById('pi-on-print').checked = !!menu.IsOnPrintMenu;
-        document.getElementById('pi-display-name').value = menu.PrintDisplayName || '';
-        document.getElementById('pi-description').value = menu.PrintDescription || '';
-        document.getElementById('print-info-error').textContent = '';
+        document.getElementById('pi-on-print').checked = draft.IsOnPrintMenu !== undefined ? draft.IsOnPrintMenu : !!menu.IsOnPrintMenu;
+        document.getElementById('pi-display-name').value = draft.PrintDisplayName !== undefined ? draft.PrintDisplayName : (menu.PrintDisplayName || '');
+        document.getElementById('pi-description').value = draft.PrintDescription !== undefined ? draft.PrintDescription : (menu.PrintDescription || '');
         document.getElementById('modal-print-info').classList.add('show');
       }
 
+      // サーバーには送らず、下書き（printDraftEdits）に記録するだけ。実際の送信は
+      // 編集バーの「編集結果を保存」（savePrintEdit）でまとめて行う
       function savePrintInfoModal() {
-        var errorEl = document.getElementById('print-info-error');
-        errorEl.textContent = '';
-        var printInfo = {
+        printDraftEdits[printInfoTargetId] = {
           IsOnPrintMenu: document.getElementById('pi-on-print').checked,
           PrintDisplayName: document.getElementById('pi-display-name').value.trim(),
           PrintDescription: document.getElementById('pi-description').value.trim()
         };
-        google.script.run
-          .withSuccessHandler(function () {
-            closeModal('modal-print-info');
-            loadAll();
-          })
-          .withFailureHandler(function (error) {
-            errorEl.textContent = error.message;
-          })
-          .updateMenuPrintInfo(printInfoTargetId, printInfo);
+        closeModal('modal-print-info');
+        renderProductList();
       }
 
       function openPrintTextModal() {
