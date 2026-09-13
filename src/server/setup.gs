@@ -5,6 +5,7 @@ function setupDatabase() {
   var spreadsheet = getOrCreateSpreadsheet_();
   ensureMenuSheet_(spreadsheet);
   ensureMenuSortOrderColumn_(spreadsheet);
+  ensureMenuPrintColumns_(spreadsheet);
   ensureSeatSheet_(spreadsheet);
   ensureCustomerSheet_(spreadsheet);
   ensureSalesSheet_(spreadsheet);
@@ -143,6 +144,25 @@ function ensureMenuSortOrderColumn_(spreadsheet) {
           MenuRepository.save(m);
         }
       });
+  });
+}
+
+// 既存のMenuシートに後から追加した列（IsOnPrintMenu, PrintDisplayName, PrintDescription。
+// 印刷メニュー用テキスト生成機能、REQ-055）のヘッダーが無ければ追記する。
+// ensureSalesDetailCategoryMediumColumn_と同じく、固定位置（MenuRepository.HEADERSの末尾）で判定する。
+// 値のバックフィルは不要（空欄はIsOnPrintMenu=false・PrintDisplayName/PrintDescription=''として
+// 扱われ、生成機能・保存処理のどちらにとっても既定値としてそのまま安全なため）
+function ensureMenuPrintColumns_(spreadsheet) {
+  var sheet = spreadsheet.getSheetByName(SpreadsheetConfig.displayName('Menu'));
+  if (!sheet) {
+    return;
+  }
+  var headers = MenuRepository.HEADERS;
+  ['IsOnPrintMenu', 'PrintDisplayName', 'PrintDescription'].forEach(function (headerName) {
+    var targetColumn = headers.indexOf(headerName) + 1;
+    if (sheet.getRange(1, targetColumn).getValue() !== headerName) {
+      sheet.getRange(1, targetColumn).setValue(headerName);
+    }
   });
 }
 

@@ -19,6 +19,7 @@ var API_LOGIN_LOCKOUT_MS_ = 5 * 60 * 1000; // 5分
 var API_ALLOWED_ACTIONS_ = [
   'closeRegister', 'createSubCategory', 'deactivateMenu',
   'deleteExpenseEntry', 'deleteMenu', 'deleteSalesEntry', 'deleteSubCategory',
+  'generatePrintMenuText',
   'getAbcAnalysisData', 'getBudgetData', 'getBudgetDataForYear', 'getCashRegisterData', 'getCategoryList', 'getCustomerList',
   'getCustomerOrderRanking', 'getDailyTargetsForMonth', 'getDashboardData', 'getDayAnalysisData',
   'getExpenseCategoryList', 'getExpenseManagementData', 'getExpenseYearlyData',
@@ -30,7 +31,7 @@ var API_ALLOWED_ACTIONS_ = [
   'saveBudgetTarget', 'saveBudgetTargetsForYear',
   'saveBusinessDayWeather', 'saveBusinessDayWeatherAndGetData', 'saveCustomerDetail', 'saveDailyTargetsForMonth',
   'saveExpenseCategoryEdits', 'saveExpenseEntry',
-  'saveMenu', 'saveSalesEntry', 'saveStartingCash', 'toggleSeatActive'
+  'saveMenu', 'saveSalesEntry', 'saveStartingCash', 'toggleSeatActive', 'updateMenuPrintInfo'
 ];
 
 // Apps Scriptエディタから手動で一度だけ実行し、ログイン用パスワードを設定する

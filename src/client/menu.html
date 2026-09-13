@@ -24,7 +24,7 @@
       .col-name { width: auto; }
       .col-price, .col-cost { width: 6em; }
       .col-status { width: 7.2em; }
-      .col-delete { width: 3em; }
+      .col-delete, .col-print { width: 3em; }
       /* 数値入力のスピナー矢印を非表示にして、その分数字の表示幅を確保する */
       .num-input::-webkit-outer-spin-button, .num-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
       .num-input { -moz-appearance: textfield; }
@@ -33,6 +33,10 @@
       .status-wrap { display: flex; align-items: center; gap: 6px; justify-content: flex-end; }
       .status-text { font-size: 0.78em; color: var(--ink-muted); width: 3.4em; text-align: right; }
       .status-text.on { color: var(--good); }
+
+      /* ===== 印刷メニュー設定アイコン（商品一覧の通常表示のみ） ===== */
+      .print-flag-btn { color: var(--ink-muted); }
+      .print-flag-btn.on { color: var(--ai); }
 
       /* ===== 表内での商品名・価格・原価の直接編集 ===== */
       .cell-input { width: 100%; border: 1px solid transparent; background: none; color: inherit; font: inherit; padding: 3px 4px; border-radius: var(--radius-sm); }
@@ -91,6 +95,9 @@
       /* ===== 商品追加／編集フォーム ===== */
       .hint { color: var(--ink-muted); font-size: 0.85em; margin-top: 4px; }
 
+      /* ===== 印刷メニュー用テキスト（コピー用テキストエリア） ===== */
+      #print-text-output { width: 100%; font: inherit; padding: 8px; border: 1px solid var(--border); border-radius: var(--radius-sm); resize: vertical; color: inherit; background: var(--surface); box-sizing: border-box; }
+
       /* ===== モーダル ===== */
       .modal-overlay { position: fixed; inset: 0; background: rgba(35, 38, 43, 0.4); display: none; align-items: center; justify-content: center; z-index: 50; }
       .modal-overlay.show { display: flex; }
@@ -123,6 +130,7 @@
           <div class="view active" id="view-list">
             <div class="top-actions" id="product-top-actions">
               <button type="button" onclick="showView('category')"><svg class="icon"><use href="#icon-tag"></use></svg>商品カテゴリー</button>
+              <button type="button" onclick="openPrintTextModal()"><svg class="icon"><use href="#icon-printer"></use></svg>印刷メニュー用テキスト</button>
             </div>
 
             <h2>商品一覧</h2>
@@ -200,6 +208,45 @@
       </div>
     </div>
 
+    <!-- 印刷メニュー設定モーダル（REQ-055） -->
+    <div class="modal-overlay" id="modal-print-info">
+      <div class="modal-box">
+        <h3>印刷メニュー設定</h3>
+        <p class="hint" id="print-info-target-label"></p>
+        <div class="form-row">
+          <label>卓上メニューに載せる</label>
+          <label class="switch"><input type="checkbox" id="pi-on-print"><span class="switch-slider"></span></label>
+        </div>
+        <div class="form-row">
+          <label for="pi-display-name">印刷用の表記名（空欄なら商品名をそのまま使用）</label>
+          <input type="text" id="pi-display-name">
+        </div>
+        <div class="form-row">
+          <label for="pi-description">一行説明・キャッチコピー（任意）</label>
+          <input type="text" id="pi-description">
+        </div>
+        <p class="error" id="print-info-error"></p>
+        <div class="modal-actions">
+          <button type="button" onclick="closeModal('modal-print-info')">閉じる</button>
+          <button type="button" class="btn-primary" onclick="savePrintInfoModal()">保存する</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 印刷メニュー用テキストモーダル（REQ-055） -->
+    <div class="modal-overlay" id="modal-print-text">
+      <div class="modal-box product-form-box">
+        <h3>印刷メニュー用テキスト</h3>
+        <p class="hint">「卓上メニューに載せる」に設定した商品だけを、現在の並び順のまままとめました。コピーして、メニューブック画像作成用のプロンプトの品目リスト部分に貼り付けてください。</p>
+        <textarea id="print-text-output" readonly rows="14"></textarea>
+        <p class="error" id="print-text-error"></p>
+        <div class="modal-actions">
+          <button type="button" onclick="closeModal('modal-print-text')">閉じる</button>
+          <button type="button" class="btn-primary" id="print-text-copy-btn" onclick="copyPrintText()">コピーする</button>
+        </div>
+      </div>
+    </div>
+
     <!-- サブカテゴリー作成／編集モーダル（共用） -->
     <div class="modal-overlay" id="modal-subcategory">
       <div class="modal-box">
@@ -239,6 +286,7 @@
       var subCategories = [];
       var currentTab = 'all';
       var editingSubCategoryTargetId = null;
+      var printInfoTargetId = null;
       var loadRequestId = 0;
 
       // 編集モード：入力・ドロップのたびにサーバーへ保存すると通信が重なって重くなるため、
@@ -557,7 +605,7 @@
         var colgroup = document.createElement('colgroup');
         var colClasses = productEditMode
           ? ['col-drag', 'col-name', 'col-price', 'col-cost', 'col-status', 'col-delete']
-          : ['col-name', 'col-price', 'col-cost', 'col-status'];
+          : ['col-name', 'col-price', 'col-cost', 'col-status', 'col-print'];
         colClasses.forEach(function (cls) {
           var col = document.createElement('col');
           col.className = cls;
@@ -568,7 +616,7 @@
         var thead = document.createElement('thead');
         var headerLabels = productEditMode
           ? ['', '商品名', '価格', '原価', '販売中', '']
-          : ['商品名', '価格', '原価', '販売中'];
+          : ['商品名', '価格', '原価', '販売中', '印刷'];
         var numIndexes = productEditMode ? [2, 3] : [1, 2];
         var tr = document.createElement('tr');
         headerLabels.forEach(function (label, i) {
@@ -585,7 +633,7 @@
         var table = document.getElementById('product-table');
         table.querySelectorAll('tbody').forEach(function (tb) { tb.remove(); });
 
-        var colCount = productEditMode ? 6 : 4;
+        var colCount = productEditMode ? 6 : 5;
         renderProductTableHead(colCount);
 
         var allProducts = allProductsForRender_();
@@ -738,11 +786,14 @@
             '<td class="num"><span class="reorder-static num">¥' + Number(displayPrice || 0).toLocaleString() + '</span></td>' +
             '<td class="num"><span class="reorder-static num">¥' + Number(displayCost || 0).toLocaleString() + '</span></td>' +
             '<td><div class="status-wrap"><span class="status-text' + (displayActive ? ' on' : '') + '">' + (displayActive ? '販売中' : '販売終了') + '</span>' +
-            '<label class="switch"><input type="checkbox" ' + (displayActive ? 'checked' : '') + '><span class="switch-slider"></span></label></div></td>';
+            '<label class="switch"><input type="checkbox" ' + (displayActive ? 'checked' : '') + '><span class="switch-slider"></span></label></div></td>' +
+            '<td><button type="button" class="icon-btn print-flag-btn' + (menu.IsOnPrintMenu ? ' on' : '') + '" title="印刷メニュー設定"><svg class="icon"><use href="#icon-printer"></use></svg></button></td>';
 
           // 標準表示では即時保存する（ただし全データの再取得はしない。toggleMenuActive参照）
           var checkbox = row.querySelector('input[type="checkbox"]');
           checkbox.addEventListener('change', function () { toggleMenuActive(menu.MenuId, this.checked, checkbox); });
+
+          row.querySelector('.print-flag-btn').addEventListener('click', function () { openPrintInfoModal(menu); });
         }
 
         return row;
@@ -1094,6 +1145,69 @@
             errorEl.textContent = error.message;
           })
           .createSubCategory(editingSubCategoryTargetId, name);
+      }
+
+      // ==== 印刷メニュー設定・印刷メニュー用テキスト（REQ-055） ====
+      function openPrintInfoModal(menu) {
+        printInfoTargetId = menu.MenuId;
+        document.getElementById('print-info-target-label').textContent = '「' + menu.MenuName + '」の設定';
+        document.getElementById('pi-on-print').checked = !!menu.IsOnPrintMenu;
+        document.getElementById('pi-display-name').value = menu.PrintDisplayName || '';
+        document.getElementById('pi-description').value = menu.PrintDescription || '';
+        document.getElementById('print-info-error').textContent = '';
+        document.getElementById('modal-print-info').classList.add('show');
+      }
+
+      function savePrintInfoModal() {
+        var errorEl = document.getElementById('print-info-error');
+        errorEl.textContent = '';
+        var printInfo = {
+          IsOnPrintMenu: document.getElementById('pi-on-print').checked,
+          PrintDisplayName: document.getElementById('pi-display-name').value.trim(),
+          PrintDescription: document.getElementById('pi-description').value.trim()
+        };
+        google.script.run
+          .withSuccessHandler(function () {
+            closeModal('modal-print-info');
+            loadAll();
+          })
+          .withFailureHandler(function (error) {
+            errorEl.textContent = error.message;
+          })
+          .updateMenuPrintInfo(printInfoTargetId, printInfo);
+      }
+
+      function openPrintTextModal() {
+        document.getElementById('print-text-output').value = '読み込み中...';
+        document.getElementById('print-text-error').textContent = '';
+        document.getElementById('modal-print-text').classList.add('show');
+        google.script.run
+          .withSuccessHandler(function (text) {
+            document.getElementById('print-text-output').value = text || '「卓上メニューに載せる」を設定した商品がまだありません';
+          })
+          .withFailureHandler(function (error) {
+            document.getElementById('print-text-output').value = '';
+            document.getElementById('print-text-error').textContent = '生成に失敗しました：' + error.message;
+          })
+          .generatePrintMenuText();
+      }
+
+      function copyPrintText() {
+        var textarea = document.getElementById('print-text-output');
+        var btn = document.getElementById('print-text-copy-btn');
+        var restoreLabel = function () { btn.textContent = 'コピーする'; };
+        var showCopied = function () { btn.textContent = 'コピーしました'; setTimeout(restoreLabel, 1500); };
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(textarea.value).then(showCopied, function () {
+            textarea.select();
+            document.execCommand('copy');
+            showCopied();
+          });
+        } else {
+          textarea.select();
+          document.execCommand('copy');
+          showCopied();
+        }
       }
 
       function closeModal(id) {

@@ -49,11 +49,19 @@ function saveMenu(menuInput) {
     } else {
       menu.SortOrder = nextMenuSortOrder_(allMenus, menu.CategoryLarge, menu.CategoryMedium);
     }
+    // 印刷メニュー設定（IsOnPrintMenu等）はこの関数の入力に含まれないため、既存値をそのまま引き継ぐ
+    // （更新はupdateMenuPrintInfo経由のみとし、名前・価格等の編集のたびに意図せず消えないようにする）
+    menu.IsOnPrintMenu = existing.IsOnPrintMenu;
+    menu.PrintDisplayName = existing.PrintDisplayName;
+    menu.PrintDescription = existing.PrintDescription;
   } else {
     var existingIds = allMenus.map(function (m) { return m.MenuId; });
     menu.MenuId = SequentialIdRule.generateNext('M', existingIds);
     menu.IsActive = true;
     menu.SortOrder = nextMenuSortOrder_(allMenus, menu.CategoryLarge, menu.CategoryMedium);
+    menu.IsOnPrintMenu = false;
+    menu.PrintDisplayName = '';
+    menu.PrintDescription = '';
   }
 
   MenuRepository.save(menu);
@@ -111,6 +119,28 @@ function reactivateMenu(menuId) {
   }
   existing.IsActive = true;
   MenuRepository.save(existing);
+}
+
+// 印刷メニュー設定（REQ-055）のみを更新する。商品名・価格・カテゴリー等の会計用フィールドには触れない
+function updateMenuPrintInfo(menuId, printInfo) {
+  var existing = findMenuById_(menuId);
+  if (!existing) {
+    throw new Error('対象の商品が見つかりません：' + menuId);
+  }
+  existing.IsOnPrintMenu = !!(printInfo && printInfo.IsOnPrintMenu);
+  existing.PrintDisplayName = ((printInfo && printInfo.PrintDisplayName) || '').trim();
+  existing.PrintDescription = ((printInfo && printInfo.PrintDescription) || '').trim();
+  MenuRepository.save(existing);
+}
+
+// 「卓上メニューに載せる」設定済み・販売中の商品だけを、商品一覧と同じカテゴリー・サブカテゴリー
+// 表示順のままテキストとして生成する（REQ-055）。整形ロジック自体はSpreadsheetに依存しないため
+// ドメイン層（PrintMenuTextBuilder）に委譲している
+function generatePrintMenuText() {
+  var targetMenus = MenuRepository.findAll().filter(function (m) {
+    return m.IsActive && m.IsOnPrintMenu;
+  });
+  return PrintMenuTextBuilder.build(targetMenus, CategoryRepository.findAll(), SubCategoryRepository.findAll());
 }
 
 function findMenuById_(menuId) {

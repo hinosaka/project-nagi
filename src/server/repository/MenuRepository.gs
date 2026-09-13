@@ -1,6 +1,6 @@
 // データアクセス層：Menuシートの読み書き
 var MenuRepository = {
-  HEADERS: ['MenuId', 'MenuName', 'Price', 'Cost', 'CategoryLarge', 'CategoryMedium', 'IsActive', 'SortOrder'],
+  HEADERS: ['MenuId', 'MenuName', 'Price', 'Cost', 'CategoryLarge', 'CategoryMedium', 'IsActive', 'SortOrder', 'IsOnPrintMenu', 'PrintDisplayName', 'PrintDescription'],
   CACHE_KEY_: 'repo:Menu:findAll',
 
   // 商品管理・会計処理（商品選択）の両方から短時間に何度もアクセスされるため、
