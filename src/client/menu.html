@@ -90,9 +90,21 @@
 
       /* ===== 商品追加／編集フォーム ===== */
       .hint { color: var(--ink-muted); font-size: 0.85em; margin-top: 4px; }
+      .hint-list { margin: 4px 0 var(--space-sm); padding-left: 1.2em; }
+      .hint-list li { margin-bottom: 2px; }
 
       /* ===== 印刷メニュー用テキスト（コピー用テキストエリア） ===== */
       #print-text-output { width: 100%; font: inherit; padding: 8px; border: 1px solid var(--border); border-radius: var(--radius-sm); resize: vertical; color: inherit; background: var(--surface); box-sizing: border-box; }
+
+      /* ===== 印刷メニュー設定モーダル ===== */
+      /* 対象メニュー名：色枠で囲んだシンプルな表記にする */
+      .print-info-target { border: 1px solid var(--ai); background: var(--ai-soft); color: var(--ai); border-radius: var(--radius-sm); padding: 6px 10px; font-size: 0.9em; margin: 0 0 var(--space-md); }
+      /* ラベルが長文のため、共通の.form-row（ラベル100px+横並び）は使わずラベルを上・入力欄を下に
+         積む。入力欄も閉じるボタンの幅に引きずられず、ポップアップの中身の横幅いっぱいまで広げる */
+      .print-info-box .form-row label { display: block; width: auto; margin-bottom: 4px; }
+      .print-info-box input[type="text"] { width: 100%; box-sizing: border-box; }
+      /* 括弧書きの注記：ラベル本文とは改行して、小さく控えめな色で表示する */
+      .hint-inline { display: block; font-weight: normal; color: var(--ink-muted); font-size: 0.85em; }
 
       /* ===== モーダル ===== */
       .modal-overlay { position: fixed; inset: 0; background: rgba(35, 38, 43, 0.4); display: none; align-items: center; justify-content: center; z-index: 50; }
@@ -207,15 +219,15 @@
     <!-- 印刷メニュー設定モーダル（REQ-055）。卓上メニューに載せるかどうかは商品一覧の
          スイッチ（販売中と同じ即時保存）で操作するため、ここでは表記名・説明文のみを扱う -->
     <div class="modal-overlay" id="modal-print-info">
-      <div class="modal-box">
+      <div class="modal-box print-info-box">
         <h3>印刷メニュー設定</h3>
-        <p class="hint" id="print-info-target-label"></p>
+        <p class="print-info-target" id="print-info-target-label"></p>
         <div class="form-row">
-          <label for="pi-display-name">印刷用の表記名（空欄なら商品名をそのまま使用）</label>
+          <label for="pi-display-name">印刷用表記<span class="hint-inline">（空欄なら商品名をそのまま使用）</span></label>
           <input type="text" id="pi-display-name">
         </div>
         <div class="form-row">
-          <label for="pi-description">一行説明・キャッチコピー（任意）</label>
+          <label for="pi-description">補足説明<span class="hint-inline">（任意）</span></label>
           <input type="text" id="pi-description">
         </div>
         <div class="modal-actions">
@@ -228,12 +240,15 @@
     <div class="modal-overlay" id="modal-print-text">
       <div class="modal-box product-form-box">
         <h3>印刷メニュー用テキスト</h3>
-        <p class="hint">「卓上メニューに載せる」に設定した商品だけを、現在の並び順のまままとめました。コピーして、メニューブック画像作成用のプロンプトの品目リスト部分に貼り付けてください。</p>
+        <ul class="hint hint-list">
+          <li>「卓上メニューに載せる」設定済みの商品を、現在の並び順のままテキスト化</li>
+          <li>メニューブック画像作成用プロンプトの品目リスト部分に、そのまま貼り付け可能</li>
+        </ul>
         <textarea id="print-text-output" readonly rows="14"></textarea>
         <p class="error" id="print-text-error"></p>
         <div class="modal-actions">
           <button type="button" onclick="closeModal('modal-print-text')">閉じる</button>
-          <button type="button" class="btn-primary" id="print-text-copy-btn" onclick="copyPrintText()">コピーする</button>
+          <button type="button" class="btn-primary" id="print-text-copy-btn" onclick="copyPrintText()"><svg class="icon"><use href="#icon-copy"></use></svg><span id="print-text-copy-label">コピー</span></button>
         </div>
       </div>
     </div>
@@ -1238,7 +1253,7 @@
         printInfoTargetMenu = menu;
         var isDraft = !!menu.__isDraft;
         var draft = isDraft ? {} : (productDraftEdits[menu.MenuId] || {});
-        document.getElementById('print-info-target-label').textContent = '「' + menu.MenuName + '」の設定';
+        document.getElementById('print-info-target-label').textContent = '対象メニュー：' + menu.MenuName;
         document.getElementById('pi-display-name').value = draft.PrintDisplayName !== undefined ? draft.PrintDisplayName : (menu.PrintDisplayName || '');
         document.getElementById('pi-description').value = draft.PrintDescription !== undefined ? draft.PrintDescription : (menu.PrintDescription || '');
         document.getElementById('modal-print-info').classList.add('show');
@@ -1282,9 +1297,9 @@
 
       function copyPrintText() {
         var textarea = document.getElementById('print-text-output');
-        var btn = document.getElementById('print-text-copy-btn');
-        var restoreLabel = function () { btn.textContent = 'コピーする'; };
-        var showCopied = function () { btn.textContent = 'コピーしました'; setTimeout(restoreLabel, 1500); };
+        var label = document.getElementById('print-text-copy-label');
+        var restoreLabel = function () { label.textContent = 'コピー'; };
+        var showCopied = function () { label.textContent = 'コピーしました'; setTimeout(restoreLabel, 1500); };
         if (navigator.clipboard && navigator.clipboard.writeText) {
           navigator.clipboard.writeText(textarea.value).then(showCopied, function () {
             textarea.select();
