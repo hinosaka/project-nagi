@@ -905,14 +905,19 @@
         });
       }
 
-      // 標準表示での販売中／販売終了の切替は即時保存するが、全データの再取得（loadAll）は行わず、
-      // 対象商品の状態をローカルで書き換えて一覧を再描画するだけにする（毎回の読み込み処理を避けるため）
+      // 標準表示での販売中／販売終了の切替は即時保存する。全データの再取得（loadAll）は行わないのに加え、
+      // 一覧全体の再描画（renderProductList）もしない：保存完了のたびに全行を作り直すと、まだ保存中の
+      // 他の行まで巻き込んで表示が元に戻ってしまう（複数商品を連続で切り替えたときに、最初の1件しか
+      // 反映されないように見えるバグの原因だった）。allMenusは更新しつつ、DOM上はこの行のステータス
+      // 表示だけをピンポイントで書き換えることで、他の行の保存中の状態に影響しないようにする
       function toggleMenuActive(menuId, checked, checkboxEl) {
         var runner = google.script.run
           .withSuccessHandler(function () {
             var menu = allMenus.filter(function (m) { return m.MenuId === menuId; })[0];
             if (menu) { menu.IsActive = checked; }
-            renderProductList();
+            var statusText = checkboxEl.closest('.status-wrap').querySelector('.status-text');
+            statusText.textContent = checked ? '販売中' : '販売終了';
+            statusText.classList.toggle('on', checked);
           })
           .withFailureHandler(function (error) {
             checkboxEl.checked = !checked;
@@ -925,15 +930,17 @@
         }
       }
 
-      // 標準表示での卓上メニューON/OFFの切替は販売中と同じ立て付け：即時保存するが、
-      // 全データの再取得（loadAll）は行わない。印刷用の表記名・説明文（setMenuOnPrintMenuとは別のupdateMenuPrintText）
-      // には触れないので、こちらの切替がそちらの下書きを上書きすることはない
+      // 標準表示での卓上メニューON/OFFの切替も販売中と同じ立て付け（理由はtoggleMenuActive参照）。
+      // 印刷用の表記名・説明文（setMenuOnPrintMenuとは別のupdateMenuPrintText）には触れないので、
+      // こちらの切替がそちらの下書きを上書きすることはない
       function togglePrintFlag(menuId, checked, checkboxEl) {
         google.script.run
           .withSuccessHandler(function () {
             var menu = allMenus.filter(function (m) { return m.MenuId === menuId; })[0];
             if (menu) { menu.IsOnPrintMenu = checked; }
-            renderProductList();
+            var onPrintText = checkboxEl.closest('.status-wrap').querySelector('.onprint-text');
+            onPrintText.textContent = checked ? '掲載中' : '未掲載';
+            onPrintText.classList.toggle('on', checked);
           })
           .withFailureHandler(function (error) {
             checkboxEl.checked = !checked;
