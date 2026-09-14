@@ -95,6 +95,10 @@
 
       /* ===== 印刷メニュー用テキスト（コピー用テキストエリア） ===== */
       #print-text-output { width: 100%; font: inherit; padding: 8px; border: 1px solid var(--border); border-radius: var(--radius-sm); resize: vertical; color: inherit; background: var(--surface); box-sizing: border-box; }
+      /* コピー後のステータス（「コピーしました」）：空のときは何も表示せず余白も取らない。
+         中身がある時だけ背景色つきのラベルとして表示する */
+      .copy-status { margin: 0; font-size: 0.85em; }
+      .copy-status:not(:empty) { display: inline-block; background: var(--good-soft); color: var(--good); border-radius: var(--radius-sm); padding: 4px 10px; margin-top: var(--space-sm); }
 
       /* ===== 印刷メニュー設定モーダル ===== */
       /* 選択中の商品名：枠線は入力欄のフォーカスと紛らわしいため付けず、背景の淡い色のみで示す */
@@ -207,6 +211,14 @@
             <label for="pf-cost">原価</label>
             <input type="number" id="pf-cost" min="0" inputmode="numeric">
           </div>
+          <div class="form-row">
+            <label for="pf-print-display-name">印刷用表記</label>
+            <input type="text" id="pf-print-display-name" placeholder="空欄なら商品名を使用">
+          </div>
+          <div class="form-row">
+            <label for="pf-print-description">補足説明</label>
+            <input type="text" id="pf-print-description" placeholder="任意">
+          </div>
           <p id="product-form-error" class="error"></p>
           <div class="modal-actions">
             <button type="button" onclick="closeModal('modal-product-form')">閉じる</button>
@@ -251,7 +263,7 @@
           <div class="loading-overlay"><div class="loading-overlay-pill"><span class="loading-spinner"></span><span>読み込み中...</span></div></div>
         </div>
         <p class="error" id="print-text-error"></p>
-        <p class="hint" id="print-text-copy-status"></p>
+        <p class="copy-status" id="print-text-copy-status"></p>
         <div class="modal-actions">
           <button type="button" onclick="closeModal('modal-print-text')">閉じる</button>
           <button type="button" class="btn-primary" id="print-text-copy-btn" onclick="copyPrintText()"><svg class="icon"><use href="#icon-copy"></use></svg><span id="print-text-copy-label">コピー</span></button>
@@ -1402,6 +1414,8 @@
         document.getElementById('pf-name').value = '';
         document.getElementById('pf-price').value = '';
         document.getElementById('pf-cost').value = '';
+        document.getElementById('pf-print-display-name').value = '';
+        document.getElementById('pf-print-description').value = '';
         document.getElementById('modal-product-form').classList.add('show');
       }
 
@@ -1417,6 +1431,8 @@
           CategoryLarge: document.getElementById('pf-category').value,
           CategoryMedium: document.getElementById('pf-subcategory').value
         };
+        var printDisplayName = document.getElementById('pf-print-display-name').value.trim();
+        var printDescription = document.getElementById('pf-print-description').value.trim();
 
         // 編集モード中は、ここではサーバーへ作成せずローカルの下書きとして一覧にすぐ反映し、
         // 実際の作成は「編集結果を保存」を押した時点でまとめて行う
@@ -1430,6 +1446,8 @@
             CategoryMedium: menuInput.CategoryMedium,
             IsActive: true,
             SortOrder: 999999,
+            PrintDisplayName: printDisplayName,
+            PrintDescription: printDescription,
             __isDraft: true
           });
           closeModal('modal-product-form');
@@ -1438,9 +1456,28 @@
         }
 
         google.script.run
-          .withSuccessHandler(function () {
-            closeModal('modal-product-form');
-            loadAll();
+          .withSuccessHandler(function (realId) {
+            // 印刷用表記・補足説明はsaveMenuの対象外のフィールド（常に未設定で作成される）のため、
+            // 入力があれば作成後にsaveMenuBatchで追いかけて反映する
+            if (!printDisplayName && !printDescription) {
+              closeModal('modal-product-form');
+              loadAll();
+              return;
+            }
+            var printPatch = { menuId: realId };
+            if (printDisplayName) { printPatch.printDisplayName = printDisplayName; }
+            if (printDescription) { printPatch.printDescription = printDescription; }
+            google.script.run
+              .withSuccessHandler(function () {
+                closeModal('modal-product-form');
+                loadAll();
+              })
+              .withFailureHandler(function (error) {
+                closeModal('modal-product-form');
+                setLoadError('load-error', '印刷用表記・補足説明の保存に失敗しました：' + error.message);
+                loadAll();
+              })
+              .saveMenuBatch([printPatch]);
           })
           .withFailureHandler(function (error) {
             document.getElementById('product-form-error').textContent = error.message;
