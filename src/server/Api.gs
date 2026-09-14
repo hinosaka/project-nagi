@@ -31,8 +31,8 @@ var API_ALLOWED_ACTIONS_ = [
   'saveBudgetTarget', 'saveBudgetTargetsForYear',
   'saveBusinessDayWeather', 'saveBusinessDayWeatherAndGetData', 'saveCustomerDetail', 'saveDailyTargetsForMonth',
   'saveExpenseCategoryEdits', 'saveExpenseEntry',
-  'saveMenu', 'saveSalesEntry', 'saveStartingCash', 'setMenuOnPrintMenu',
-  'toggleSeatActive', 'updateMenuPrintText'
+  'saveMenu', 'saveMenuBatch', 'saveSalesEntry', 'saveStartingCash', 'setMenuOnPrintMenu',
+  'toggleSeatActive'
 ];
 
 // Apps Scriptエディタから手動で一度だけ実行し、ログイン用パスワードを設定する

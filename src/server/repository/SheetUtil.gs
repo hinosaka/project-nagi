@@ -42,6 +42,35 @@ var SheetUtil = {
     }
   },
 
+  // upsertByRowの複数件版。1回のgetDataRange読み込みで全行のID→行位置を解決し、既存行の更新は
+  // 対象範囲全体を1回のsetValuesでまとめて書き戻す（変更のない行もその場の値のまま書き戻すだけなので
+  // 実害はない）。1件ずつupsertByRowを呼ぶ場合に比べ、保存件数が多いほどAPI呼び出し回数を大きく
+  // 減らせる（複数商品をまとめて保存する画面で、件数分の読み込み・書き込みが体感の重さや、GAS側の
+  // 一過性の応答エラーの原因になっていたための対策）
+  upsertManyByRow: function (sheet, headers, idColumnName, items) {
+    var values = sheet.getDataRange().getValues();
+    var idColumnIndex = headers.indexOf(idColumnName);
+    var rowIndexByValue = {};
+    for (var i = 1; i < values.length; i++) {
+      rowIndexByValue[values[i][idColumnIndex]] = i;
+    }
+    var self = this;
+    var newRows = [];
+    items.forEach(function (obj) {
+      var row = self.objectToRow(headers, obj);
+      var rowIndex = rowIndexByValue[obj[idColumnName]];
+      if (rowIndex !== undefined) {
+        values[rowIndex] = row;
+      } else {
+        newRows.push(row);
+      }
+    });
+    if (values.length > 1) {
+      sheet.getRange(1, 1, values.length, headers.length).setValues(values);
+    }
+    newRows.forEach(function (row) { sheet.appendRow(row); });
+  },
+
   // 指定列の値が一致する行を全て物理削除する（Sales/SalesDetailなど実削除を許可するデータ用）
   deleteRowsByColumnValue: function (sheet, columnName, value) {
     var values = sheet.getDataRange().getValues();

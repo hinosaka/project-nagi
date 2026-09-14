@@ -75,6 +75,70 @@ function nextMenuSortOrder_(allMenus, categoryLarge, categoryMedium) {
   return maxOrder + 1;
 }
 
+// 複数商品の変更を1回のシート読み込み・1回の書き込みでまとめて保存する（REQ-055のパフォーマンス
+// 改善）。商品編集モード・印刷メニュー編集モードで複数件をまとめて保存する際、1件ずつsaveMenu等の
+// 個別関数を呼ぶと件数分のGAS呼び出し・シート読み込みが発生し、体感の重さや一過性の応答エラーの
+// 原因になっていたため追加した。新規商品の作成・並び替えはこの対象外（既存の別経路のまま）
+//
+// patches: [{ menuId, menuName?, price?, cost?, isActive?, isOnPrintMenu?, printDisplayName?, printDescription? }]
+// 各フィールドは値がある項目だけ更新し、含まれないフィールドは既存値をそのまま維持する
+// （saveMenu/reactivateMenu/deactivateMenu/setMenuOnPrintMenu/updateMenuPrintTextの、各関数が担当
+// するフィールドだけを更新するという設計をそのまま踏襲している）
+function saveMenuBatch(patches) {
+  var allMenus = MenuRepository.findAll();
+  var byId = {};
+  allMenus.forEach(function (m) { byId[m.MenuId] = m; });
+
+  var targets = patches.map(function (patch) {
+    var menu = byId[patch.menuId];
+    if (!menu) {
+      throw new Error('対象の商品が見つかりません：' + patch.menuId);
+    }
+
+    if (patch.menuName !== undefined) {
+      var trimmedName = (patch.menuName || '').trim();
+      if (!trimmedName) {
+        throw new Error('商品名は必須です');
+      }
+      var isDuplicateName = allMenus.some(function (m) {
+        return m.MenuName === trimmedName && m.MenuId !== menu.MenuId;
+      });
+      if (isDuplicateName) {
+        throw new Error('同じ商品名の商品が既に登録されています：' + trimmedName);
+      }
+      menu.MenuName = trimmedName;
+    }
+    if (patch.price !== undefined) {
+      if (patch.price === '' || patch.price === null || isNaN(patch.price) || Number(patch.price) < 0) {
+        throw new Error('価格は0以上の数値で入力してください');
+      }
+      menu.Price = Number(patch.price);
+    }
+    if (patch.cost !== undefined) {
+      var hasCost = !(patch.cost === '' || patch.cost === null);
+      if (hasCost && (isNaN(patch.cost) || Number(patch.cost) < 0)) {
+        throw new Error('原価は0以上の数値で入力してください');
+      }
+      menu.Cost = hasCost ? Number(patch.cost) : 0;
+    }
+    if (patch.isActive !== undefined) {
+      menu.IsActive = !!patch.isActive;
+    }
+    if (patch.isOnPrintMenu !== undefined) {
+      menu.IsOnPrintMenu = !!patch.isOnPrintMenu;
+    }
+    if (patch.printDisplayName !== undefined) {
+      menu.PrintDisplayName = (patch.printDisplayName || '').trim();
+    }
+    if (patch.printDescription !== undefined) {
+      menu.PrintDescription = (patch.printDescription || '').trim();
+    }
+    return menu;
+  });
+
+  MenuRepository.saveMany(targets);
+}
+
 // 商品一覧のドラッグ並び替え。同じ大分類・中分類グループ内でのSortOrderを、渡された順序で1からの連番に振り直す
 function reorderMenus(categoryLarge, categoryMedium, orderedMenuIds) {
   var byId = {};
@@ -122,25 +186,14 @@ function reactivateMenu(menuId) {
 }
 
 // 「卓上メニューに載せる」のON/OFFのみを更新する（REQ-055）。販売中／販売終了（reactivateMenu/
-// deactivateMenu）と同じ立て付けの専用関数とし、印刷用の表記名・説明文（updateMenuPrintText）には触れない
+// deactivateMenu）と同じ立て付けの専用関数とし、印刷用の表記名・説明文（saveMenuBatch経由）には触れない。
+// 通常表示での即時トグル用。複数件まとめて保存する場合はsaveMenuBatchを使う
 function setMenuOnPrintMenu(menuId, isOnPrintMenu) {
   var existing = findMenuById_(menuId);
   if (!existing) {
     throw new Error('対象の商品が見つかりません：' + menuId);
   }
   existing.IsOnPrintMenu = !!isOnPrintMenu;
-  MenuRepository.save(existing);
-}
-
-// 印刷用の表記名・説明文（REQ-055）のみを更新する。商品名・価格・カテゴリー等の会計用フィールドや
-// 「卓上メニューに載せる」ON/OFF（setMenuOnPrintMenu経由のみ）には触れない
-function updateMenuPrintText(menuId, printText) {
-  var existing = findMenuById_(menuId);
-  if (!existing) {
-    throw new Error('対象の商品が見つかりません：' + menuId);
-  }
-  existing.PrintDisplayName = ((printText && printText.PrintDisplayName) || '').trim();
-  existing.PrintDescription = ((printText && printText.PrintDescription) || '').trim();
   MenuRepository.save(existing);
 }
 

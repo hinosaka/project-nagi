@@ -23,6 +23,14 @@ var MenuRepository = {
     RepositoryCache.invalidate(this.CACHE_KEY_);
   },
 
+  // 複数商品をまとめて保存する（REQ-055のバッチ保存用）。1件ずつsave()を呼ぶより
+  // シート読み込み・書き込みの回数を大きく減らせる（SheetUtil.upsertManyByRow参照）
+  saveMany: function (menus) {
+    var sheet = SpreadsheetConfig.getSheet('Menu');
+    SheetUtil.upsertManyByRow(sheet, this.HEADERS, 'MenuId', menus);
+    RepositoryCache.invalidate(this.CACHE_KEY_);
+  },
+
   deleteById: function (menuId) {
     var sheet = SpreadsheetConfig.getSheet('Menu');
     SheetUtil.deleteRowsByColumnValue(sheet, 'MenuId', menuId);

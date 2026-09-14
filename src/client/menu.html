@@ -329,12 +329,15 @@
         return allMenus.concat(pendingNewProducts);
       }
 
-      // tasksを並行実行し、全て完了（成功・失敗問わず）したらonAllDoneを呼ぶ
+      // tasksを並行実行し、全て完了（成功・失敗問わず）したらonAllDoneを呼ぶ。呼び出し元は必ず
+      // onAllDoneの中でloadAll()して一覧を再取得すること（エラー時の文言もそれを前提にしている。
+      // GAS側の処理自体は完了していても、応答の受信だけ一過性の理由で失敗することがあり、その場合
+      // 保存は実際には成功していることが多いため）
       function runParallel_(tasks, onAllDone) {
         if (tasks.length === 0) { onAllDone(); return; }
         var remaining = tasks.length;
         function finishOne(error) {
-          if (error) { setLoadError('load-error', '保存に失敗しました：' + error.message); }
+          if (error) { setLoadError('load-error', '保存の確認中にエラーが発生しました（' + error.message + '）。保存自体は完了している可能性があります。最新の状態を再取得します'); }
           remaining--;
           if (remaining === 0) { onAllDone(); }
         }
@@ -515,36 +518,39 @@
         renderTabs();
       }
 
-      function saveProductEdit(onDone) {
-        var menuIds = Object.keys(productDraftEdits);
-        var tasks = [];
-        menuIds.forEach(function (menuId) {
+      // 既存商品の変更（商品名・価格・原価・販売中／販売終了・卓上メニューON/OFF）は、1件ずつ
+      // 個別関数を呼ぶ代わりに、全件まとめてsaveMenuBatchに渡す（1回のサーバー呼び出しで済ませる）。
+      // 1件ずつ呼ぶと件数分のGAS呼び出し・シート読み込みが発生し、保存件数が多いときの重さや、
+      // GAS側の一過性の応答エラーの原因になっていたための対策
+      function buildProductPatches_() {
+        var patches = [];
+        Object.keys(productDraftEdits).forEach(function (menuId) {
           var menu = allMenus.filter(function (m) { return m.MenuId === menuId; })[0];
           if (!menu) { return; }
           var draft = productDraftEdits[menuId];
+          var patch = { menuId: menuId };
+          var hasChange = false;
           if (draft.MenuName !== undefined || draft.Price !== undefined || draft.Cost !== undefined) {
-            tasks.push({
-              action: 'saveMenu',
-              args: [{
-                MenuId: menuId,
-                MenuName: draft.MenuName !== undefined ? draft.MenuName : menu.MenuName,
-                Price: draft.Price !== undefined ? draft.Price : menu.Price,
-                Cost: draft.Cost !== undefined ? draft.Cost : menu.Cost,
-                CategoryLarge: menu.CategoryLarge,
-                CategoryMedium: menu.CategoryMedium
-              }]
-            });
+            patch.menuName = draft.MenuName !== undefined ? draft.MenuName : menu.MenuName;
+            patch.price = draft.Price !== undefined ? draft.Price : menu.Price;
+            patch.cost = draft.Cost !== undefined ? draft.Cost : menu.Cost;
+            hasChange = true;
           }
-          // 販売中／販売終了はsaveMenuとは別の専用関数（reactivateMenu/deactivateMenu）で保存する
           if (draft.IsActive !== undefined && draft.IsActive !== menu.IsActive) {
-            tasks.push({ action: draft.IsActive ? 'reactivateMenu' : 'deactivateMenu', args: [menuId] });
+            patch.isActive = draft.IsActive;
+            hasChange = true;
           }
-          // 卓上メニューON/OFFも同様に専用関数（setMenuOnPrintMenu）で保存する。表記名・説明文には触れない
           if (draft.IsOnPrintMenu !== undefined && draft.IsOnPrintMenu !== menu.IsOnPrintMenu) {
-            tasks.push({ action: 'setMenuOnPrintMenu', args: [menuId, draft.IsOnPrintMenu] });
+            patch.isOnPrintMenu = draft.IsOnPrintMenu;
+            hasChange = true;
           }
+          if (hasChange) { patches.push(patch); }
         });
+        return patches;
+      }
 
+      function saveProductEdit(onDone) {
+        var patches = buildProductPatches_();
         var newProducts = pendingNewProducts.slice();
 
         function finish() {
@@ -554,7 +560,7 @@
           pendingNewProducts = [];
         }
 
-        if (tasks.length === 0 && newProducts.length === 0 && Object.keys(pendingProductGroups).length === 0) {
+        if (patches.length === 0 && newProducts.length === 0 && Object.keys(pendingProductGroups).length === 0) {
           finish();
           renderTabs();
           if (onDone) { onDone(); }
@@ -571,9 +577,9 @@
             .withSuccessHandler(function (realId) {
               tempIdMap[draftMenu.MenuId] = realId;
               // saveMenuは新規商品のIsOnPrintMenuを常にfalseで作るため、編集モード中に
-              // 卓上メニューONにされていた場合は作成後にsetMenuOnPrintMenuで追いかけて反映する
+              // 卓上メニューONにされていた場合は作成後にpatchesへ追加して反映する
               if (draftMenu.IsOnPrintMenu) {
-                tasks.push({ action: 'setMenuOnPrintMenu', args: [realId, true] });
+                patches.push({ menuId: realId, isOnPrintMenu: true });
               }
               next();
             })
@@ -590,11 +596,18 @@
               CategoryMedium: draftMenu.CategoryMedium
             });
         }, function () {
+          var tasks = [];
           Object.keys(pendingProductGroups).forEach(function (key) {
             var pending = pendingProductGroups[key];
             var orderedIds = pending.orderedIds.map(function (id) { return tempIdMap[id] || id; });
             tasks.push({ action: 'reorderMenus', args: [pending.categoryLarge, pending.categoryMedium, orderedIds] });
           });
+          // reorderMenusは対象行のSortOrderをその場で保存するため、saveMenuBatchより先に完了させる
+          // （タブ内の呼び出しは常に1本ずつ順番に送られるため、tasks内の並び順がそのまま実行順になる。
+          // web/src/api-client.js参照）。そうしないとsaveMenuBatchが古いSortOrderを読み直してしまう
+          if (patches.length > 0) {
+            tasks.push({ action: 'saveMenuBatch', args: [patches] });
+          }
           runParallel_(tasks, function () {
             setLoading(false);
             finish();
@@ -931,7 +944,7 @@
       }
 
       // 標準表示での卓上メニューON/OFFの切替も販売中と同じ立て付け（理由はtoggleMenuActive参照）。
-      // 印刷用の表記名・説明文（setMenuOnPrintMenuとは別のupdateMenuPrintText）には触れないので、
+      // setMenuOnPrintMenuは印刷用の表記名・説明文（saveMenuBatch経由）には触れないので、
       // こちらの切替がそちらの下書きを上書きすることはない
       function togglePrintFlag(menuId, checked, checkboxEl) {
         google.script.run
@@ -1263,11 +1276,18 @@
           return;
         }
 
-        var tasks = menuIds.map(function (menuId) {
-          return { action: 'updateMenuPrintText', args: [menuId, printDraftEdits[menuId]] };
+        // 表記名・説明文も、1件ずつupdateMenuPrintTextを呼ぶ代わりにsaveMenuBatchへまとめて渡す
+        // （理由はbuildProductPatches_のコメント参照）
+        var patches = menuIds.map(function (menuId) {
+          var draft = printDraftEdits[menuId];
+          return {
+            menuId: menuId,
+            printDisplayName: draft.PrintDisplayName,
+            printDescription: draft.PrintDescription
+          };
         });
         setLoading(true);
-        runParallel_(tasks, function () {
+        runParallel_([{ action: 'saveMenuBatch', args: [patches] }], function () {
           setLoading(false);
           finish();
           loadAll(onDone);
