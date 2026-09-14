@@ -97,14 +97,14 @@
       #print-text-output { width: 100%; font: inherit; padding: 8px; border: 1px solid var(--border); border-radius: var(--radius-sm); resize: vertical; color: inherit; background: var(--surface); box-sizing: border-box; }
 
       /* ===== 印刷メニュー設定モーダル ===== */
-      /* 対象メニュー名：色枠で囲んだシンプルな表記にする */
-      .print-info-target { border: 1px solid var(--ai); background: var(--ai-soft); color: var(--ai); border-radius: var(--radius-sm); padding: 6px 10px; font-size: 0.9em; margin: 0 0 var(--space-md); }
+      /* 選択中の商品名：枠線は入力欄のフォーカスと紛らわしいため付けず、背景の淡い色のみで示す */
+      .print-info-target { background: var(--ai-soft); color: var(--ai); border-radius: var(--radius-sm); padding: 6px 10px; font-size: 0.9em; margin: 0 0 var(--space-md); }
       /* ラベルが長文のため、共通の.form-row（ラベル100px+横並び）は使わずラベルを上・入力欄を下に
          積む。入力欄も閉じるボタンの幅に引きずられず、ポップアップの中身の横幅いっぱいまで広げる */
       .print-info-box .form-row label { display: block; width: auto; margin-bottom: 4px; }
       .print-info-box input[type="text"] { width: 100%; box-sizing: border-box; }
-      /* 括弧書きの注記：ラベル本文とは改行して、小さく控えめな色で表示する */
-      .hint-inline { display: block; font-weight: normal; color: var(--ink-muted); font-size: 0.85em; }
+      /* 括弧書きの注記：ラベル本文とは改行し、青文字（アクセントカラー）で表示する */
+      .hint-inline { display: block; font-weight: normal; color: var(--ai); font-size: 0.85em; }
 
       /* ===== モーダル ===== */
       .modal-overlay { position: fixed; inset: 0; background: rgba(35, 38, 43, 0.4); display: none; align-items: center; justify-content: center; z-index: 50; }
@@ -241,11 +241,17 @@
       <div class="modal-box product-form-box">
         <h3>印刷メニュー用テキスト</h3>
         <ul class="hint hint-list">
-          <li>「卓上メニューに載せる」設定済みの商品を、現在の並び順のままテキスト化</li>
-          <li>メニューブック画像作成用プロンプトの品目リスト部分に、そのまま貼り付け可能</li>
+          <li>卓上メニュー対象商品を、現在の並び順のままテキスト化</li>
+          <li>画像生成用プロンプトにそのまま貼り付け可能</li>
         </ul>
-        <textarea id="print-text-output" readonly rows="14"></textarea>
+        <div class="loading-wrap" id="print-text-loading-wrap">
+          <div class="loading-target">
+            <textarea id="print-text-output" readonly rows="14"></textarea>
+          </div>
+          <div class="loading-overlay"><div class="loading-overlay-pill"><span class="loading-spinner"></span><span>読み込み中...</span></div></div>
+        </div>
         <p class="error" id="print-text-error"></p>
+        <p class="hint" id="print-text-copy-status"></p>
         <div class="modal-actions">
           <button type="button" onclick="closeModal('modal-print-text')">閉じる</button>
           <button type="button" class="btn-primary" id="print-text-copy-btn" onclick="copyPrintText()"><svg class="icon"><use href="#icon-copy"></use></svg><span id="print-text-copy-label">コピー</span></button>
@@ -1253,7 +1259,7 @@
         printInfoTargetMenu = menu;
         var isDraft = !!menu.__isDraft;
         var draft = isDraft ? {} : (productDraftEdits[menu.MenuId] || {});
-        document.getElementById('print-info-target-label').textContent = '対象メニュー：' + menu.MenuName;
+        document.getElementById('print-info-target-label').textContent = '選択中の商品：' + menu.MenuName;
         document.getElementById('pi-display-name').value = draft.PrintDisplayName !== undefined ? draft.PrintDisplayName : (menu.PrintDisplayName || '');
         document.getElementById('pi-description').value = draft.PrintDescription !== undefined ? draft.PrintDescription : (menu.PrintDescription || '');
         document.getElementById('modal-print-info').classList.add('show');
@@ -1281,25 +1287,30 @@
       });
 
       function openPrintTextModal() {
-        document.getElementById('print-text-output').value = '読み込み中...';
+        document.getElementById('print-text-output').value = '';
         document.getElementById('print-text-error').textContent = '';
+        document.getElementById('print-text-copy-status').textContent = '';
+        document.getElementById('print-text-loading-wrap').classList.add('is-loading');
         document.getElementById('modal-print-text').classList.add('show');
         google.script.run
           .withSuccessHandler(function (text) {
-            document.getElementById('print-text-output').value = text || '「卓上メニューに載せる」を設定した商品がまだありません';
+            document.getElementById('print-text-loading-wrap').classList.remove('is-loading');
+            document.getElementById('print-text-output').value = text || '卓上メニュー対象の商品がまだありません';
           })
           .withFailureHandler(function (error) {
+            document.getElementById('print-text-loading-wrap').classList.remove('is-loading');
             document.getElementById('print-text-output').value = '';
             document.getElementById('print-text-error').textContent = '生成に失敗しました：' + error.message;
           })
           .generatePrintMenuText();
       }
 
+      // コピー後のステータスは、ボタンの表示を書き換えるのではなくポップアップ内の専用箇所
+      // （print-text-copy-status）に残す。ボタン側の「コピー」表記は常に固定のまま
       function copyPrintText() {
         var textarea = document.getElementById('print-text-output');
-        var label = document.getElementById('print-text-copy-label');
-        var restoreLabel = function () { label.textContent = 'コピー'; };
-        var showCopied = function () { label.textContent = 'コピーしました'; setTimeout(restoreLabel, 1500); };
+        var status = document.getElementById('print-text-copy-status');
+        var showCopied = function () { status.textContent = 'コピーしました'; };
         if (navigator.clipboard && navigator.clipboard.writeText) {
           navigator.clipboard.writeText(textarea.value).then(showCopied, function () {
             textarea.select();

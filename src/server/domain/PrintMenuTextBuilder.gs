@@ -1,5 +1,11 @@
 // ドメイン層：印刷メニュー用テキストの組み立て（Spreadsheetに依存しない純粋ロジック、REQ-055）
 var PrintMenuTextBuilder = {
+  // 生成したテキストは、店主がChatGPT等の画像生成プロンプトにそのまま貼り付ける想定。
+  // 【】=大分類・◆=中分類・「 - 」以降=一言説明という表記ルールをこちらで決めて出力しているだけで、
+  // 貼り付け先のプロンプト側はこの記法を知らないため、AIが表記の意味を取り違えない（一言説明を
+  // 商品名の一部と誤読する等）よう、テキスト冒頭に凡例を必ず付ける
+  INTRO_: '以下は卓上メニューの品目リストです。【】は大分類、◆は中分類、各行は「商品名　価格円」の形式で、末尾に半角ハイフンで一言説明が付く場合があります（例：生ビール　580円 - よく冷えてます）。商品名・価格は正確に反映し、一言説明は商品の横に簡潔に載せてください。',
+
   // menus: IsActive && IsOnPrintMenu で絞り込み済みのMenu配列
   // categories: CategoryRepository.findAll()の結果（表示順＝シート登録順）
   // subCategories: SubCategoryRepository.findAll()の結果（大分類ごとにSortOrderで整列する）
@@ -46,7 +52,12 @@ var PrintMenuTextBuilder = {
       blocks.push(lines.join('\n'));
     }, this);
 
-    return blocks.join('\n\n');
+    // 対象商品が1件も無い場合は空文字のまま返す（呼び出し元・画面側が「まだ商品がありません」の
+    // 案内を出す判定に使っているため、凡例だけの空虚なテキストを返さないようにする）
+    if (blocks.length === 0) {
+      return '';
+    }
+    return this.INTRO_ + '\n\n' + blocks.join('\n\n');
   },
 
   formatLine_: function (menu) {
