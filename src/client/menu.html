@@ -23,16 +23,30 @@
       .col-drag { width: 2.6em; }
       .col-name { width: auto; }
       .col-price, .col-cost { width: 6em; }
-      .col-status { width: 7.2em; }
+      .col-status { width: 3.6em; }
       .col-delete, .col-print { width: 3em; }
       /* 数値入力のスピナー矢印を非表示にして、その分数字の表示幅を確保する */
       .num-input::-webkit-outer-spin-button, .num-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
       .num-input { -moz-appearance: textfield; }
       .reorder-static, .cell-input { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       .group-header td { color: var(--ink-muted); font-weight: 700; font-size: 0.88em; background: var(--paper); }
-      .status-wrap { display: flex; align-items: center; gap: 6px; justify-content: flex-end; }
-      .status-text { font-size: 0.78em; color: var(--ink-muted); width: 3.4em; text-align: right; }
-      .status-text.on { color: var(--good); }
+      /* 販売中・卓上メニューのステータスは列見出しで分かるため、行側はスイッチのみ表示する（商品名が
+         スマホ幅で潰れないよう、行あたりの表示幅を切り詰めるため） */
+      .status-wrap { display: flex; justify-content: flex-end; }
+
+      /* ===== スマホ幅：列を切り詰めて商品名の表示幅を確保する ===== */
+      @media (max-width: 720px) {
+        #product-table { font-size: 0.85em; }
+        #product-table th, #product-table td { padding: 6px 4px; }
+        .col-price, .col-cost { width: 4em; }
+        .col-status { width: 3.4em; }
+        .col-drag, .col-print, .col-delete { width: 2em; }
+        /* 編集モードは列数が多く（ドラッグ・印刷・削除アイコン込みで8列）、幅を切り詰めても
+           商品名の表示幅を確保しきれない。画面幅に収めることは諦めてtable-scrollの横スクロールに
+           委ね、代わりに商品名列に最低限の表示幅を保証する（table-layout:fixedはwidthとmin-widthの
+           大きい方を採用するため、指定した最低幅を下回って潰れることはなくなる） */
+        #product-table.is-edit-mode { min-width: 400px; }
+      }
 
       /* ===== 表内での商品名・価格・原価の直接編集 ===== */
       .cell-input { width: 100%; border: 1px solid transparent; background: none; color: inherit; font: inherit; padding: 3px 4px; border-radius: var(--radius-sm); }
@@ -658,6 +672,7 @@
 
       function renderProductTableHead(colCount) {
         var table = document.getElementById('product-table');
+        table.classList.toggle('is-edit-mode', productEditMode);
         var oldColgroup = table.querySelector('colgroup');
         if (oldColgroup) { oldColgroup.remove(); }
         var oldThead = table.querySelector('thead');
@@ -801,8 +816,7 @@
         var displayActive = draft.IsActive !== undefined ? draft.IsActive : menu.IsActive;
         // 卓上メニューON/OFFは販売中と同じ立て付け（通常表示・商品編集モードどちらでも即時／下書き経由で操作可能）
         var displayOnPrintMenu = draft.IsOnPrintMenu !== undefined ? draft.IsOnPrintMenu : !!menu.IsOnPrintMenu;
-        var onPrintCellHtml = '<td><div class="status-wrap"><span class="status-text onprint-text' + (displayOnPrintMenu ? ' on' : '') + '">' +
-          (displayOnPrintMenu ? '掲載中' : '未掲載') + '</span>' +
+        var onPrintCellHtml = '<td><div class="status-wrap">' +
           '<label class="switch"><input type="checkbox" class="onprint-checkbox" ' + (displayOnPrintMenu ? 'checked' : '') + '><span class="switch-slider"></span></label></div></td>';
 
         if (productEditMode) {
@@ -812,7 +826,7 @@
             '<td><input type="text" class="cell-input" data-field="MenuName" value="' + escapeHtml(displayName) + '"></td>' +
             '<td class="num"><input type="number" min="0" step="10" inputmode="numeric" class="cell-input num-input" data-field="Price" value="' + Number(displayPrice || 0) + '"></td>' +
             '<td class="num"><input type="number" min="0" inputmode="numeric" class="cell-input num-input" data-field="Cost" value="' + Number(displayCost || 0) + '"></td>' +
-            '<td><div class="status-wrap"><span class="status-text' + (displayActive ? ' on' : '') + '">' + (displayActive ? '販売中' : '販売終了') + '</span>' +
+            '<td><div class="status-wrap">' +
             '<label class="switch"><input type="checkbox" ' + (displayActive ? 'checked' : '') + '><span class="switch-slider"></span></label></div></td>' +
             onPrintCellHtml +
             '<td><button type="button" class="icon-btn print-flag-btn" title="印刷用の表記名・説明文を設定"><svg class="icon"><use href="#icon-printer"></use></svg></button></td>' +
@@ -837,9 +851,6 @@
               productDraftEdits[menu.MenuId] = productDraftEdits[menu.MenuId] || {};
               productDraftEdits[menu.MenuId].IsActive = this.checked;
             }
-            var statusText = row.querySelector('.status-text');
-            statusText.textContent = this.checked ? '販売中' : '販売終了';
-            statusText.classList.toggle('on', this.checked);
           });
           // 卓上メニューON/OFFも販売中と同じく下書きにとどめ、保存時にまとめて反映する
           var onPrintCheckbox = row.querySelector('.onprint-checkbox');
@@ -850,9 +861,6 @@
               productDraftEdits[menu.MenuId] = productDraftEdits[menu.MenuId] || {};
               productDraftEdits[menu.MenuId].IsOnPrintMenu = this.checked;
             }
-            var onPrintText = row.querySelector('.onprint-text');
-            onPrintText.textContent = this.checked ? '掲載中' : '未掲載';
-            onPrintText.classList.toggle('on', this.checked);
           });
           row.querySelector('.print-flag-btn').addEventListener('click', function () { openPrintInfoModal(menu); });
           row.querySelector('.row-delete-btn').addEventListener('click', function () {
@@ -871,7 +879,7 @@
             '<td><span class="reorder-static">' + escapeHtml(displayName) + '</span></td>' +
             '<td class="num"><span class="reorder-static num">¥' + Number(displayPrice || 0).toLocaleString() + '</span></td>' +
             '<td class="num"><span class="reorder-static num">¥' + Number(displayCost || 0).toLocaleString() + '</span></td>' +
-            '<td><div class="status-wrap"><span class="status-text' + (displayActive ? ' on' : '') + '">' + (displayActive ? '販売中' : '販売終了') + '</span>' +
+            '<td><div class="status-wrap">' +
             '<label class="switch"><input type="checkbox" ' + (displayActive ? 'checked' : '') + '><span class="switch-slider"></span></label></div></td>' +
             onPrintCellHtml;
 
@@ -939,16 +947,13 @@
       // 標準表示での販売中／販売終了の切替は即時保存する。全データの再取得（loadAll）は行わないのに加え、
       // 一覧全体の再描画（renderProductList）もしない：保存完了のたびに全行を作り直すと、まだ保存中の
       // 他の行まで巻き込んで表示が元に戻ってしまう（複数商品を連続で切り替えたときに、最初の1件しか
-      // 反映されないように見えるバグの原因だった）。allMenusは更新しつつ、DOM上はこの行のステータス
-      // 表示だけをピンポイントで書き換えることで、他の行の保存中の状態に影響しないようにする
+      // 反映されないように見えるバグの原因だった）。行側はスイッチのみでテキスト表示が無いため、
+      // 成功時にDOMを書き換える必要は無く、allMenusの更新のみ行う
       function toggleMenuActive(menuId, checked, checkboxEl) {
         var runner = google.script.run
           .withSuccessHandler(function () {
             var menu = allMenus.filter(function (m) { return m.MenuId === menuId; })[0];
             if (menu) { menu.IsActive = checked; }
-            var statusText = checkboxEl.closest('.status-wrap').querySelector('.status-text');
-            statusText.textContent = checked ? '販売中' : '販売終了';
-            statusText.classList.toggle('on', checked);
           })
           .withFailureHandler(function (error) {
             checkboxEl.checked = !checked;
@@ -969,9 +974,6 @@
           .withSuccessHandler(function () {
             var menu = allMenus.filter(function (m) { return m.MenuId === menuId; })[0];
             if (menu) { menu.IsOnPrintMenu = checked; }
-            var onPrintText = checkboxEl.closest('.status-wrap').querySelector('.onprint-text');
-            onPrintText.textContent = checked ? '掲載中' : '未掲載';
-            onPrintText.classList.toggle('on', checked);
           })
           .withFailureHandler(function (error) {
             checkboxEl.checked = !checked;
